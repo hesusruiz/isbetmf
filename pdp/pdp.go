@@ -19,8 +19,8 @@ import (
 
 	"github.com/go-jose/go-jose/v4"
 	"github.com/golang-jwt/jwt/v5"
-	conf "github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
+	"github.com/hesusruiz/isbetmf/internal/filecache"
 
 	"gitlab.com/greyxor/slogor"
 	starjson "go.starlark.net/lib/json"
@@ -69,34 +69,47 @@ func (d Decision) String() string {
 	}
 }
 
+type Config struct {
+
+	// PolicyFileName is the name of the file where the policies are stored.
+	// It can specify a local file or a remote URL.
+	PolicyFileName string
+
+	// Debug mode, more logs and less caching
+	Debug bool
+
+	// VerifierServer is the URL of the verifier server, which is used to verify the access tokens.
+	VerifierServer string
+
+	// An optional function which will be used to retrieve the public key used to verify the Access Tokens.
+	VerificationKeyFunc func(verifierServer string) (*jose.JSONWebKey, error)
+}
+
 // PDP implements a simple Policy Decision Point in Starlark, for use in front of TMForum APIs.
 //
 // There can be several instances simultaneously, and each instance is safe for concurrent
 // use by different goroutines.
 type PDP struct {
 
-	// The configuration of the PDP, which includes the file with the policies and other parameters.
-	config *conf.Config
+	// // The configuration of the PDP, which includes the file with the policies and other parameters.
+	// config *Config
 
 	// The name of the file where the policy rules reside.
 	scriptname string
 
-	// The function used at runtime to read the files.
-	// If not specified by the caller, a default implementation is used, which uses the file system.
-	// readFileFun func(fileName string) (entry *FileEntry, err error)
-
 	// The public key used to verify the Access Tokens. In DOME they belong to the Verifier,
 	// and the PDP retrieves it dynamically depending on the environment.
 	// The caller is able to provide a function to retrieve the key from a different place.
+	verifierServer     string
 	verifierJWK        *jose.JSONWebKey
-	verificationKeyFun func(config *conf.Config) (*jose.JSONWebKey, error)
+	verificationKeyFun func(verifierServer string) (*jose.JSONWebKey, error)
 
 	debug bool
 
 	// The file cache to read the policy and other files. Modifications to the original file
 	// are picked up automatically according to a freshness policy.
 	// fileCache    sync.Map
-	fileCache *conf.SimpleFileCache
+	fileCache *filecache.SimpleFileCache
 
 	// The pool of instances of the policy execution engines, to minimize startup
 	// and teardown overheads.
@@ -121,31 +134,30 @@ type PDP struct {
 //     access tokens. If not provided, the default function is used which queries the Verifier
 //     JWKS endpoint for the public key of the Verifier.
 func NewPDP(
-	config *conf.Config,
-	readFileFun func(fileName string) (fentry *conf.FileEntry, err error),
-	verificationKeyFunc func(config *conf.Config) (*jose.JSONWebKey, error),
+	config *Config,
 ) (*PDP, error) {
 
 	m := &PDP{}
-	m.config = config
+	// m.config = config
 	m.scriptname = config.PolicyFileName
+	m.verifierServer = config.VerifierServer
 
 	// Create the file cache and initialize it with the policy file.
-	m.fileCache = conf.NewSimpleFileCache(nil)
+	m.fileCache = filecache.NewSimpleFileCache(nil)
 	m.fileCache.Get(config.PolicyFileName)
 
 	// Set either the user-supplied key retrieval function or the default one.
-	if verificationKeyFunc == nil {
+	if config.VerificationKeyFunc == nil {
 		m.verificationKeyFun = m.defaultVerificationKey
 	} else {
-		m.verificationKeyFun = verificationKeyFunc
+		m.verificationKeyFun = config.VerificationKeyFunc
 	}
 
 	// Retrieve the key at initialization time, to discover any possible
 	// error in environment configuration as early as possible (eg, the Verifier is not running).
 	// TODO: provide for refresh of the key without restarting the PDP
 	var err error
-	m.verifierJWK, err = m.verificationKeyFun(config)
+	m.verifierJWK, err = m.verificationKeyFun(m.verifierServer)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving verification key: %w", err)
 	}
@@ -173,10 +185,10 @@ func NewPDP(
 // defaultVerificationKey returns the verification key for Access Tokens, in JWK format.
 //
 // It receives the config struct, enabling a different mechanism depending on it.
-func (m *PDP) defaultVerificationKey(config *conf.Config) (*jose.JSONWebKey, error) {
+func (m *PDP) defaultVerificationKey(verifierServer string) (*jose.JSONWebKey, error) {
 
 	// Retrieve the OpenID configuration from the Verifier
-	oid, err := NewOpenIDConfig(config)
+	oid, err := NewOpenIDConfig(verifierServer)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +206,7 @@ func (m *PDP) defaultVerificationKey(config *conf.Config) (*jose.JSONWebKey, err
 
 func (m *PDP) VerificationJWK() (key *jose.JSONWebKey, err error) {
 	if m.verifierJWK == nil {
-		m.verifierJWK, err = m.verificationKeyFun(m.config)
+		m.verifierJWK, err = m.verificationKeyFun(m.verifierServer)
 		return m.verifierJWK, err
 	}
 	return m.verifierJWK, nil
@@ -704,7 +716,7 @@ func (m *PDP) TakeAuthnDecision(decision Decision, input StarTMFMap) (bool, erro
 
 }
 
-func (m *PDP) GetFile(filename string) (*conf.FileEntry, error) {
+func (m *PDP) GetFile(filename string) (*filecache.FileEntry, error) {
 
 	entry, err := m.fileCache.MustExist(filename)
 	if err != nil {

@@ -20,7 +20,9 @@ info:
     - Manage notification of events
   version: 5.0.0
 servers:
-  - url: 'https://tmf.mycredential.eu/tmf-api/productCatalogManagement/v5/'
+  - url: '/tmf-api/productCatalogManagement/v5/'
+security:
+  - bearerAuth: []
 tags:
   - name: productCatalog
     description: Operations for ProductCatalog Resource
@@ -8862,7 +8864,11 @@ components:
       description: Actual number of items returned in the response body
       schema:
         type: integer
-  securitySchemes: {}
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   examples:
     ProductCatalog_list_example_response:
       value:

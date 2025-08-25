@@ -7,12 +7,11 @@ import (
 	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
-	echohandler "github.com/hesusruiz/isbetmf/tmfserver/handler/echo"
+	"github.com/hesusruiz/isbetmf/pdp"
 	fiberhandler "github.com/hesusruiz/isbetmf/tmfserver/handler/fiber"
 	repository "github.com/hesusruiz/isbetmf/tmfserver/repository"
 	service "github.com/hesusruiz/isbetmf/tmfserver/service"
 	"github.com/jmoiron/sqlx"
-	"github.com/labstack/echo/v4"
 	_ "github.com/mattn/go-sqlite3"
 	"gitlab.com/greyxor/slogor"
 )
@@ -20,7 +19,9 @@ import (
 func main() {
 	// Configure slog logger
 	var debugFlag bool
+	var verifierServer string
 	flag.BoolVar(&debugFlag, "d", false, "Enable debug logging")
+	flag.StringVar(&verifierServer, "verifier", "https://verifier.dome-marketplace.eu", "Full URL of the verifier which signs access tokens")
 	flag.Parse()
 
 	var logLevel slog.Level
@@ -30,11 +31,11 @@ func main() {
 		logLevel = slog.LevelInfo
 	}
 
-	handler := slogor.NewHandler(os.Stdout, slogor.SetLevel(logLevel))
+	handler := slogor.NewHandler(os.Stdout, slogor.ShowSource(), slogor.SetLevel(logLevel))
 	slog.SetDefault(slog.New(handler))
 
 	// Connect to the database
-	db, err := sqlx.Connect("sqlite3", "tmf.db")
+	db, err := sqlx.Connect("sqlite3", "isbetmf.db")
 	if err != nil {
 		slog.Error("failed to connect to database", slog.Any("error", err))
 		os.Exit(1)
@@ -48,27 +49,31 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create the PDP (aka rules engine)
+	rulesEngine, err := pdp.NewPDP(&pdp.Config{
+		PolicyFileName: "auth_policies.star",
+		VerifierServer: verifierServer,
+		Debug:          debugFlag,
+	})
+	if err != nil {
+		slog.Error("failed to create rules engine", slog.Any("error", err))
+		os.Exit(1)
+	}
+
 	// Create the service
-	s := service.NewService(db)
+	s := service.NewService(db, rulesEngine, verifierServer)
 
-	// Create and run the Fiber server
-	go func() {
-		app := fiber.New()
-		h := fiberhandler.NewHandler(s)
-		h.RegisterRoutes(app)
-		slog.Info("Fiber server starting", slog.String("port", ":9991"))
-		app.Listen(":9991")
-	}()
+	app := fiber.New()
 
-	// Create and run the Echo server
-	go func() {
-		e := echo.New()
-		h := echohandler.NewHandler(s)
-		h.RegisterRoutes(e)
-		slog.Info("Echo server starting", slog.String("port", ":9992"))
-		e.Logger.Fatal(e.Start(":9992"))
-	}()
+	// Serve the OpenAPI UI
+	app.Static("/oapi", "./www/oapiui")
 
-	// Wait indefinitely
-	select {}
+	// Create handler and set the routes for the APIs
+	h := fiberhandler.NewHandler(s)
+	h.RegisterRoutes(app)
+
+	// And start the server
+	slog.Info("TMF API server starting", slog.String("port", ":9991"))
+	app.Listen("0.0.0.0:9991")
+
 }

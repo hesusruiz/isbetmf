@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-jose/go-jose/v4"
 	"github.com/goccy/go-json"
-	"github.com/hesusruiz/isbetmf/config"
 	"gitlab.com/greyxor/slogor"
 )
 
@@ -139,9 +138,9 @@ func DOME_JWKS() (jose.JSONWebKeySet, error) {
 	return jwks, nil
 }
 
-func NewOpenIDConfig(config *config.Config) (*OpenIDConfig, error) {
+func NewOpenIDConfig(verifierServer string) (*OpenIDConfig, error) {
 
-	verifierWellKnownURL := config.VerifierServer + "/.well-known/openid-configuration"
+	verifierWellKnownURL := verifierServer + "/.well-known/openid-configuration"
 
 	res, err := http.Get(verifierWellKnownURL)
 	if err != nil {

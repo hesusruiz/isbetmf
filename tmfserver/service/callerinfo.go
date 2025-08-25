@@ -1,11 +1,14 @@
-package common
+package service
 
 import (
+	"errors"
 	"log/slog"
 	"strings"
 
+	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	"github.com/hesusruiz/isbetmf/internal/jpath"
+	"github.com/hesusruiz/isbetmf/tmfserver/repository"
 	"gitlab.com/greyxor/slogor"
 )
 
@@ -17,19 +20,19 @@ const fakeAT = `eyJraWQiOiJkaWQ6a2V5OnpEbmFlVlluV1RadTVuYnJIMXFtQlZNdk53U3J0S25r
 //
 // The access token may not exist, but if it does then it must be valid.
 // For convenience of the policies, some calculated fields are created and returned in the 'user' object.
-func (r *Request) extractCallerInfo() (tokenClaims map[string]any, err error) {
+func (svc *Service) extractCallerInfo(r *Request) (tokenClaims map[string]any, err error) {
 
 	var authUser *AuthUser
 
 	// Check if we are testing the PDP, and if so, use a fake access token
-	if FakeClaims && len(r.JWTToken) == 0 {
+	if FakeClaims && len(r.AccessToken) == 0 {
 
 		slog.Debug("PDP: using fake claims for testing")
-		r.JWTToken = fakeAT
+		r.AccessToken = fakeAT
 
 	}
 
-	if len(r.JWTToken) == 0 {
+	if len(r.AccessToken) == 0 {
 		// An empty token is not considered an error, and the caller should enforce its existence
 		return nil, nil
 	}
@@ -39,9 +42,9 @@ func (r *Request) extractCallerInfo() (tokenClaims map[string]any, err error) {
 	// Verify the token and extract the claims.
 	// A verification error stops processing.
 
-	tokenClaims, authUser, err = ParseJWT(r.JWTToken)
+	tokenClaims, authUser, err = ParseJWT(svc, r.AccessToken)
 	if err != nil {
-		slog.Error("invalid access token", slogor.Err(err), "token", r.JWTToken)
+		slog.Error("invalid access token", slogor.Err(err), "token", r.AccessToken)
 		return nil, errl.Errorf("invalid access token: %w", err)
 	}
 
@@ -88,11 +91,35 @@ func (r *Request) extractCallerInfo() (tokenClaims map[string]any, err error) {
 	} else {
 
 		// There is not a Verifiable Credential inside the token
-		return nil, errl.Errorf("access token without verifiable credential: %s", r.JWTToken)
+		return nil, errl.Errorf("access token without verifiable credential: %s", r.AccessToken)
 
 	}
 
 	r.AuthUser = authUser
+
+	if len(authUser.OrganizationIdentifier) > 0 {
+		// Create a new organization object. If it is created, we just receive an error which we ignore
+
+		org := &repository.Organization{
+			CommonName:             authUser.CommonName,
+			Country:                authUser.Country,
+			EmailAddress:           authUser.EmailAddress,
+			Organization:           authUser.Organization,
+			OrganizationIdentifier: authUser.OrganizationIdentifier,
+			SerialNumber:           authUser.SerialNumber,
+		}
+
+		obj, _ := repository.TMFOrganizationFromToken(tokenClaims, org)
+
+		if err := svc.createObject(obj); err != nil {
+			if errors.Is(err, &ErrObjectExists{}) {
+				slog.Debug("organization already exists", "organizationIdentifier", authUser.OrganizationIdentifier)
+			} else {
+				err = errl.Error(err)
+				return nil, err
+			}
+		}
+	}
 
 	return tokenClaims, nil
 
@@ -106,8 +133,6 @@ func setSellerAndBuyerInfo(tmfObjectMap map[string]any, organizationIdentifier s
 	if !strings.HasPrefix(organizationIdentifier, "did:elsi:") {
 		organizationIdentifier = "did:elsi:" + organizationIdentifier
 	}
-
-	// TODO: add @schemalocation and @type
 
 	// Look for the "Seller", "SellerOperator", "Buyer" and "BuyerOperator" roles
 	relatedParties := jpath.GetList(tmfObjectMap, "relatedParty")
@@ -129,9 +154,9 @@ func setSellerAndBuyerInfo(tmfObjectMap map[string]any, organizationIdentifier s
 		"@type": "RelatedPartyRefOrPartyRoleRef",
 		"partyOrPartyRole": map[string]any{
 			"@type":         "PartyRef",
-			"href":          "urn:ngsi-ld:organization:221f6434-ec82-4c62",
-			"id":            "urn:ngsi-ld:organization:221f6434-ec82-4c62",
-			"name":          "did:elsi:VATES-22222222",
+			"href":          "urn:ngsi-ld:organization:" + config.ServerOperatorDid,
+			"id":            "urn:ngsi-ld:organization:" + config.ServerOperatorDid,
+			"name":          config.ServerOperatorDid,
 			"@referredType": "Organization",
 		},
 	}
@@ -182,13 +207,13 @@ func setSellerAndBuyerInfo(tmfObjectMap map[string]any, organizationIdentifier s
 	if !foundSeller {
 		// Add the seller if it is not already in the list
 		slog.Debug("setSellerAndBuyerInfo: adding seller", "organizationIdentifier", organizationIdentifier)
-		relatedParties = append(relatedParties, sellerEntry)
+		newRelatedParties = append(newRelatedParties, sellerEntry)
 	}
 
 	if !foundSellerOperator {
 		// Add the seller operator if it is not already in the list
 		slog.Debug("setSellerAndBuyerInfo: adding seller operator", "organizationIdentifier", organizationIdentifier)
-		relatedParties = append(relatedParties, sellerOperator)
+		newRelatedParties = append(newRelatedParties, sellerOperator)
 	}
 
 	tmfObjectMap["relatedParty"] = newRelatedParties
@@ -230,7 +255,7 @@ func getSellerAndBuyerInfo(tmfObjectMap map[string]any) (sellerDid string, selle
 		}
 		if rpRole == "selleroperator" {
 			party, _ := rpMap["partyOrPartyRole"].(map[string]any)
-			sellerDid, _ = party["name"].(string)
+			sellerOperatorDid, _ = party["name"].(string)
 			continue
 		}
 

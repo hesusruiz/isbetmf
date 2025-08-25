@@ -21,7 +21,9 @@ info:
     individual
   version: 5.0.0
 servers:
-  - url: 'https://serverRoot/partyManagement/v5/'
+  - url: '/tmf-api/partyManagement/v5/'
+security:
+  - bearerAuth: []
 tags:
   - name: individual
     description: Operations for Individual Resource
@@ -4987,7 +4989,11 @@ components:
       description: Actual number of items returned in the response body
       schema:
         type: integer
-  securitySchemes: {}
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   examples:
     Individual_list_example_response:
       value:

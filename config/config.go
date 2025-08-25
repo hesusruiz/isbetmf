@@ -17,10 +17,10 @@ import (
 
 type Config struct {
 
-	// DOME operator did
-	// TODO: set the proper identification when the DOME foundation is created
-	DOMEOperatorDid  string
-	DOMEOperatorName string
+	// Server operator did
+	// TODO: set the proper identification when the legal entity operating the server is created
+	ServerOperatorDid  string
+	ServerOperatorName string
 
 	// Indicates the environment (SBX, DEV2, PRO, LCL) where the proxy is running.
 	// It is used to determine the DOME host and the database name.
@@ -86,8 +86,10 @@ type Config struct {
 
 // TODO: These are here until the DOME foundation is created and the DOME operator did is set.
 const (
-	DOMEOperatorDid  = "did:elsi:VATES-11111111K"
-	DOMEOperatorName = "DOME Foundation"
+	ServerOperatorOrganizationIdentifier = "VATES-11111111K"
+	ServerOperatorDid                    = "did:elsi:VATES-11111111K"
+	ServerOperatorName                   = "ISBE Foundation"
+	ServerOperatorCountry                = "ES"
 )
 
 type Environment int

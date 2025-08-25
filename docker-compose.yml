@@ -1,0 +1,7 @@
+services:
+  isbetmf:
+    build: .
+    ports:
+      - "9991:9991"
+    environment:
+      - MY_ENV_VAR=some_value
