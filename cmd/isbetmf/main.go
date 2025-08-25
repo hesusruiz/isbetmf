@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/hesusruiz/isbetmf/notification"
 	"github.com/hesusruiz/isbetmf/pdp"
 	fiberhandler "github.com/hesusruiz/isbetmf/tmfserver/handler/fiber"
 	repository "github.com/hesusruiz/isbetmf/tmfserver/repository"
@@ -71,6 +72,12 @@ func main() {
 	// Create handler and set the routes for the APIs
 	h := fiberhandler.NewHandler(s)
 	h.RegisterRoutes(app)
+
+	// Create and register the hub handler
+	// Create and register the hub handler
+	hubHandler := notification.NewHubHandler(s.HubManager)
+	app.Post("/hub", hubHandler.Subscribe)
+	app.Delete("/hub/:id", hubHandler.Unsubscribe)
 
 	// And start the server
 	slog.Info("TMF API server starting", slog.String("port", ":9991"))

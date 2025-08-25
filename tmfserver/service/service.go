@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
+	"github.com/hesusruiz/isbetmf/notification"
 	pdp "github.com/hesusruiz/isbetmf/pdp"
 	"github.com/hesusruiz/isbetmf/pkg/apierror"
 	"github.com/hesusruiz/isbetmf/tmfserver/repository"
@@ -104,6 +105,9 @@ type Service struct {
 
 	// The OpenID configuration of the Verifier Server
 	oid *OpenIDConfig
+
+	// The hub for notifications and subscriptions
+	HubManager *notification.HubManager
 }
 
 // NewService creates a new service.
@@ -112,6 +116,7 @@ func NewService(db *sqlx.DB, ruleEngine *pdp.PDP, verifierServer string) *Servic
 		db:             db,
 		ruleEngine:     ruleEngine,
 		verifierServer: verifierServer,
+		HubManager:     notification.NewHubManager(),
 	}
 
 	err := svc.initializeService()
@@ -273,6 +278,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	headers := make(map[string]string)
 	headers["Location"] = data["href"].(string)
 	slog.Info("Object created successfully", slog.String("id", id), slog.String("resourceName", req.ResourceName), slog.String("location", data["href"].(string)))
+	svc.sendNotification(fmt.Sprintf("%sCreateEvent", req.ResourceName), req.ResourceName, data)
 
 	return &Response{
 		StatusCode: http.StatusCreated,
@@ -491,6 +497,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	}
 
 	slog.Info("Object updated successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+	svc.sendNotification(fmt.Sprintf("%sUpdateEvent", req.ResourceName), req.ResourceName, incomingObjMap)
 	return &Response{StatusCode: http.StatusOK, Body: incomingObjMap}
 }
 
@@ -523,6 +530,7 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 	}
 
 	slog.Info("Object deleted successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+	svc.sendNotification(fmt.Sprintf("%sDeleteEvent", req.ResourceName), req.ResourceName, map[string]any{"id": req.ID})
 	return &Response{StatusCode: http.StatusNoContent}
 }
 
@@ -612,4 +620,14 @@ func ToKebabCase(s string) string {
 	snake := matchFirstCap.ReplaceAllString(s, "${1}-${2}")
 	snake = matchAllCap.ReplaceAllString(snake, "${1}-${2}")
 	return strings.ToLower(snake)
+}
+
+func (svc *Service) sendNotification(eventType string, resourceName string, object map[string]any) {
+	notification := &notification.Notification{
+		EventID:   uuid.New().String(),
+		EventTime: time.Now(),
+		EventType: eventType,
+		Event:     object,
+	}
+	svc.HubManager.Dispatch(notification)
 }
