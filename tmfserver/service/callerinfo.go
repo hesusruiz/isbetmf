@@ -12,8 +12,7 @@ import (
 	"gitlab.com/greyxor/slogor"
 )
 
-const FakeClaims = true
-const fakeAT = `eyJraWQiOiJkaWQ6a2V5OnpEbmFlVlluV1RadTVuYnJIMXFtQlZNdk53U3J0S25rUmJDWjR4SDVoMkxRUG56ZHIiLCJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJkaWQ6a2V5OnpEbmFlVFUzOVd4OUtYZ21Fd21mWHNaU3lFVnhnQ3F3Q1Ztb1B5VlFVVEQ4YmhXOGEiLCJzdWIiOiJkaWQ6a2V5OnpEbmFlY0x2NWF5Q3J6V1JpWXlGM3ZhSGhLcVRTa0ZHV2lKSmRNZkFyV25aV2NxUm4iLCJzY29wZSI6Im9wZW5pZCBsZWFyY3JlZGVudGlhbCIsImlzcyI6Imh0dHBzOi8vdmVyaWZpZXIuZG9tZS1tYXJrZXRwbGFjZS5ldSIsImV4cCI6MTc1NjIwNDg1MSwiaWF0IjoxNzU2MjAxMjUxLCJ2YyI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvbnMvY3JlZGVudGlhbHMvdjIiLCJodHRwczovL3RydXN0LWZyYW1ld29yay5kb21lLW1hcmtldHBsYWNlLmV1L2NyZWRlbnRpYWxzL2xlYXJjcmVkZW50aWFsZW1wbG95ZWUvdjEiXSwiY3JlZGVudGlhbFN1YmplY3QiOnsibWFuZGF0ZSI6eyJpZCI6IjUyY2VjZjc1LTc2YmEtNGRhZC04ZTg2LTBlNWMyY2FhNDA5NCIsImxpZmVfc3BhbiI6eyJlbmRfZGF0ZV90aW1lIjoiMjAyNS0xMi0yM1QxMDoxNTo0OC44NjgyOTM4NjNaIiwic3RhcnRfZGF0ZV90aW1lIjoiMjAyNC0xMi0yM1QxMDoxNTo0OC44NjgyOTM4NjNaIn0sIm1hbmRhdGVlIjp7ImVtYWlsIjoiamVzdXNAYWxhc3RyaWEuaW8iLCJmaXJzdF9uYW1lIjoiSmVzdXMiLCJpZCI6ImRpZDprZXk6ekRuYWVjTHY1YXlDcnpXUmlZeUYzdmFIaEtxVFNrRkdXaUpKZE1mQXJXblpXY3FSbiIsImxhc3RfbmFtZSI6IlJ1aXoiLCJtb2JpbGVfcGhvbmUiOiIifSwibWFuZGF0b3IiOnsiY29tbW9uTmFtZSI6Ikplc3VzIFJ1aXoiLCJjb3VudHJ5IjoiRVMiLCJlbWFpbEFkZHJlc3MiOiJqZXN1cy5ydWl6QGluMi5lcyIsIm9yZ2FuaXphdGlvbiI6IklOMiBJTkdFTklFUklBIERFIExBIElORk9STUFDSU9OIFNPQ0lFREFEIExJTUlUQURBIiwib3JnYW5pemF0aW9uSWRlbnRpZmllciI6IlZBVEVTLUI2MDY0NTkwMCIsInNlcmlhbE51bWJlciI6Ijg3NjU0MzIxSyJ9LCJwb3dlciI6W3siaWQiOiIwNTRiOGY2Zi0wZjE3LTQ2NjItYWUyNi0zMTcxZGZhZGRiODciLCJ0bWZfYWN0aW9uIjoiRXhlY3V0ZSIsInRtZl9kb21haW4iOiJET01FIiwidG1mX2Z1bmN0aW9uIjoiT25ib2FyZGluZyIsInRtZl90eXBlIjoiRG9tYWluIn0seyJpZCI6IjNmNjQyZTg4LWQzYzAtNDI2My04NzE4LWE0MzYzNzJkMWE1NiIsInRtZl9hY3Rpb24iOlsiQ3JlYXRlIiwiVXBkYXRlIiwiRGVsZXRlIl0sInRtZl9kb21haW4iOiJET01FIiwidG1mX2Z1bmN0aW9uIjoiUHJvZHVjdE9mZmVyaW5nIiwidG1mX3R5cGUiOiJEb21haW4ifV0sInNpZ25lciI6eyJjb21tb25OYW1lIjoiNTY1NjU2NTZQIEplc3VzIFJ1aXoiLCJjb3VudHJ5IjoiRVMiLCJlbWFpbEFkZHJlc3MiOiJqZXN1cy5ydWl6QGluMi5lcyIsIm9yZ2FuaXphdGlvbiI6IkRPTUUgQ3JlZGVudGlhbCBJc3N1ZXIiLCJvcmdhbml6YXRpb25JZGVudGlmaWVyIjoiVkFURVMtUTAwMDAwMDBKIiwic2VyaWFsTnVtYmVyIjoiSURDRVMtNTY1NjU2NTZQIn19fSwiaWQiOiIxNjI3NGZjYy0wNzQ0LTQyNjYtYjhiMS00ZjQ4ZmY4MjdlMTQiLCJpc3N1ZXIiOiJkaWQ6ZWxzaTpWQVRFUy1RMDAwMDAwMEoiLCJ0eXBlIjpbIkxFQVJDcmVkZW50aWFsRW1wbG95ZWUiLCJWZXJpZmlhYmxlQ3JlZGVudGlhbCJdLCJ2YWxpZEZyb20iOiIyMDI0LTEyLTIzVDEwOjE1OjQ4Ljg2ODI5Mzg2M1oiLCJ2YWxpZFVudGlsIjoiMjAyNS0xMi0yM1QxMDoxNTo0OC44NjgyOTM4NjNaIn0sImp0aSI6IjUxZTE0M2MwLThhMGItNDBmNi05NDcxLWIxZmFkZjk4NDI0ZCIsImNsaWVudF9pZCI6Imh0dHBzOi8vdmVyaWZpZXIuZG9tZS1tYXJrZXRwbGFjZS5ldSJ9.dHwAVt59ZHgvwYUmLB2ENfmLbxvCNr_5_CBHCSVg_Uc91peCiOqnzHDhAPooloT86f7a6pL40bIy0OWmmbvbRg`
+const AllowFakeClaims = true
 
 // extractCallerInfo retrieves the Access Token from the request, verifies it if it exists and
 // creates a map ready to be passed to the rules engine.
@@ -24,16 +23,21 @@ func (svc *Service) extractCallerInfo(r *Request) (tokenClaims map[string]any, e
 
 	var authUser *AuthUser
 
-	// Check if we are testing the PDP, and if so, use a fake access token
-	if FakeClaims && len(r.AccessToken) == 0 {
-
-		slog.Debug("PDP: using fake claims for testing")
-		r.AccessToken = fakeAT
-
-	}
+	// This is to support testing
+	verify := true
 
 	if len(r.AccessToken) == 0 {
-		// An empty token is not considered an error, and the caller should enforce its existence
+		// The user did not provide an access token.
+		// Normally this is forbidden, but for testing we can provide a fake one, and do not verify signature
+		if AllowFakeClaims {
+			slog.Debug("PDP: using fake claims for testing")
+			r.AccessToken = FakeAT
+			verify = false
+		}
+	}
+
+	// An empty token is not considered an error, and the caller should enforce its existence
+	if len(r.AccessToken) == 0 {
 		return nil, nil
 	}
 
@@ -42,7 +46,7 @@ func (svc *Service) extractCallerInfo(r *Request) (tokenClaims map[string]any, e
 	// Verify the token and extract the claims.
 	// A verification error stops processing.
 
-	tokenClaims, authUser, err = ParseJWT(svc, r.AccessToken)
+	tokenClaims, authUser, err = ParseJWT(svc, r.AccessToken, verify)
 	if err != nil {
 		slog.Error("invalid access token", slogor.Err(err), "token", r.AccessToken)
 		return nil, errl.Errorf("invalid access token: %w", err)

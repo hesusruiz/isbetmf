@@ -25,7 +25,7 @@ func ExtractJWTToken(authHeader string) string {
 
 // ParseJWT parses a JWT string, extracts the mandator information, and returns an AuthUser.
 // It does NOT verify the JWT signature.
-func ParseJWT(svc *Service, tokenString string) (tokString map[string]any, u *AuthUser, err error) {
+func ParseJWT(svc *Service, tokenString string, verify bool) (tokString map[string]any, u *AuthUser, err error) {
 
 	//**********************************************
 	//**********************************************
@@ -33,32 +33,34 @@ func ParseJWT(svc *Service, tokenString string) (tokString map[string]any, u *Au
 	var token *jwt.Token
 	var theClaims = jwt.MapClaims{}
 
-	// For testing purposes, you can uncomment the following
-	verifierPublicKeyFunc := func(*jwt.Token) (any, error) {
-		vk, err := svc.oid.VerificationJWK()
-		if err != nil {
-			return nil, errl.Error(err)
+	if verify {
+		// For testing purposes, you can uncomment the following
+		verifierPublicKeyFunc := func(*jwt.Token) (any, error) {
+			vk, err := svc.oid.VerificationJWK()
+			if err != nil {
+				return nil, errl.Error(err)
+			}
+			slog.Debug("publicKeyFunc", "key", vk)
+			return vk.Key, nil
 		}
-		slog.Debug("publicKeyFunc", "key", vk)
-		return vk.Key, nil
+
+		// Validate and verify the token
+		token, err = jwt.NewParser().ParseWithClaims(tokenString, theClaims, verifierPublicKeyFunc)
+		if err != nil {
+			slog.Error("Failed to parse JWT unverified", slog.Any("error", err))
+			return nil, nil, fmt.Errorf("failed to parse JWT: %w", err)
+		}
+
+	} else {
+
+		// Parse the token without signature verification
+		token, _, err = new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
+		if err != nil {
+			slog.Error("Failed to parse JWT unverified", slog.Any("error", err))
+			return nil, nil, fmt.Errorf("failed to parse JWT: %w", err)
+		}
+
 	}
-
-	// Validate and verify the token
-	token, err = jwt.NewParser().ParseWithClaims(tokenString, theClaims, verifierPublicKeyFunc)
-	if err != nil {
-		slog.Error("Failed to parse JWT unverified", slog.Any("error", err))
-		return nil, nil, fmt.Errorf("failed to parse JWT: %w", err)
-	}
-
-	//**********************************************
-	//**********************************************
-
-	// // Parse the token without signature verification
-	// token, _, err = new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
-	// if err != nil {
-	// 	slog.Error("Failed to parse JWT unverified", slog.Any("error", err))
-	// 	return nil, nil, fmt.Errorf("failed to parse JWT: %w", err)
-	// }
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
