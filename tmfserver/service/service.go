@@ -19,6 +19,7 @@ import (
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	pdp "github.com/hesusruiz/isbetmf/pdp"
 	"github.com/hesusruiz/isbetmf/pkg/apierror"
+	"github.com/hesusruiz/isbetmf/tmfserver/notifications"
 	"github.com/hesusruiz/isbetmf/tmfserver/repository"
 	repo "github.com/hesusruiz/isbetmf/tmfserver/repository"
 	"github.com/jmoiron/sqlx"
@@ -104,6 +105,9 @@ type Service struct {
 
 	// The OpenID configuration of the Verifier Server
 	oid *OpenIDConfig
+
+	// Notifications manager
+	notif *notifications.Manager
 }
 
 // NewService creates a new service.
@@ -118,6 +122,11 @@ func NewService(db *sqlx.DB, ruleEngine *pdp.PDP, verifierServer string) *Servic
 	if err != nil {
 		panic(err)
 	}
+
+	// Initialize notifications with in-memory store and HTTP delivery
+	store := notifications.NewMemoryStore()
+	deliver := notifications.NewHTTPDelivery(5 * time.Second)
+	svc.notif = notifications.NewManager(store, deliver)
 
 	return svc
 }
@@ -155,11 +164,115 @@ func (svc *Service) initializeService() error {
 
 }
 
+// CreateHubSubscription creates a new notification subscription (hub) for an API family.
+func (svc *Service) CreateHubSubscription(req *Request) *Response {
+	// Authenticate like write operations
+	_, err := svc.extractCallerInfo(req)
+	if err != nil {
+		err = errl.Errorf("invalid access token: %w", err)
+		apiErr := apierror.NewError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
+		slog.Error("Unauthorized request", slog.Any("error", err))
+		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
+	}
+
+	// Parse incoming body
+	var body map[string]any
+	if err := json.Unmarshal(req.Body, &body); err != nil {
+		err = errl.Errorf("failed to bind request body: %w", err)
+		apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+		return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
+	}
+
+	callback, _ := body["callback"].(string)
+	if callback == "" {
+		err = errl.Errorf("callback is required")
+		apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+		return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
+	}
+
+	var eventTypes []string
+	if raw, ok := body["eventTypes"].([]any); ok {
+		for _, v := range raw {
+			if s, ok := v.(string); ok {
+				eventTypes = append(eventTypes, s)
+			}
+		}
+	}
+
+	headers := make(map[string]string)
+	if hmap, ok := body["headers"].(map[string]any); ok {
+		for k, v := range hmap {
+			if sv, ok := v.(string); ok {
+				headers[strings.ToLower(k)] = sv
+			}
+		}
+	}
+
+	query, _ := body["query"].(string)
+
+	// Build subscription
+	id := uuid.NewString()
+	sub := &notifications.Subscription{
+		ID:         id,
+		APIFamily:  req.APIfamily,
+		Callback:   callback,
+		EventTypes: eventTypes,
+		Headers:    headers,
+		Query:      query,
+	}
+
+	_, err = svc.notif.CreateSubscription(req.APIfamily, sub)
+	if err != nil {
+		err = errl.Errorf("failed to create subscription: %w", err)
+		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
+	}
+
+	resp := map[string]any{
+		"id":         sub.ID,
+		"callback":   sub.Callback,
+		"eventTypes": sub.EventTypes,
+		"query":      sub.Query,
+		"href":       fmt.Sprintf("/tmf-api/%s/v5/hub/%s", req.APIfamily, sub.ID),
+	}
+	if token, ok := sub.Headers["x-auth-token"]; ok && token != "" {
+		resp["headers"] = map[string]any{"x-auth-token": token}
+	}
+
+	return &Response{StatusCode: http.StatusCreated, Body: resp}
+}
+
+// DeleteHubSubscription deletes a subscription by id for an API family.
+func (svc *Service) DeleteHubSubscription(req *Request) *Response {
+	// Authenticate like write operations
+	_, err := svc.extractCallerInfo(req)
+	if err != nil {
+		err = errl.Errorf("invalid access token: %w", err)
+		apiErr := apierror.NewError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
+		slog.Error("Unauthorized request", slog.Any("error", err))
+		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
+	}
+
+	if req.ID == "" {
+		err = errl.Errorf("id is required")
+		apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+		return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
+	}
+
+	if err := svc.notif.DeleteSubscription(req.APIfamily, req.ID); err != nil {
+		err = errl.Errorf("failed to delete subscription: %w", err)
+		apiErr := apierror.NewError("404", "Not Found", err.Error(), fmt.Sprintf("%d", http.StatusNotFound), "")
+		return &Response{StatusCode: http.StatusNotFound, Body: apiErr}
+	}
+
+	return &Response{StatusCode: http.StatusNoContent}
+}
+
 // CreateGenericObject creates a new TMF object using generalized parameters.
 func (svc *Service) CreateGenericObject(req *Request) *Response {
 	slog.Debug("CreateGenericObject called", slog.String("apiFamily", req.APIfamily), slog.String("resourceName", req.ResourceName))
 
-	// Before doing anything, check if we can extract the calling user info
+	// Authentication: process the AccessToken to extract caller info from its claims in the payload
 	token, err := svc.extractCallerInfo(req)
 	if err != nil {
 		err = errl.Errorf("invalid access token: %w", err)
@@ -168,7 +281,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
 	}
 
-	// Creating an object can not be done without authentication
+	// This operation can not be done without authentication
 	if len(token) == 0 {
 		err = errl.Errorf("user not authenticated")
 		apiErr := apierror.NewError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
@@ -176,33 +289,36 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
 	}
 
-	var data map[string]any
-	if err := json.Unmarshal(req.Body, &data); err != nil {
+	// Parse the request body, which contains the TMForum object being created
+	var incomingObjectMap map[string]any
+	if err := json.Unmarshal(req.Body, &incomingObjectMap); err != nil {
 		err = errl.Errorf("failed to bind request body: %w", err)
 		apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
 		slog.Error("Failed to bind request body", slog.Any("error", err), slog.String("apiFamily", req.APIfamily), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
 	}
 
-	id, _ := data["id"].(string)
+	// Create a new 'id' if the user did not specify it
+	id, _ := incomingObjectMap["id"].(string)
 	if id == "" {
 		// If the incoming object does not have an 'id', we generate a new one
 		// The format is "urn:ngsi-ld:{resource-in-kebab-case}:{uuid}"
 		id = fmt.Sprintf("urn:ngsi-ld:%s:%s", ToKebabCase(req.ResourceName), uuid.NewString())
-		data["id"] = id
+		incomingObjectMap["id"] = id
 		slog.Debug("Generated new ID for object", "id", id)
 
 	}
 
-	href, _ := data["href"].(string)
+	// Create a new 'href' if the user did not specify it
+	href, _ := incomingObjectMap["href"].(string)
 	if href == "" {
 		// Add href to the object
-		data["href"] = fmt.Sprintf("/tmf-api/%s/v5/%s/%s", req.APIfamily, req.ResourceName, id)
-		slog.Debug("Set href", slog.String("href", data["href"].(string)))
+		incomingObjectMap["href"] = fmt.Sprintf("/tmf-api/%s/v5/%s/%s", req.APIfamily, req.ResourceName, id)
+		slog.Debug("Set href", slog.String("href", incomingObjectMap["href"].(string)))
 	}
 
 	// Check and process '@type' field
-	if typeVal, typeOk := data["@type"].(string); typeOk {
+	if typeVal, typeOk := incomingObjectMap["@type"].(string); typeOk {
 		if !strings.EqualFold(typeVal, req.ResourceName) {
 			err = errl.Errorf("@type mismatch: expected %s, got %s", req.ResourceName, typeVal)
 			apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
@@ -211,25 +327,25 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 		}
 	} else {
 		// If @type is not specified, add it
-		data["@type"] = req.ResourceName
+		incomingObjectMap["@type"] = req.ResourceName
 		slog.Debug("Added missing @type field", slog.String("type", req.ResourceName))
 	}
 
-	// Set default version if not provided
-	version, versionOk := data["version"].(string)
+	// Set default 'version' if not provided by the user
+	version, versionOk := incomingObjectMap["version"].(string)
 	if !versionOk || version == "" {
 		version = "1.0"
-		data["version"] = version // Update data map for content marshaling
+		incomingObjectMap["version"] = version // Update data map for content marshaling
 		slog.Debug("Set default version", slog.String("version", version))
 	}
 
-	// Set the lastUpdate property
+	// Set the lastUpdate property. We overwrite whatever the user set.
 	now := time.Now()
 	lastUpdate := now.Format(time.RFC3339Nano)
-	data["lastUpdate"] = lastUpdate
+	incomingObjectMap["lastUpdate"] = lastUpdate
 
 	// Add Seller and Buyer info. We overwrite whatever is in the incoming object, if any
-	err = setSellerAndBuyerInfo(data, req.AuthUser.OrganizationIdentifier)
+	err = setSellerAndBuyerInfo(incomingObjectMap, req.AuthUser.OrganizationIdentifier)
 	if err != nil {
 		err = errl.Errorf("failed to add Seller and Buyer info: %w", err)
 		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
@@ -237,7 +353,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
 
-	content, err := json.Marshal(data)
+	incomingContent, err := json.Marshal(incomingObjectMap)
 	if err != nil {
 		err = errl.Errorf("failed to marshal object content: %w", err)
 		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
@@ -245,7 +361,8 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
 
-	obj := repo.NewTMFObject(id, req.ResourceName, version, lastUpdate, content)
+	// Create the object in-memory, ready to be checked and stored.
+	obj := repo.NewTMFObject(id, req.ResourceName, version, lastUpdate, incomingContent)
 
 	// ************************************************************************************************
 	// Before performing the action, check if the user can perform the operation on the object.
@@ -260,7 +377,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	}
 
 	// ************************************************************************************************
-	// Now we can proceed.
+	// Now we can proceed, creating an object in the database.
 	// ************************************************************************************************
 
 	if err := svc.createObject(obj); err != nil {
@@ -271,13 +388,18 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	}
 
 	headers := make(map[string]string)
-	headers["Location"] = data["href"].(string)
-	slog.Info("Object created successfully", slog.String("id", id), slog.String("resourceName", req.ResourceName), slog.String("location", data["href"].(string)))
+	headers["Location"] = incomingObjectMap["href"].(string)
+	slog.Info("Object created successfully", slog.String("id", id), slog.String("resourceName", req.ResourceName), slog.String("location", incomingObjectMap["href"].(string)))
+
+	// Send TMForum notification
+	eventType := toEventType(req.ResourceName, "CreateEvent")
+	eventPayload := buildEventPayload(req, eventType, incomingObjectMap)
+	svc.notif.PublishEvent(req.APIfamily, eventType, eventPayload)
 
 	return &Response{
 		StatusCode: http.StatusCreated,
 		Headers:    headers,
-		Body:       data,
+		Body:       incomingObjectMap,
 	}
 }
 
@@ -285,7 +407,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 func (svc *Service) GetGenericObject(req *Request) *Response {
 	slog.Debug("GetGenericObject called", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
-	// Before doing anything, check if we can extract the calling user info
+	// Authentication: process the AccessToken to extract caller info from its claims in the payload
 	token, err := svc.extractCallerInfo(req)
 	if err != nil {
 		err = errl.Errorf("invalid access token: %w", err)
@@ -374,7 +496,7 @@ func (svc *Service) GetGenericObject(req *Request) *Response {
 func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	slog.Debug("UpdateGenericObject called", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
-	// Before doing anything, check if we can extract the calling user info
+	// Authentication: process the AccessToken to extract caller info from its claims in the payload
 	token, err := svc.extractCallerInfo(req)
 	if err != nil {
 		err = errl.Errorf("invalid access token: %w", err)
@@ -383,7 +505,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
 	}
 
-	// Updating an object can not be done without authentication
+	// This operation can not be done without authentication
 	if len(token) == 0 {
 		err = errl.Errorf("user not authenticated")
 		apiErr := apierror.NewError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
@@ -391,6 +513,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
 	}
 
+	// Parse the request body, which contains the TMForum object being created
 	var incomingObjMap map[string]any
 	if err := json.Unmarshal(req.Body, &incomingObjMap); err != nil {
 		err = errl.Errorf("failed to bind request body: %w", err)
@@ -424,16 +547,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 		slog.Debug("Added missing @type field to update request", slog.String("type", req.ResourceName))
 	}
 
-	// Version must be specified for update operations
-	version, versionOk := incomingObjMap["version"].(string)
-	if !versionOk || version == "" {
-		err = errl.Errorf("version field is required for update operations")
-		apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
-		slog.Error("Version missing from update request", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
-		return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
-	}
-
-	// Set the lastUpdate field in the incoming object
+	// Set the lastUpdate property. We overwrite whatever the user set.
 	now := time.Now()
 	lastUpdate := now.Format(time.RFC3339Nano)
 	incomingObjMap["lastUpdate"] = lastUpdate
@@ -447,15 +561,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
 
-	incomingContent, err := json.Marshal(incomingObjMap)
-	if err != nil {
-		err = errl.Errorf("failed to marshal object content for update: %w", err)
-		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
-		slog.Error("Failed to marshal object content for update", slog.Any("error", err), slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
-		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
-	}
-
-	// Get existing object to preserve CreatedAt
+	// Retrieve existing object from database to preserve CreatedAt
 	existingObj, err := svc.getObject(req.ID, req.ResourceName)
 	if err != nil {
 		err = errl.Errorf("failed to get existing object for update: %w", err)
@@ -471,12 +577,82 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 		return &Response{StatusCode: http.StatusNotFound, Body: apiErr}
 	}
 
-	// TODO: perform a JSON Merge operation, instead of replacing the whole object
+	// Version must be specified for update operations, and it must be greater than the current incomingVersion
+	// TODO: ensure that this incomingVersion is greater than the existing one
+	incomingVersion, _ := incomingObjMap["version"].(string)
+	if incomingVersion == "" {
+		err = errl.Errorf("version field is required for update operations")
+		apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+		slog.Error("Version missing from update request", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+		return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
+	}
+
+	existingVersion := existingObj.Version
+
+	// incomingVersion must be lexicographically greater than existingVersion
+	if incomingVersion <= existingVersion {
+		err = errl.Errorf("incoming version must be greater than existing version")
+		apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+		slog.Error("incoming version must be greater than existing versio", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+		return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
+	}
+
+	// Merge incomingObjMap into existing object using RFC7396 (JSON Merge Patch)
+	var existingMap map[string]any
+	if err := json.Unmarshal(existingObj.Content, &existingMap); err != nil {
+		err = errl.Errorf("failed to unmarshal existing object content for merge: %w", err)
+		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		slog.Error("Failed to unmarshal existing object content for merge", slog.Any("error", err), slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
+	}
+
+	// RFC7396 merge implementation: modify target in place
+	var mergeRFC7396 func(target, patch map[string]any)
+	mergeRFC7396 = func(target, patch map[string]any) {
+		for k, v := range patch {
+			// If the patch value is nil -> remove the member from the target
+			if v == nil {
+				delete(target, k)
+				continue
+			}
+
+			// If both are objects, merge recursively
+			vMap, vIsMap := v.(map[string]any)
+			if vIsMap {
+				if existingChild, ok := target[k]; ok {
+					if existingChildMap, ok2 := existingChild.(map[string]any); ok2 {
+						mergeRFC7396(existingChildMap, vMap)
+						target[k] = existingChildMap
+						continue
+					}
+				}
+				// Otherwise, replace with the incoming object
+				target[k] = vMap
+				continue
+			}
+
+			// For arrays or scalar values, replace
+			target[k] = v
+		}
+	}
+
+	mergeRFC7396(existingMap, incomingObjMap)
+
+	// update incomingObjMap to the merged result so response/notification contains the final content
+	incomingObjMap = existingMap
+
+	incomingContent, err := json.Marshal(incomingObjMap)
+	if err != nil {
+		err = errl.Errorf("failed to marshal object content for update: %w", err)
+		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		slog.Error("Failed to marshal object content for update", slog.Any("error", err), slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
+	}
 
 	obj := &repo.TMFObject{
 		ID:         req.ID,
 		Type:       req.ResourceName,
-		Version:    version,
+		Version:    incomingVersion,
 		LastUpdate: lastUpdate,
 		Content:    incomingContent,
 		CreatedAt:  existingObj.CreatedAt,
@@ -491,6 +667,12 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	}
 
 	slog.Info("Object updated successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+
+	// Send TMForum notification (AttributeValueChangeEvent)
+	eventType := toEventType(req.ResourceName, "AttributeValueChangeEvent")
+	eventPayload := buildEventPayload(req, eventType, incomingObjMap)
+	svc.notif.PublishEvent(req.APIfamily, eventType, eventPayload)
+
 	return &Response{StatusCode: http.StatusOK, Body: incomingObjMap}
 }
 
@@ -498,7 +680,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 func (svc *Service) DeleteGenericObject(req *Request) *Response {
 	slog.Debug("DeleteGenericObject called", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
-	// Before doing anything, check if we can extract the calling user info
+	// Authentication: process the AccessToken to extract caller info from its claims in the payload
 	token, err := svc.extractCallerInfo(req)
 	if err != nil {
 		err = errl.Errorf("invalid access token: %w", err)
@@ -523,6 +705,17 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 	}
 
 	slog.Info("Object deleted successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+
+	// Send TMForum notification
+	eventType := toEventType(req.ResourceName, "DeleteEvent")
+	minimal := map[string]any{
+		"id":    req.ID,
+		"@type": req.ResourceName,
+		"href":  fmt.Sprintf("/tmf-api/%s/v5/%s/%s", req.APIfamily, req.ResourceName, req.ID),
+	}
+	eventPayload := buildEventPayload(req, eventType, minimal)
+	svc.notif.PublishEvent(req.APIfamily, eventType, eventPayload)
+
 	return &Response{StatusCode: http.StatusNoContent}
 }
 
@@ -530,7 +723,7 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 func (svc *Service) ListGenericObjects(req *Request) *Response {
 	slog.Debug("ListGenericObjects called", slog.String("resourceName", req.ResourceName))
 
-	// Before doing anything, check if we can extract the calling user info
+	// Authentication: process the AccessToken to extract caller info from its claims in the payload
 	_, err := svc.extractCallerInfo(req)
 	if err != nil {
 		err = errl.Errorf("invalid access token: %w", err)
@@ -612,4 +805,39 @@ func ToKebabCase(s string) string {
 	snake := matchFirstCap.ReplaceAllString(s, "${1}-${2}")
 	snake = matchAllCap.ReplaceAllString(snake, "${1}-${2}")
 	return strings.ToLower(snake)
+}
+
+// toEventType composes the TMF event type name from a resource name and a suffix.
+func toEventType(resourceName, suffix string) string {
+	// Convert resourceName to PascalCase
+	parts := strings.Split(resourceName, "-")
+	if len(parts) > 1 {
+		for i, p := range parts {
+			if len(p) == 0 {
+				continue
+			}
+			parts[i] = strings.ToUpper(p[:1]) + strings.ToLower(p[1:])
+		}
+		return strings.Join(parts, "") + suffix
+	}
+	if len(resourceName) == 0 {
+		return suffix
+	}
+	return strings.ToUpper(resourceName[:1]) + resourceName[1:] + suffix
+}
+
+// buildEventPayload builds a generic TMF event envelope.
+func buildEventPayload(req *Request, eventType string, resource any) map[string]any {
+	return map[string]any{
+		"eventId":      uuid.NewString(),
+		"eventTime":    time.Now().Format(time.RFC3339Nano),
+		"eventType":    eventType,
+		"apiFamily":    req.APIfamily,
+		"resourceName": req.ResourceName,
+		"resourceId":   req.ID,
+		"resourcePath": fmt.Sprintf("/tmf-api/%s/v5/%s", req.APIfamily, req.ResourceName),
+		"event": map[string]any{
+			"resource": resource,
+		},
+	}
 }

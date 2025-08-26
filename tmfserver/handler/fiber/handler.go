@@ -3,6 +3,9 @@ package fiber
 import (
 	"net/url"
 
+	"encoding/json"
+	"log/slog"
+
 	"github.com/gofiber/fiber/v2"
 	svc "github.com/hesusruiz/isbetmf/tmfserver/service"
 )
@@ -26,9 +29,65 @@ func (h *Handler) HelloWorld(c *fiber.Ctx) error {
 	return sendResponse(c, resp)
 }
 
+// CreateHubSubscription creates a new notification subscription (hub)
+func (h *Handler) CreateHubSubscription(c *fiber.Ctx) error {
+	jwtToken := svc.ExtractJWTToken(c.Get("Authorization"))
+
+	req := &svc.Request{
+		Method:      c.Method(),
+		Action:      svc.HttpMethodAliases[c.Method()],
+		APIfamily:   c.Params("apiFamily"),
+		Body:        c.Body(),
+		AccessToken: jwtToken,
+	}
+
+	resp := h.service.CreateHubSubscription(req)
+	return sendResponse(c, resp)
+}
+
+// DeleteHubSubscription deletes an existing notification subscription (hub)
+func (h *Handler) DeleteHubSubscription(c *fiber.Ctx) error {
+	jwtToken := svc.ExtractJWTToken(c.Get("Authorization"))
+
+	idParam, _ := url.QueryUnescape(c.Params("id"))
+	req := &svc.Request{
+		Method:      c.Method(),
+		Action:      svc.HttpMethodAliases[c.Method()],
+		APIfamily:   c.Params("apiFamily"),
+		ID:          idParam,
+		AccessToken: jwtToken,
+	}
+
+	resp := h.service.DeleteHubSubscription(req)
+	return sendResponse(c, resp)
+}
+
+// MockListener is a minimal endpoint to receive notifications locally for testing
+func (h *Handler) MockListener(c *fiber.Ctx) error {
+	path := string(c.Request().URI().Path())
+	body := c.Body()
+	if len(body) > 0 {
+		var payload any
+		if err := json.Unmarshal(body, &payload); err == nil {
+			slog.Info("listener received event", slog.String("path", path), slog.Int("bytes", len(body)), slog.Any("body", payload))
+		} else {
+			slog.Info("listener received event", slog.String("path", path), slog.Int("bytes", len(body)), slog.String("bodyRaw", string(body)))
+		}
+	} else {
+		slog.Info("listener received event", slog.String("path", path), slog.Int("bytes", 0))
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
 // CreateGenericObject creates a new TMF object using generalized parameters.
 func (h *Handler) CreateGenericObject(c *fiber.Ctx) error {
 	jwtToken := svc.ExtractJWTToken(c.Get("Authorization"))
+
+	resourceName := c.Params("resourceName")
+	if resourceName == "hub" {
+		slog.Debug("handling hub creation")
+		return h.CreateHubSubscription(c)
+	}
 
 	req := &svc.Request{
 		Method:       c.Method(),
@@ -48,11 +107,12 @@ func (h *Handler) GetGenericObject(c *fiber.Ctx) error {
 	jwtToken := svc.ExtractJWTToken(c.Get("Authorization"))
 
 	queryParams, _ := url.ParseQuery(string(c.Request().URI().QueryString()))
+	idParam, _ := url.QueryUnescape(c.Params("id"))
 	req := &svc.Request{
 		Method:       c.Method(),
 		Action:       svc.HttpMethodAliases[c.Method()],
 		ResourceName: c.Params("resourceName"),
-		ID:           c.Params("id"),
+		ID:           idParam,
 		QueryParams:  queryParams,
 		AccessToken:  jwtToken, // Store the raw JWT token
 	}
@@ -65,11 +125,12 @@ func (h *Handler) GetGenericObject(c *fiber.Ctx) error {
 func (h *Handler) UpdateGenericObject(c *fiber.Ctx) error {
 	jwtToken := svc.ExtractJWTToken(c.Get("Authorization"))
 
+	idParam, _ := url.QueryUnescape(c.Params("id"))
 	req := &svc.Request{
 		Method:       c.Method(),
 		Action:       svc.HttpMethodAliases[c.Method()],
 		ResourceName: c.Params("resourceName"),
-		ID:           c.Params("id"),
+		ID:           idParam,
 		Body:         c.Body(),
 		AccessToken:  jwtToken, // Store the raw JWT token
 	}
@@ -82,11 +143,18 @@ func (h *Handler) UpdateGenericObject(c *fiber.Ctx) error {
 func (h *Handler) DeleteGenericObject(c *fiber.Ctx) error {
 	jwtToken := svc.ExtractJWTToken(c.Get("Authorization"))
 
+	resourceName := c.Params("resourceName")
+	if resourceName == "hub" {
+		slog.Debug("handling hub creation")
+		return h.DeleteHubSubscription(c)
+	}
+
+	idParam, _ := url.QueryUnescape(c.Params("id"))
 	req := &svc.Request{
 		Method:       c.Method(),
 		Action:       svc.HttpMethodAliases[c.Method()],
 		ResourceName: c.Params("resourceName"),
-		ID:           c.Params("id"),
+		ID:           idParam,
 		AccessToken:  jwtToken, // Store the raw JWT token
 	}
 
