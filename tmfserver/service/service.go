@@ -18,7 +18,6 @@ import (
 	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	pdp "github.com/hesusruiz/isbetmf/pdp"
-	"github.com/hesusruiz/isbetmf/pkg/apierror"
 	"github.com/hesusruiz/isbetmf/tmfserver/notifications"
 	"github.com/hesusruiz/isbetmf/tmfserver/repository"
 	repo "github.com/hesusruiz/isbetmf/tmfserver/repository"
@@ -108,6 +107,9 @@ type Service struct {
 
 	// Notifications manager
 	notif *notifications.Manager
+
+	// Pluggable storage backend (optional). When nil, falls back to built-in SQLite via db
+	storage Storage
 }
 
 // NewService creates a new service.
@@ -170,7 +172,7 @@ func (svc *Service) CreateHubSubscription(req *Request) *Response {
 	_, err := svc.extractCallerInfo(req)
 	if err != nil {
 		err = errl.Errorf("invalid access token: %w", err)
-		apiErr := apierror.NewError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
+		apiErr := NewApiError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
 		slog.Error("Unauthorized request", slog.Any("error", err))
 		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
 	}
@@ -179,14 +181,14 @@ func (svc *Service) CreateHubSubscription(req *Request) *Response {
 	var body map[string]any
 	if err := json.Unmarshal(req.Body, &body); err != nil {
 		err = errl.Errorf("failed to bind request body: %w", err)
-		apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+		apiErr := NewApiError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
 		return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
 	}
 
 	callback, _ := body["callback"].(string)
 	if callback == "" {
 		err = errl.Errorf("callback is required")
-		apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+		apiErr := NewApiError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
 		return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
 	}
 
@@ -224,7 +226,7 @@ func (svc *Service) CreateHubSubscription(req *Request) *Response {
 	_, err = svc.notif.CreateSubscription(req.APIfamily, sub)
 	if err != nil {
 		err = errl.Errorf("failed to create subscription: %w", err)
-		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		apiErr := NewApiError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
 
@@ -248,20 +250,20 @@ func (svc *Service) DeleteHubSubscription(req *Request) *Response {
 	_, err := svc.extractCallerInfo(req)
 	if err != nil {
 		err = errl.Errorf("invalid access token: %w", err)
-		apiErr := apierror.NewError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
+		apiErr := NewApiError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
 		slog.Error("Unauthorized request", slog.Any("error", err))
 		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
 	}
 
 	if req.ID == "" {
 		err = errl.Errorf("id is required")
-		apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+		apiErr := NewApiError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
 		return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
 	}
 
 	if err := svc.notif.DeleteSubscription(req.APIfamily, req.ID); err != nil {
 		err = errl.Errorf("failed to delete subscription: %w", err)
-		apiErr := apierror.NewError("404", "Not Found", err.Error(), fmt.Sprintf("%d", http.StatusNotFound), "")
+		apiErr := NewApiError("404", "Not Found", err.Error(), fmt.Sprintf("%d", http.StatusNotFound), "")
 		return &Response{StatusCode: http.StatusNotFound, Body: apiErr}
 	}
 
@@ -276,7 +278,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	token, err := svc.extractCallerInfo(req)
 	if err != nil {
 		err = errl.Errorf("invalid access token: %w", err)
-		apiErr := apierror.NewError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
+		apiErr := NewApiError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
 		slog.Error("Unauthorized request", slog.Any("error", err))
 		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
 	}
@@ -284,7 +286,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	// This operation can not be done without authentication
 	if len(token) == 0 {
 		err = errl.Errorf("user not authenticated")
-		apiErr := apierror.NewError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
+		apiErr := NewApiError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
 		slog.Error("Unauthorized request")
 		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
 	}
@@ -293,7 +295,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	var incomingObjectMap map[string]any
 	if err := json.Unmarshal(req.Body, &incomingObjectMap); err != nil {
 		err = errl.Errorf("failed to bind request body: %w", err)
-		apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+		apiErr := NewApiError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
 		slog.Error("Failed to bind request body", slog.Any("error", err), slog.String("apiFamily", req.APIfamily), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
 	}
@@ -321,7 +323,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	if typeVal, typeOk := incomingObjectMap["@type"].(string); typeOk {
 		if !strings.EqualFold(typeVal, req.ResourceName) {
 			err = errl.Errorf("@type mismatch: expected %s, got %s", req.ResourceName, typeVal)
-			apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+			apiErr := NewApiError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
 			slog.Error("@type mismatch", slog.String("expected", req.ResourceName), slog.String("got", typeVal), slog.String("apiFamily", req.APIfamily), slog.String("resourceName", req.ResourceName))
 			return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
 		}
@@ -348,7 +350,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	err = setSellerAndBuyerInfo(incomingObjectMap, req.AuthUser.OrganizationIdentifier)
 	if err != nil {
 		err = errl.Errorf("failed to add Seller and Buyer info: %w", err)
-		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		apiErr := NewApiError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
 		slog.Error("Failed to add Seller and Buyer info", slog.Any("error", err), slog.String("apiFamily", req.APIfamily), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
@@ -356,7 +358,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	incomingContent, err := json.Marshal(incomingObjectMap)
 	if err != nil {
 		err = errl.Errorf("failed to marshal object content: %w", err)
-		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		apiErr := NewApiError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
 		slog.Error("Failed to marshal object content", slog.Any("error", err), slog.String("apiFamily", req.APIfamily), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
@@ -371,7 +373,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	err = takeDecision(svc.ruleEngine, req, token, obj)
 	if err != nil {
 		err = errl.Errorf("user not authorized: %w", err)
-		apiErr := apierror.NewError("403", "Forbidden", err.Error(), fmt.Sprintf("%d", http.StatusForbidden), "")
+		apiErr := NewApiError("403", "Forbidden", err.Error(), fmt.Sprintf("%d", http.StatusForbidden), "")
 		slog.Error("Unauthorized request")
 		return &Response{StatusCode: http.StatusForbidden, Body: apiErr}
 	}
@@ -382,7 +384,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 
 	if err := svc.createObject(obj); err != nil {
 		err = errl.Errorf("failed to create object in service: %w", err)
-		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		apiErr := NewApiError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
 		slog.Error("Failed to create object in service", slog.Any("error", err), slog.String("id", id), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
@@ -411,7 +413,7 @@ func (svc *Service) GetGenericObject(req *Request) *Response {
 	token, err := svc.extractCallerInfo(req)
 	if err != nil {
 		err = errl.Errorf("invalid access token: %w", err)
-		apiErr := apierror.NewError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
+		apiErr := NewApiError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
 		slog.Error("Unauthorized request", slog.Any("error", err))
 		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
 	}
@@ -419,14 +421,14 @@ func (svc *Service) GetGenericObject(req *Request) *Response {
 	obj, err := svc.getObject(req.ID, req.ResourceName)
 	if err != nil {
 		err = errl.Errorf("failed to get object from service: %w", err)
-		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		apiErr := NewApiError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
 		slog.Error("Failed to get object from service", slog.Any("error", err), slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
 
 	if obj == nil {
 		err = errl.Errorf("object not found")
-		apiErr := apierror.NewError("404", "Not Found", err.Error(), fmt.Sprintf("%d", http.StatusNotFound), "")
+		apiErr := NewApiError("404", "Not Found", err.Error(), fmt.Sprintf("%d", http.StatusNotFound), "")
 		slog.Info("Object not found", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusNotFound, Body: apiErr}
 	}
@@ -438,7 +440,7 @@ func (svc *Service) GetGenericObject(req *Request) *Response {
 	err = takeDecision(svc.ruleEngine, req, token, obj)
 	if err != nil {
 		err = errl.Error(err)
-		apiErr := apierror.NewError("403", "Forbidden", err.Error(), fmt.Sprintf("%d", http.StatusForbidden), "")
+		apiErr := NewApiError("403", "Forbidden", err.Error(), fmt.Sprintf("%d", http.StatusForbidden), "")
 		slog.Error("Unauthorized request", slog.Any("error", err))
 		return &Response{StatusCode: http.StatusForbidden, Body: apiErr}
 	}
@@ -451,7 +453,7 @@ func (svc *Service) GetGenericObject(req *Request) *Response {
 	err = json.Unmarshal(obj.Content, &responseData)
 	if err != nil {
 		err = errl.Errorf("failed to unmarshal object content: %w", err)
-		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		apiErr := NewApiError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
 		slog.Error("Failed to unmarshal object content", slog.Any("error", err), slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
@@ -500,7 +502,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	token, err := svc.extractCallerInfo(req)
 	if err != nil {
 		err = errl.Errorf("invalid access token: %w", err)
-		apiErr := apierror.NewError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
+		apiErr := NewApiError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
 		slog.Error("Unauthorized request", slog.Any("error", err))
 		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
 	}
@@ -508,7 +510,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	// This operation can not be done without authentication
 	if len(token) == 0 {
 		err = errl.Errorf("user not authenticated")
-		apiErr := apierror.NewError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
+		apiErr := NewApiError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
 		slog.Error("Unauthorized request")
 		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
 	}
@@ -517,7 +519,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	var incomingObjMap map[string]any
 	if err := json.Unmarshal(req.Body, &incomingObjMap); err != nil {
 		err = errl.Errorf("failed to bind request body: %w", err)
-		apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+		apiErr := NewApiError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
 		slog.Error("Failed to bind request body for update", slog.Any("error", err), slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
 	}
@@ -527,7 +529,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 		bodyIDStr, ok := bodyID.(string)
 		if !ok || bodyIDStr != req.ID {
 			err = errl.Errorf("ID in body must match ID in URL")
-			apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+			apiErr := NewApiError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
 			slog.Error("ID mismatch in update request", slog.String("url_id", req.ID), slog.Any("body_id", bodyID), slog.String("resourceName", req.ResourceName))
 			return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
 		}
@@ -537,7 +539,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	if typeVal, typeOk := incomingObjMap["@type"].(string); typeOk {
 		if !strings.EqualFold(typeVal, req.ResourceName) {
 			err = errl.Errorf("@type field in body must match resource name in URL")
-			apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+			apiErr := NewApiError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
 			slog.Error("@type mismatch in update request", slog.String("expected", req.ResourceName), slog.String("got", typeVal), slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 			return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
 		}
@@ -556,7 +558,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	err = setSellerAndBuyerInfo(incomingObjMap, req.AuthUser.OrganizationIdentifier)
 	if err != nil {
 		err = errl.Errorf("failed to add Seller and Buyer info: %w", err)
-		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		apiErr := NewApiError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
 		slog.Error("Failed to add Seller and Buyer info", slog.Any("error", err), slog.String("apiFamily", req.APIfamily), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
@@ -565,14 +567,14 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	existingObj, err := svc.getObject(req.ID, req.ResourceName)
 	if err != nil {
 		err = errl.Errorf("failed to get existing object for update: %w", err)
-		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		apiErr := NewApiError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
 		slog.Error("Failed to get existing object for update", slog.Any("error", err), slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
 
 	if existingObj == nil {
 		err = errl.Errorf("object not found")
-		apiErr := apierror.NewError("404", "Not Found", err.Error(), fmt.Sprintf("%d", http.StatusNotFound), "")
+		apiErr := NewApiError("404", "Not Found", err.Error(), fmt.Sprintf("%d", http.StatusNotFound), "")
 		slog.Info("Object not found for update", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusNotFound, Body: apiErr}
 	}
@@ -582,7 +584,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	incomingVersion, _ := incomingObjMap["version"].(string)
 	if incomingVersion == "" {
 		err = errl.Errorf("version field is required for update operations")
-		apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+		apiErr := NewApiError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
 		slog.Error("Version missing from update request", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
 	}
@@ -592,7 +594,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	// incomingVersion must be lexicographically greater than existingVersion
 	if incomingVersion <= existingVersion {
 		err = errl.Errorf("incoming version must be greater than existing version")
-		apiErr := apierror.NewError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
+		apiErr := NewApiError("400", "Bad Request", err.Error(), fmt.Sprintf("%d", http.StatusBadRequest), "")
 		slog.Error("incoming version must be greater than existing versio", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusBadRequest, Body: apiErr}
 	}
@@ -601,7 +603,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	var existingMap map[string]any
 	if err := json.Unmarshal(existingObj.Content, &existingMap); err != nil {
 		err = errl.Errorf("failed to unmarshal existing object content for merge: %w", err)
-		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		apiErr := NewApiError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
 		slog.Error("Failed to unmarshal existing object content for merge", slog.Any("error", err), slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
@@ -644,7 +646,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	incomingContent, err := json.Marshal(incomingObjMap)
 	if err != nil {
 		err = errl.Errorf("failed to marshal object content for update: %w", err)
-		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		apiErr := NewApiError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
 		slog.Error("Failed to marshal object content for update", slog.Any("error", err), slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
@@ -661,7 +663,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 
 	if err := svc.updateObject(obj); err != nil {
 		err = errl.Errorf("failed to update object in service: %w", err)
-		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		apiErr := NewApiError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
 		slog.Error("Failed to update object in service", slog.Any("error", err), slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
@@ -684,7 +686,7 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 	token, err := svc.extractCallerInfo(req)
 	if err != nil {
 		err = errl.Errorf("invalid access token: %w", err)
-		apiErr := apierror.NewError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
+		apiErr := NewApiError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
 		slog.Error("Unauthorized request", slog.Any("error", err))
 		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
 	}
@@ -692,14 +694,14 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 	// Deleting an object can not be done without authentication
 	if len(token) == 0 {
 		err = errl.Errorf("user not authenticated")
-		apiErr := apierror.NewError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
+		apiErr := NewApiError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
 		slog.Error("Unauthorized request")
 		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
 	}
 
 	if err := svc.deleteObject(req.ID, req.ResourceName); err != nil {
 		err = errl.Errorf("failed to delete object from service: %w", err)
-		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		apiErr := NewApiError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
 		slog.Error("Failed to delete object from service", slog.Any("error", err), slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
@@ -727,7 +729,7 @@ func (svc *Service) ListGenericObjects(req *Request) *Response {
 	_, err := svc.extractCallerInfo(req)
 	if err != nil {
 		err = errl.Errorf("invalid access token: %w", err)
-		apiErr := apierror.NewError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
+		apiErr := NewApiError("401", "Unauthorized", err.Error(), fmt.Sprintf("%d", http.StatusUnauthorized), "")
 		slog.Error("Unauthorized request", slog.Any("error", err))
 		return &Response{StatusCode: http.StatusUnauthorized, Body: apiErr}
 	}
@@ -735,7 +737,7 @@ func (svc *Service) ListGenericObjects(req *Request) *Response {
 	objs, totalCount, err := svc.listObjects(req.ResourceName, req.QueryParams)
 	if err != nil {
 		err = errl.Errorf("failed to list objects from service: %w", err)
-		apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+		apiErr := NewApiError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
 		slog.Error("Failed to list objects from service", slog.Any("error", err), slog.String("resourceName", req.ResourceName))
 		return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 	}
@@ -749,7 +751,7 @@ func (svc *Service) ListGenericObjects(req *Request) *Response {
 		err := json.Unmarshal(obj.Content, &item)
 		if err != nil {
 			err = errl.Errorf("failed to unmarshal object content for listing: %w", err)
-			apiErr := apierror.NewError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
+			apiErr := NewApiError("500", "Internal Server Error", err.Error(), fmt.Sprintf("%d", http.StatusInternalServerError), "")
 			slog.Error("Failed to unmarshal object content for listing", slog.Any("error", err), slog.String("resourceName", req.ResourceName))
 			return &Response{StatusCode: http.StatusInternalServerError, Body: apiErr}
 		}

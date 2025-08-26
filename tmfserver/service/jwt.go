@@ -36,6 +36,9 @@ func ParseJWT(svc *Service, tokenString string, verify bool) (tokString map[stri
 	if verify {
 		// For testing purposes, you can uncomment the following
 		verifierPublicKeyFunc := func(*jwt.Token) (any, error) {
+			if svc.oid == nil {
+				return nil, errl.Errorf("openid support not initialized")
+			}
 			vk, err := svc.oid.VerificationJWK()
 			if err != nil {
 				return nil, errl.Error(err)

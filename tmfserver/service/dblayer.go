@@ -17,6 +17,9 @@ import (
 // createObject creates a new TMF object.
 func (svc *Service) createObject(obj *repo.TMFObject) error {
 	slog.Debug("Service: Creating object", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
+	if svc.storage != nil {
+		return svc.storage.CreateObject(obj)
+	}
 	_, err := svc.db.NamedExec(`INSERT INTO tmf_object (id, type, version, last_update, content, created_at, updated_at)
 		VALUES (:id, :type, :version, :last_update, :content, :created_at, :updated_at)`, obj)
 	if err != nil {
@@ -34,6 +37,9 @@ func (svc *Service) createObject(obj *repo.TMFObject) error {
 // getObject retrieves a TMF object by its ID and type, returning the latest version.
 func (svc *Service) getObject(id, objectType string) (*repo.TMFObject, error) {
 	slog.Debug("Service: Getting object", slog.String("id", id), slog.String("type", objectType))
+	if svc.storage != nil {
+		return svc.storage.GetObject(id, objectType)
+	}
 	var obj repo.TMFObject
 	err := svc.db.Get(&obj, "SELECT * FROM tmf_object WHERE id = ? AND type = ? ORDER BY version DESC LIMIT 1", id, objectType)
 	if err == sql.ErrNoRows {
@@ -48,6 +54,9 @@ func (svc *Service) getObject(id, objectType string) (*repo.TMFObject, error) {
 // updateObject updates an existing TMF object.
 func (svc *Service) updateObject(obj *repo.TMFObject) error {
 	slog.Debug("Service: Updating object", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
+	if svc.storage != nil {
+		return svc.storage.UpdateObject(obj)
+	}
 	_, err := svc.db.NamedExec(`UPDATE tmf_object SET version = :version, last_update = :last_update, content = :content, updated_at = :updated_at WHERE id = :id AND type = :type`, obj)
 	if err != nil {
 		var sqliteErr sqlite3.Error
@@ -64,6 +73,9 @@ func (svc *Service) updateObject(obj *repo.TMFObject) error {
 // deleteObject deletes a TMF object by its ID and type.
 func (svc *Service) deleteObject(id, objectType string) error {
 	slog.Debug("Service: Deleting object", slog.String("id", id), slog.String("type", objectType))
+	if svc.storage != nil {
+		return svc.storage.DeleteObject(id, objectType)
+	}
 	_, err := svc.db.Exec("DELETE FROM tmf_object WHERE id = ? AND type = ?", id, objectType)
 	if err != nil {
 		err = errl.Errorf("failed to delete object id=%s type=%s: %w", id, objectType, err)
@@ -75,6 +87,9 @@ func (svc *Service) deleteObject(id, objectType string) error {
 // It supports pagination, filtering, and sorting according to TMF630 guidelines.
 func (svc *Service) listObjects(objectType string, queryParams url.Values) ([]repo.TMFObject, int, error) {
 	slog.Debug("Service: Listing objects", "type", objectType, "queryParams", queryParams)
+	if svc.storage != nil {
+		return svc.storage.ListObjects(objectType, queryParams)
+	}
 	var objs []repo.TMFObject
 	var totalCount int
 
