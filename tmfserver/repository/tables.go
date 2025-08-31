@@ -11,5 +11,4 @@ CREATE TABLE IF NOT EXISTS tmf_object (
 	"updated_at" DATETIME NOT NULL,
 	PRIMARY KEY ("id", "type", "version")
 );
-PRAGMA journal_mode = WAL;
 `

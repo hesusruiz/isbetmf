@@ -21,8 +21,18 @@ func main() {
 	var debugFlag bool
 	var verifierServer string
 	flag.BoolVar(&debugFlag, "d", false, "Enable debug logging")
-	flag.StringVar(&verifierServer, "verifier", "https://verifier.dome-marketplace.eu", "Full URL of the verifier which signs access tokens")
+	flag.StringVar(&verifierServer, "verifier", "", "Full URL of the verifier which signs access tokens")
 	flag.Parse()
+
+	// Get the url of the verifier from command line (priority) or environment variable
+	if verifierServer == "" {
+		verifierServer = os.Getenv("ISBETMF_VERIFIER")
+		if verifierServer == "" {
+			verifierServer = "https://verifier.dome-marketplace.eu"
+		}
+	}
+
+	slog.Info("Verifier server", slog.String("verifierServer", verifierServer))
 
 	var logLevel slog.Level
 	if debugFlag {
