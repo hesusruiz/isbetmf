@@ -34,6 +34,9 @@ func main() {
 
 	slog.Info("Verifier server", slog.String("verifierServer", verifierServer))
 
+	// Use debug level until production
+	debugFlag = true
+
 	var logLevel slog.Level
 	if debugFlag {
 		logLevel = slog.LevelDebug
