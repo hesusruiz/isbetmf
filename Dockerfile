@@ -18,7 +18,7 @@ COPY . .
 RUN go build -ldflags="-w -s" -o /isbetmf ./cmd/isbetmf
 
 # Final stage
-FROM alpine:latest
+FROM alpine/curl:latest
 
 WORKDIR /
 COPY --from=builder /isbetmf /isbetmf

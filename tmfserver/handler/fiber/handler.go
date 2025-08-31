@@ -20,11 +20,11 @@ func NewHandler(s *svc.Service) *Handler {
 	return &Handler{service: s}
 }
 
-// HelloWorld is a simple hello world handler.
-func (h *Handler) HelloWorld(c *fiber.Ctx) error {
+// Health is a simple hello world handler.
+func (h *Handler) Health(c *fiber.Ctx) error {
 	resp := &svc.Response{
 		StatusCode: 200,
-		Body:       "Hello, World!",
+		Body:       "I am good, thanks",
 	}
 	return sendResponse(c, resp)
 }
