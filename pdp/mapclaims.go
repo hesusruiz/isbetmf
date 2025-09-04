@@ -7,7 +7,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// MapClaims is a claims type that uses the map[string]interface{} for JSON
+// MapClaims is a claims type that uses the map[string]any for JSON
 // decoding. This is the default claims type if you don't supply one
 type MapClaims map[string]any
 
@@ -75,7 +75,7 @@ func (m MapClaims) parseClaimsString(key string) (jwt.ClaimStrings, error) {
 		cs = append(cs, v)
 	case []string:
 		cs = v
-	case []interface{}:
+	case []any:
 		for _, a := range v {
 			vs, ok := a.(string)
 			if !ok {
@@ -94,7 +94,7 @@ func (m MapClaims) parseClaimsString(key string) (jwt.ClaimStrings, error) {
 func (m MapClaims) parseString(key string) (string, error) {
 	var (
 		ok  bool
-		raw interface{}
+		raw any
 		iss string
 	)
 	raw, ok = m[key]
