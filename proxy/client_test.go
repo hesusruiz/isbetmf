@@ -1,4 +1,4 @@
-package proxy
+package reporting
 
 import (
 	"testing"

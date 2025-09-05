@@ -10,7 +10,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/hesusruiz/isbetmf/proxy"
+	"github.com/hesusruiz/isbetmf/reporting"
 )
 
 func main() {
@@ -39,7 +39,7 @@ func main() {
 	}
 
 	// Load configuration
-	config := proxy.DefaultConfig()
+	config := reporting.DefaultConfig()
 
 	// Load from config file if specified
 	if *configFile != "" {
@@ -79,7 +79,7 @@ func main() {
 	}
 
 	// Create proxy instance
-	proxyInstance, err := proxy.NewProxy(config)
+	proxyInstance, err := reporting.NewProxy(config)
 	if err != nil {
 		log.Fatalf("Failed to create proxy: %v", err)
 	}
@@ -113,8 +113,8 @@ func main() {
 }
 
 // runWithProgress runs the validation process with progress reporting
-func runWithProgress(ctx context.Context, proxyInstance *proxy.Proxy) error {
-	progressChan := make(chan proxy.ProgressUpdate)
+func runWithProgress(ctx context.Context, proxyInstance *reporting.Proxy) error {
+	progressChan := make(chan reporting.ProgressUpdate)
 
 	// Start validation in goroutine
 	go func() {
@@ -154,7 +154,7 @@ func parseObjectTypes(typesStr string) []string {
 }
 
 // loadConfigFromFile loads configuration from a file
-func loadConfigFromFile(config *proxy.Config, filename string) error {
+func loadConfigFromFile(config *reporting.Config, filename string) error {
 	// This is a placeholder - in a real implementation, you would
 	// parse JSON or YAML files here
 	return fmt.Errorf("config file loading not implemented yet")
@@ -162,7 +162,7 @@ func loadConfigFromFile(config *proxy.Config, filename string) error {
 
 // showHelp displays help information
 func showHelp() {
-	fmt.Printf(`TMForum Proxy Validator
+	fmt.Printf(`TMForum Reporting Validator
 
 Usage: tmfproxy [options]
 

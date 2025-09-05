@@ -1,6 +1,6 @@
-# TMForum Proxy Package
+# TMForum Reporting Package
 
-The TMForum Proxy package provides functionality to connect to remote TMForum servers, retrieve objects of various types, validate them against requirements, and generate comprehensive reports.
+The TMForum Reporting package provides functionality to connect to remote TMForum servers, retrieve objects of various types, validate them against requirements, and generate comprehensive reports.
 
 ## Features
 
@@ -20,13 +20,13 @@ The package is organized into several components:
 - **Client**: HTTP client for connecting to TMForum servers with automatic path prefix resolution
 - **Validator**: Object validation against requirements
 - **Reporter**: Report generation in Markdown format
-- **Proxy**: Main orchestrator that coordinates all components
+- **Reporter**: Main orchestrator that coordinates all components
 - **Routes**: Automatic path prefix mapping for different resource types
 
 ## Installation
 
 ```bash
-go get github.com/hesusruiz/isbetmf/proxy
+go get github.com/hesusruiz/isbetmf/reporting
 ```
 
 ## Quick Start
@@ -40,16 +40,16 @@ import (
     "context"
     "log"
     
-    "github.com/hesusruiz/isbetmf/proxy"
+    "github.com/hesusruiz/isbetmf/reporting"
 )
 
 func main() {
     // Create configuration
-    config := proxy.DefaultConfig()
+    config := reporting.DefaultConfig()
     config.BaseURL = "https://tmf.example.com"
     
     // Create proxy instance
-    proxyInstance, err := proxy.NewProxy(config)
+    proxyInstance, err := reporting.NewProxy(config)
     if err != nil {
         log.Fatal(err)
     }

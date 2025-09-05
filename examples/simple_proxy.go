@@ -6,15 +6,15 @@ import (
 	"log"
 	"time"
 
-	"github.com/hesusruiz/isbetmf/proxy"
+	"github.com/hesusruiz/isbetmf/reporting"
 )
 
 func main() {
-	fmt.Println("TMForum Proxy Example")
+	fmt.Println("TMForum Reporting Example")
 	fmt.Println("=====================")
 
 	// Create configuration
-	config := proxy.DefaultConfig()
+	config := reporting.DefaultConfig()
 	config.BaseURL = "https://dome-marketplace-sbx.org/"
 	config.ObjectTypes = []string{"productOffering", "productSpecification"}
 	config.OutputDir = "./example_reports"
@@ -37,7 +37,7 @@ func main() {
 
 	// Create proxy instance
 	fmt.Println("\nCreating proxy instance...")
-	proxyInstance, err := proxy.NewProxy(config)
+	proxyInstance, err := reporting.NewProxy(config)
 	if err != nil {
 		log.Fatalf("Failed to create proxy: %v", err)
 	}
@@ -48,7 +48,7 @@ func main() {
 
 	// Run validation with progress tracking
 	fmt.Println("\nStarting validation process...")
-	progressChan := make(chan proxy.ProgressUpdate)
+	progressChan := make(chan reporting.ProgressUpdate)
 
 	go func() {
 		if err := proxyInstance.RunWithProgress(ctx, progressChan); err != nil {

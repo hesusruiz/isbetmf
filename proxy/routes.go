@@ -1,4 +1,4 @@
-package proxy
+package reporting
 
 var GeneratedDefaultResourceToPathPrefixV4 = map[string]string{
 	"agreement":                  "/tmf-api/agreementManagement/v4/agreement",
