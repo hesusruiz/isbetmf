@@ -104,7 +104,7 @@ func newNumericDateFromSeconds(f float64) *jwt.NumericDate {
 type ClaimStrings []string
 
 func (s *ClaimStrings) UnmarshalJSON(data []byte) (err error) {
-	var value interface{}
+	var value any
 
 	if err = json.Unmarshal(data, &value); err != nil {
 		return err
@@ -117,7 +117,7 @@ func (s *ClaimStrings) UnmarshalJSON(data []byte) (err error) {
 		aud = append(aud, v)
 	case []string:
 		aud = ClaimStrings(v)
-	case []interface{}:
+	case []any:
 		for _, vv := range v {
 			vs, ok := vv.(string)
 			if !ok {

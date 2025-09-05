@@ -42,7 +42,7 @@ func JsonToStarlark(s string, d starlark.Value) (v starlark.Value, err error) {
 	// a distinguished, private failure type prevents the possibility of
 	// json.decode with "default" becoming abused as a try-catch mechanism.
 	type failure string
-	fail := func(format string, args ...interface{}) {
+	fail := func(format string, args ...any) {
 		panic(failure(fmt.Sprintf(format, args...)))
 	}
 
