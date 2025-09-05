@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/hesusruiz/isbetmf/internal/errl"
 )
 
 // MapClaims is a claims type that uses the map[string]any for JSON
@@ -63,7 +64,7 @@ func (m MapClaims) parseNumericDate(key string) (*jwt.NumericDate, error) {
 		return newNumericDateFromSeconds(v), nil
 	}
 
-	return nil, newError(fmt.Sprintf("%s is invalid", key), jwt.ErrInvalidType)
+	return nil, errl.Errorf("%s is invalid: %w", key, jwt.ErrInvalidType)
 }
 
 // parseClaimsString tries to parse a key in the map claims type as a
@@ -79,7 +80,7 @@ func (m MapClaims) parseClaimsString(key string) (jwt.ClaimStrings, error) {
 		for _, a := range v {
 			vs, ok := a.(string)
 			if !ok {
-				return nil, newError(fmt.Sprintf("%s is invalid", key), jwt.ErrInvalidType)
+				return nil, errl.Errorf("%s is invalid: %w", key, jwt.ErrInvalidType)
 			}
 			cs = append(cs, vs)
 		}

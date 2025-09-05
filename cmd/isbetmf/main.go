@@ -65,7 +65,6 @@ func main() {
 	// Create the PDP (aka rules engine)
 	rulesEngine, err := pdp.NewPDP(&pdp.Config{
 		PolicyFileName: "auth_policies.star",
-		VerifierServer: verifierServer,
 		Debug:          debugFlag,
 	})
 	if err != nil {

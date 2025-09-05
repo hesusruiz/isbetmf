@@ -68,7 +68,7 @@ func takeDecision(
 
 	decision := true
 	if ruleEngine != nil {
-		decision, err = ruleEngine.TakeAuthnDecision(pdp.Authorize, input)
+		decision, err = ruleEngine.Authorize(input)
 
 		// An error is considered a rejection, continue with the next candidate object
 		if err != nil {

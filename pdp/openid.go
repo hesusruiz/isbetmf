@@ -5,13 +5,13 @@
 package pdp
 
 import (
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 
 	"github.com/go-jose/go-jose/v4"
 	"github.com/goccy/go-json"
+	"github.com/hesusruiz/isbetmf/internal/errl"
 	"gitlab.com/greyxor/slogor"
 )
 
@@ -166,16 +166,16 @@ func NewOpenIDConfig(verifierServer string) (*OpenIDConfig, error) {
 	}
 
 	if oid.JwksUri == "" {
-		return nil, fmt.Errorf("no JwksUri")
+		return nil, errl.Errorf("no JwksUri")
 	}
 
 	return oid, nil
 }
 
-func (oid *OpenIDConfig) VerificationJWK() (*jose.JSONWebKey, error) {
+func (oid *OpenIDConfig) VerificationKey() (any, error) {
 
 	if oid.JwksUri == "" {
-		return nil, fmt.Errorf("no JwksUri")
+		return nil, errl.Errorf("no JwksUri")
 	}
 
 	res, err := http.Get(oid.JwksUri)
@@ -186,7 +186,7 @@ func (oid *OpenIDConfig) VerificationJWK() (*jose.JSONWebKey, error) {
 	body, err := io.ReadAll(res.Body)
 	res.Body.Close()
 	if res.StatusCode > 299 {
-		err := fmt.Errorf("response failed with status: %d", res.StatusCode)
+		err := errl.Errorf("response failed with status: %d", res.StatusCode)
 		return nil, err
 	}
 	if err != nil {
@@ -201,10 +201,10 @@ func (oid *OpenIDConfig) VerificationJWK() (*jose.JSONWebKey, error) {
 	}
 
 	if len(jwks.Keys) == 0 {
-		err := fmt.Errorf("no JWK keys returned")
+		err := errl.Errorf("no JWK keys returned")
 		return nil, err
 	}
 
-	return &jwks.Keys[0], nil
+	return jwks.Keys[0].Key, nil
 
 }
