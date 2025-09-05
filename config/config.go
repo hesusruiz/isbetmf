@@ -22,7 +22,7 @@ type Config struct {
 	ServerOperatorDid  string
 	ServerOperatorName string
 
-	// Indicates the environment (SBX, DEV2, PRO, LCL) where the proxy is running.
+	// Indicates the environment (SBX, DEV2, PRO, LCL) where the reporting tool is running.
 	// It is used to determine the DOME host and the database name.
 	// It is also used to determine the policy file name, which is used to load the policies from the DOME.
 	Environment Environment
@@ -72,7 +72,7 @@ type Config struct {
 	// It is used to store the data in a local SQLite database, the best SQL database for this purpose.
 	Dbname string
 
-	// ClonePeriod is the period in which the proxy will clone the TMForum objects from the DOME instance,
+	// ClonePeriod is the period in which the reporting tool will clone the TMForum objects from the DOME instance,
 	// to keep the local cache up to date.
 	ClonePeriod time.Duration
 
@@ -223,7 +223,7 @@ func SetLogger(debug bool, nocolor bool) *sqlogger.SQLogHandler {
 //   - envir:        The environment to use ("pro", "dev2", "sbx", "lcl").
 //   - pdpAddress:   The address of the PDP service.
 //   - internal:     Whether to use internal settings.
-//   - usingBAEProxy: Whether to use the BAE proxy.
+//   - usingBAEProxy: Whether to use the BAE reporting tool.
 //   - debug:        Enables debug logging if true.
 //   - nocolor:      Disables colored log output if true.
 //
@@ -334,7 +334,7 @@ func (c *Config) GetAllUpstreamHosts() map[string]string {
 }
 
 // // GetInternalPodHostFromId retrieves the upstream host for a given ID, depending on the resource type of the ID,
-// // when the proxy operates inside the DOME instance or not.
+// // when the reporting tool operates inside the DOME instance or not.
 // func (c *Config) GetInternalPodHostFromId(id string) (string, error) {
 // 	resourceName, err := FromIdToResourceName(id)
 // 	if err != nil {
@@ -412,7 +412,7 @@ func (c *Config) UpstreamHostAndPathFromResource(resourceName string) (string, e
 }
 
 // GetHostAndPathFromId returns the TMForum base server path for a given ID.
-// If the proxy operates inside the DOME instance, it uses the internal domain names of the pods.
+// If the reporting tool operates inside the DOME instance, it uses the internal domain names of the pods.
 // Otherwise, it uses the DOME host configured in the config (e.g dome-marketplace.eu).
 // It returns the URL in the format "https://<domain-name>[:<port>]".
 // func (c *Config) GetHostAndPathFromId(id string) (string, error) {
