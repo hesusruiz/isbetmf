@@ -29,7 +29,7 @@ var GeneratedDefaultResourceToPathPrefixV4 = map[string]string{
 	"productOfferingPrice":       "/tmf-api/productCatalogManagement/v4/productOfferingPrice",
 	"productOrder":               "/tmf-api/productOrderingManagement/v4/productOrder",
 	"productSpecification":       "/tmf-api/productCatalogManagement/v4/productSpecification",
-	"quote":                      "/tmf-api/quoteManagement/v4/quote",
+	"quote":                      "/tmf-api/quote/v4/quote", //NOTE: must be /tmf-api/quoteManagement/v4/quote but we use this temporarily until DOME correctes it
 	"resource":                   "/tmf-api/resourceInventoryManagement/v4/resource",
 	"resourceCandidate":          "/tmf-api/resourceCatalog/v4/resourceCandidate",
 	"resourceCatalog":            "/tmf-api/resourceCatalog/v4/resourceCatalog",

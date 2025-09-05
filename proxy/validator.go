@@ -39,7 +39,7 @@ func (v *Validator) ValidateObject(obj TMFObject, objectType string) ValidationR
 		if v.config.Version == VersionV4 {
 			v.validateRelatedPartyV4(obj, objectType, &result)
 		} else {
-			v.validateRelatedParty(obj, objectType, &result)
+			v.validateRelatedPartyV5(obj, objectType, &result)
 		}
 	}
 
@@ -65,8 +65,8 @@ func (v *Validator) validateRequiredFields(obj TMFObject, objectType string, res
 
 }
 
-// validateRelatedParty checks if required related party roles are present
-func (v *Validator) validateRelatedParty(obj TMFObject, objectType string, result *ValidationResult) {
+// validateRelatedPartyV5 checks if required related party roles are present
+func (v *Validator) validateRelatedPartyV5(obj TMFObject, objectType string, result *ValidationResult) {
 	// We just return if the object does not require any Related Party
 	if slices.Contains(DoNotRequireRelatedParties, objectType) {
 		return
@@ -180,6 +180,9 @@ func (v *Validator) ValidateObjects(objects []TMFObject, objectType string) []Va
 }
 
 func (v *Validator) validateRelatedPartyV4(obj TMFObject, objectType string, result *ValidationResult) {
+	if obj.ID == "urn:ngsi-ld:applied-customer-billing-rate:a886304d-d699-4adf-b93e-dcdcd54474f1" {
+		fmt.Println("urn:ngsi-ld:applied-customer-billing-rate:a886304d-d699-4adf-b93e-dcdcd54474f1")
+	}
 
 	// We just return if the object does not require any Related Party
 	if slices.Contains(DoNotRequireRelatedParties, objectType) {
@@ -251,6 +254,7 @@ func (v *Validator) validateRelatedPartyV4(obj TMFObject, objectType string, res
 		requiredRoles = []string{"seller", "selleroperator"}
 	}
 
+	// Check if we found all the required roles
 	for _, requiredRole := range requiredRoles {
 		if !foundRoles[requiredRole] {
 			result.Errors = append(result.Errors, ValidationError{

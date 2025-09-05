@@ -1,10 +1,10 @@
 # TMForum Object Validation Report
 
-**Generated:** 2025-09-04 12:00:48 UTC
+**Generated:** 2025-09-05 11:10:39 UTC
 
 **Configuration:**
 - Base URL: `https://tmf.dome-marketplace-sbx.org`
-- Object Types: customerBillOnDemand, individual, productOffering, resourceCandidate, resourceOrder, cancelProductOrder, productOfferingPrice, resourceCatalog, resourceFunction, serviceSpecification, billingAccount, cancelResourceOrder, customerBill, product, productSpecification, scale, agreement, appliedCustomerBillingRate, customer, organization, partyAccount, partyRole, productOrder, serviceCandidate, catalog, category, resourceCategory, serviceCategory, settlementAccount, billPresentationMedia, migrate, quote, service, serviceCatalog, usage, financialAccount, resourceSpecification, billFormat, cancelServiceOrder, heal, monitor, resource, serviceOrder, usageSpecification, agreementSpecification, billingCycleSpecification
+- Object Types: productOfferingPrice, resourceCategory, usageSpecification, billingCycleSpecification, cancelProductOrder, cancelResourceOrder, resourceCatalog, resourceFunction, category, financialAccount, individual, quote, customer, customerBill, productOffering, catalog, customerBillOnDemand, monitor, resourceCandidate, settlementAccount, billFormat, billingAccount, organization, product, productSpecification, resourceSpecification, agreementSpecification, cancelServiceOrder, resource, serviceCandidate, serviceCategory, serviceSpecification, usage, agreement, partyRole, productOrder, resourceOrder, scale, service, serviceCatalog, serviceOrder, appliedCustomerBillingRate, billPresentationMedia, heal, migrate, partyAccount
 - Timeout: 30 seconds
 - Validate Required Fields: true
 - Validate Related Party: true
@@ -13,12 +13,12 @@
 
 | Metric | Value |
 |--------|-------|
-| Total Objects | 199 |
+| Total Objects | 213 |
 | Valid Objects | 0 |
-| Invalid Objects | 199 |
-| Total Errors | 450 |
+| Invalid Objects | 213 |
+| Total Errors | 513 |
 | Total Warnings | 0 |
-| Processing Time | 35.571µs |
+| Processing Time | 85.466µs |
 
 ## Statistics by Object Type
 
@@ -31,23 +31,24 @@
 | individual | 33 | 0 | 33 | 66 | 0 |
 | organization | 13 | 0 | 13 | 26 | 0 |
 | product | 1 | 0 | 1 | 6 | 0 |
-| productOffering | 13 | 0 | 13 | 13 | 0 |
-| productOfferingPrice | 1 | 0 | 1 | 2 | 0 |
+| productOffering | 14 | 0 | 14 | 14 | 0 |
+| productOfferingPrice | 2 | 0 | 2 | 4 | 0 |
 | productOrder | 8 | 0 | 8 | 56 | 0 |
-| productSpecification | 9 | 0 | 9 | 18 | 0 |
+| productSpecification | 10 | 0 | 10 | 20 | 0 |
+| quote | 9 | 0 | 9 | 54 | 0 |
 | resourceSpecification | 4 | 0 | 4 | 12 | 0 |
-| serviceSpecification | 7 | 0 | 7 | 21 | 0 |
+| serviceSpecification | 9 | 0 | 9 | 25 | 0 |
 | usageSpecification | 6 | 0 | 6 | 36 | 0 |
 
 ## Error Summary
 
 | Error Code | Count |
 |-------------|-------|
-| MISSING_PARTY_NAME | 10 |
-| MISSING_PARTY_REFERRED_TYPE | 9 |
-| MISSING_RELATED_PARTY | 20 |
-| MISSING_REQUIRED_FIELD | 263 |
-| MISSING_REQUIRED_ROLE | 148 |
+| MISSING_PARTY_NAME | 23 |
+| MISSING_PARTY_REFERRED_TYPE | 8 |
+| MISSING_RELATED_PARTY | 22 |
+| MISSING_REQUIRED_FIELD | 282 |
+| MISSING_REQUIRED_ROLE | 178 |
 
 ## Detailed Validation Results
 
@@ -57,7 +58,7 @@
 
 - **Type:** appliedCustomerBillingRate
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -67,7 +68,7 @@
 
 - **Type:** appliedCustomerBillingRate
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -80,7 +81,7 @@
 
 - **Type:** appliedCustomerBillingRate
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -93,7 +94,7 @@
 
 - **Type:** appliedCustomerBillingRate
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -106,7 +107,7 @@
 
 - **Type:** appliedCustomerBillingRate
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -116,7 +117,7 @@
 
 - **Type:** appliedCustomerBillingRate
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -128,7 +129,7 @@
 
 - **Type:** billingAccount
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -141,7 +142,7 @@
 
 - **Type:** billingAccount
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -154,7 +155,7 @@
 
 - **Type:** billingAccount
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -167,7 +168,7 @@
 
 - **Type:** billingAccount
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -180,7 +181,7 @@
 
 - **Type:** billingAccount
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -193,7 +194,7 @@
 
 - **Type:** billingAccount
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -208,7 +209,7 @@
 
 - **Type:** catalog
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -219,7 +220,7 @@
 
 - **Type:** catalog
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -230,7 +231,7 @@
 
 - **Type:** catalog
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -241,7 +242,7 @@
 
 - **Type:** catalog
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -252,7 +253,7 @@
 
 - **Type:** catalog
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -263,7 +264,7 @@
 
 - **Type:** catalog
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -274,7 +275,7 @@
 
 - **Type:** catalog
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -285,7 +286,7 @@
 
 - **Type:** catalog
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -296,7 +297,7 @@
 
 - **Type:** catalog
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -307,7 +308,7 @@
 
 - **Type:** catalog
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -317,7 +318,7 @@
 
 - **Type:** catalog
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -328,7 +329,7 @@
 
 - **Type:** catalog
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -339,7 +340,7 @@
 
 - **Type:** catalog
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -349,7 +350,7 @@
 
 - **Type:** catalog
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -361,7 +362,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -369,7 +370,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -377,7 +378,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -385,7 +386,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -393,7 +394,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -401,7 +402,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -409,7 +410,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -417,7 +418,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -425,7 +426,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -433,7 +434,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -441,7 +442,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -449,7 +450,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -457,7 +458,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -465,7 +466,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -473,7 +474,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -481,7 +482,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -489,7 +490,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -497,7 +498,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -505,7 +506,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -513,7 +514,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -521,7 +522,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -529,7 +530,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -537,7 +538,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -545,7 +546,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -553,7 +554,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -561,7 +562,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -569,7 +570,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -577,7 +578,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -585,7 +586,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -593,7 +594,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -601,7 +602,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -609,7 +610,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -617,7 +618,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -625,7 +626,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -633,7 +634,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -641,7 +642,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -649,7 +650,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -657,7 +658,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -665,7 +666,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -673,7 +674,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -681,7 +682,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -689,7 +690,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -697,7 +698,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -705,7 +706,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -713,7 +714,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -721,7 +722,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -729,7 +730,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -737,7 +738,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -745,7 +746,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -753,7 +754,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -761,7 +762,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -769,7 +770,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -777,7 +778,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -785,7 +786,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -793,7 +794,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -801,7 +802,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -809,7 +810,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -817,7 +818,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -825,7 +826,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -833,7 +834,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -841,7 +842,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -849,7 +850,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -857,7 +858,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -865,7 +866,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -873,7 +874,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -881,7 +882,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -889,7 +890,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -897,7 +898,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -905,7 +906,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -913,7 +914,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -921,7 +922,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -929,7 +930,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -937,7 +938,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -945,7 +946,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -953,7 +954,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -961,7 +962,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -969,7 +970,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -977,7 +978,7 @@
 
 - **Type:** category
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
 
@@ -987,7 +988,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -996,7 +997,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1005,7 +1006,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1014,7 +1015,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1023,7 +1024,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1032,7 +1033,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1041,7 +1042,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1050,7 +1051,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1059,7 +1060,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1068,7 +1069,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1077,7 +1078,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1086,7 +1087,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1095,7 +1096,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1104,7 +1105,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1113,7 +1114,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1122,7 +1123,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1131,7 +1132,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1140,7 +1141,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1149,7 +1150,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1158,7 +1159,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1167,7 +1168,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1176,7 +1177,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1185,7 +1186,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1194,7 +1195,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1203,7 +1204,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1212,7 +1213,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1221,7 +1222,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1230,7 +1231,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1239,7 +1240,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1248,7 +1249,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1257,7 +1258,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1266,7 +1267,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1275,7 +1276,7 @@
 
 - **Type:** individual
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1286,7 +1287,7 @@
 
 - **Type:** organization
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1295,7 +1296,7 @@
 
 - **Type:** organization
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1304,7 +1305,7 @@
 
 - **Type:** organization
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1313,7 +1314,7 @@
 
 - **Type:** organization
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1322,7 +1323,7 @@
 
 - **Type:** organization
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1331,7 +1332,7 @@
 
 - **Type:** organization
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1340,7 +1341,7 @@
 
 - **Type:** organization
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1349,7 +1350,7 @@
 
 - **Type:** organization
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1358,7 +1359,7 @@
 
 - **Type:** organization
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1367,7 +1368,7 @@
 
 - **Type:** organization
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1376,7 +1377,7 @@
 
 - **Type:** organization
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1385,7 +1386,7 @@
 
 - **Type:** organization
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1394,7 +1395,7 @@
 
 - **Type:** organization
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1405,7 +1406,7 @@
 
 - **Type:** product
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1420,7 +1421,7 @@
 
 - **Type:** productOffering
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
 
@@ -1428,7 +1429,7 @@
 
 - **Type:** productOffering
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
 
@@ -1436,7 +1437,7 @@
 
 - **Type:** productOffering
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
 
@@ -1444,7 +1445,7 @@
 
 - **Type:** productOffering
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
 
@@ -1452,7 +1453,7 @@
 
 - **Type:** productOffering
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
 
@@ -1460,7 +1461,7 @@
 
 - **Type:** productOffering
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
 
@@ -1468,7 +1469,7 @@
 
 - **Type:** productOffering
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
 
@@ -1476,7 +1477,7 @@
 
 - **Type:** productOffering
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
 
@@ -1484,7 +1485,7 @@
 
 - **Type:** productOffering
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
 
@@ -1492,7 +1493,7 @@
 
 - **Type:** productOffering
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
 
@@ -1500,7 +1501,7 @@
 
 - **Type:** productOffering
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
 
@@ -1508,7 +1509,7 @@
 
 - **Type:** productOffering
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
 
@@ -1516,7 +1517,15 @@
 
 - **Type:** productOffering
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
+- **Errors:**
+  - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
+
+#### Object: urn:ngsi-ld:product-offering:4308a1de-7361-4863-8458-dbcc5f7023ac
+
+- **Type:** productOffering
+- **Valid:** false
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
 
@@ -1526,7 +1535,16 @@
 
 - **Type:** productOfferingPrice
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:37 UTC
+- **Errors:**
+  - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
+  - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
+
+#### Object: urn:ngsi-ld:product-offering-price:0253d786-a05f-46b2-94c7-c5e5654b330f
+
+- **Type:** productOfferingPrice
+- **Valid:** false
+- **Timestamp:** 2025-09-05 11:10:37 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
   - relatedParty: Related party information is required but missing (Code: MISSING_RELATED_PARTY)
@@ -1537,7 +1555,7 @@
 
 - **Type:** productOrder
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1551,7 +1569,7 @@
 
 - **Type:** productOrder
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1565,7 +1583,7 @@
 
 - **Type:** productOrder
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1579,7 +1597,7 @@
 
 - **Type:** productOrder
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1593,7 +1611,7 @@
 
 - **Type:** productOrder
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1607,7 +1625,7 @@
 
 - **Type:** productOrder
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1621,7 +1639,7 @@
 
 - **Type:** productOrder
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1635,7 +1653,7 @@
 
 - **Type:** productOrder
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1651,7 +1669,7 @@
 
 - **Type:** productSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
   - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1660,7 +1678,7 @@
 
 - **Type:** productSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
   - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1669,7 +1687,7 @@
 
 - **Type:** productSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
   - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1678,7 +1696,7 @@
 
 - **Type:** productSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
   - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1687,7 +1705,7 @@
 
 - **Type:** productSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
   - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1696,7 +1714,7 @@
 
 - **Type:** productSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
   - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1705,7 +1723,7 @@
 
 - **Type:** productSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
   - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1714,7 +1732,7 @@
 
 - **Type:** productSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
   - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1723,10 +1741,138 @@
 
 - **Type:** productSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
+  - relatedParty selleroperator.name: Related party name is missing (Code: MISSING_PARTY_NAME)
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
+
+#### Object: urn:ngsi-ld:product-specification:2532e67f-0a84-4aed-b31f-7654984daac9
+
+- **Type:** productSpecification
+- **Valid:** false
+- **Timestamp:** 2025-09-05 11:10:38 UTC
+- **Errors:**
+  - relatedParty selleroperator.name: Related party name is missing (Code: MISSING_PARTY_NAME)
+  - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
+
+### quote Objects
+
+#### Object: urn:ngsi-ld:quote:91333dfb-bf4c-442c-8072-26ea2940b7ec
+
+- **Type:** quote
+- **Valid:** false
+- **Timestamp:** 2025-09-05 11:10:38 UTC
+- **Errors:**
+  - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
+  - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
+  - relatedParty seller.name: Related party name is missing (Code: MISSING_PARTY_NAME)
   - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyer' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyeroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+
+#### Object: urn:ngsi-ld:quote:745edf57-9c8a-488d-8059-a2616bd743b7
+
+- **Type:** quote
+- **Valid:** false
+- **Timestamp:** 2025-09-05 11:10:38 UTC
+- **Errors:**
+  - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
+  - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
+  - relatedParty seller.name: Related party name is missing (Code: MISSING_PARTY_NAME)
+  - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyer' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyeroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+
+#### Object: urn:ngsi-ld:quote:294c4f48-e350-453d-952c-9132ec06bd0a
+
+- **Type:** quote
+- **Valid:** false
+- **Timestamp:** 2025-09-05 11:10:38 UTC
+- **Errors:**
+  - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
+  - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
+  - relatedParty seller.name: Related party name is missing (Code: MISSING_PARTY_NAME)
+  - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyer' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyeroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+
+#### Object: urn:ngsi-ld:quote:410e6d9c-da52-4894-bef5-5acb546a4bc2
+
+- **Type:** quote
+- **Valid:** false
+- **Timestamp:** 2025-09-05 11:10:38 UTC
+- **Errors:**
+  - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
+  - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
+  - relatedParty seller.name: Related party name is missing (Code: MISSING_PARTY_NAME)
+  - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyer' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyeroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+
+#### Object: urn:ngsi-ld:quote:014f8da2-2a39-4c99-a5d2-e22ce06de8bf
+
+- **Type:** quote
+- **Valid:** false
+- **Timestamp:** 2025-09-05 11:10:38 UTC
+- **Errors:**
+  - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
+  - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
+  - relatedParty seller.name: Related party name is missing (Code: MISSING_PARTY_NAME)
+  - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyer' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyeroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+
+#### Object: urn:ngsi-ld:quote:b1d1e81c-d152-4a4a-8e97-8f92dd502d9b
+
+- **Type:** quote
+- **Valid:** false
+- **Timestamp:** 2025-09-05 11:10:38 UTC
+- **Errors:**
+  - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
+  - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
+  - relatedParty seller.name: Related party name is missing (Code: MISSING_PARTY_NAME)
+  - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyer' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyeroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+
+#### Object: urn:ngsi-ld:quote:ebc5fd0b-ec81-40ca-acf8-5b39fe79c01c
+
+- **Type:** quote
+- **Valid:** false
+- **Timestamp:** 2025-09-05 11:10:38 UTC
+- **Errors:**
+  - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
+  - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
+  - relatedParty seller.name: Related party name is missing (Code: MISSING_PARTY_NAME)
+  - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyer' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyeroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+
+#### Object: urn:ngsi-ld:quote:ae0219c0-a236-4b6d-9cda-892c7ddda824
+
+- **Type:** quote
+- **Valid:** false
+- **Timestamp:** 2025-09-05 11:10:38 UTC
+- **Errors:**
+  - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
+  - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
+  - relatedParty seller.name: Related party name is missing (Code: MISSING_PARTY_NAME)
+  - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyer' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyeroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+
+#### Object: urn:ngsi-ld:quote:b8401b74-d7c7-4797-83d5-05e66d9a4419
+
+- **Type:** quote
+- **Valid:** false
+- **Timestamp:** 2025-09-05 11:10:38 UTC
+- **Errors:**
+  - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
+  - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
+  - relatedParty seller.name: Related party name is missing (Code: MISSING_PARTY_NAME)
+  - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyer' is missing (Code: MISSING_REQUIRED_ROLE)
+  - relatedParty: Required related party role 'buyeroperator' is missing (Code: MISSING_REQUIRED_ROLE)
 
 ### resourceSpecification Objects
 
@@ -1734,7 +1880,7 @@
 
 - **Type:** resourceSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1744,7 +1890,7 @@
 
 - **Type:** resourceSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1754,7 +1900,7 @@
 
 - **Type:** resourceSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1764,7 +1910,7 @@
 
 - **Type:** resourceSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1776,7 +1922,7 @@
 
 - **Type:** serviceSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1786,7 +1932,7 @@
 
 - **Type:** serviceSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1796,7 +1942,7 @@
 
 - **Type:** serviceSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1806,7 +1952,7 @@
 
 - **Type:** serviceSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1816,7 +1962,7 @@
 
 - **Type:** serviceSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1826,7 +1972,7 @@
 
 - **Type:** serviceSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
   - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
@@ -1836,11 +1982,29 @@
 
 - **Type:** serviceSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:47 UTC
+- **Timestamp:** 2025-09-05 11:10:39 UTC
 - **Errors:**
-  - relatedParty seller.name: Related party name is missing (Code: MISSING_PARTY_NAME)
-  - relatedParty seller.referredType: Related party referred type is missing (Code: MISSING_PARTY_REFERRED_TYPE)
+  - relatedParty buyeroperator.name: Related party name is missing (Code: MISSING_PARTY_NAME)
+  - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
   - relatedParty: Required related party role 'selleroperator' is missing (Code: MISSING_REQUIRED_ROLE)
+
+#### Object: urn:ngsi-ld:service-specification:f70f5f90-14d2-4442-a459-dae184f233e4
+
+- **Type:** serviceSpecification
+- **Valid:** false
+- **Timestamp:** 2025-09-05 11:10:39 UTC
+- **Errors:**
+  - relatedParty selleroperator.name: Related party name is missing (Code: MISSING_PARTY_NAME)
+  - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
+
+#### Object: urn:ngsi-ld:service-specification:d612a81a-b154-4ca4-8ed0-28c13233e268
+
+- **Type:** serviceSpecification
+- **Valid:** false
+- **Timestamp:** 2025-09-05 11:10:39 UTC
+- **Errors:**
+  - relatedParty selleroperator.name: Related party name is missing (Code: MISSING_PARTY_NAME)
+  - relatedParty: Required related party role 'seller' is missing (Code: MISSING_REQUIRED_ROLE)
 
 ### usageSpecification Objects
 
@@ -1848,7 +2012,7 @@
 
 - **Type:** usageSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1861,7 +2025,7 @@
 
 - **Type:** usageSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1874,7 +2038,7 @@
 
 - **Type:** usageSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1887,7 +2051,7 @@
 
 - **Type:** usageSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1900,7 +2064,7 @@
 
 - **Type:** usageSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1913,7 +2077,7 @@
 
 - **Type:** usageSpecification
 - **Valid:** false
-- **Timestamp:** 2025-09-04 12:00:48 UTC
+- **Timestamp:** 2025-09-05 11:10:38 UTC
 - **Errors:**
   - lastUpdate: Required field 'lastUpdate' is missing (Code: MISSING_REQUIRED_FIELD)
   - version: Required field 'version' is missing (Code: MISSING_REQUIRED_FIELD)
@@ -1925,4 +2089,4 @@
 ---
 
 *Report generated by TMForum Proxy Validator*
-*Generated at: 2025-09-04 12:00:48 UTC*
+*Generated at: 2025-09-05 11:10:39 UTC*
