@@ -5,35 +5,35 @@
 # Default target
 help:
 	@echo "Available targets:"
-	@echo "  build        - Build the proxy package"
-	@echo "  test         - Run tests for the proxy package"
-	@echo "  build-proxy  - Build the command-line proxy tool"
-	@echo "  run-proxy    - Run the proxy tool with example configuration"
+	@echo "  build        - Build the reporting package"
+	@echo "  test         - Run tests for the reporting package"
+	@echo "  build-proxy  - Build the command-line reporting tool"
+	@echo "  run-proxy    - Run the reporting tool with example configuration"
 	@echo "  clean        - Clean build artifacts"
-	@echo "  install      - Install the proxy tool"
+	@echo "  install      - Install the reporting tool"
 
-# Build the proxy package
+# Build the reporting package
 build:
-	go build ./proxy/...
+	go build ./reporting/...
 
-# Run tests for the proxy package
+# Run tests for the reporting package
 test:
-	go test -v ./proxy/...
+	go test -v ./reporting/...
 
 # Run tests with coverage
 test-coverage:
-	go test -coverprofile=coverage.out ./proxy/...
+	go test -coverprofile=coverage.out ./reporting/...
 	go tool cover -html=coverage.out
 
-# Build the command-line proxy tool
+# Build the command-line reporting tool
 build-proxy:
 	@echo "Building tmfproxy binary..."
-	go build -o bin/tmfproxy cmd/tmfproxy/main.go
+	go build -o bin/tmfproxy cmd/reporting/main.go
 	@echo "Binary created at bin/tmfproxy"
 
-# Run the proxy tool with example configuration
+# Run the reporting tool with example configuration
 run-proxy: build-proxy
-	@echo "Running proxy tool..."
+	@echo "Running reporting tool..."
 	./bin/tmfproxy -help
 
 # Clean build artifacts
@@ -42,9 +42,9 @@ clean:
 	rm -f coverage.out
 	go clean
 
-# Install the proxy tool
+# Install the reporting tool
 install:
-	go install ./cmd/tmfproxy
+	go install ./cmd/reporting
 
 # Create output directory
 setup:
@@ -53,34 +53,34 @@ setup:
 
 # Run with example configuration
 example: setup build-proxy
-	@echo "Running proxy with example configuration..."
+	@echo "Running reporting tool with example configuration..."
 	./bin/tmfproxy -base-url "https://tmf.example.com" -progress
 
 # Format code
 fmt:
-	go fmt ./proxy/...
+	go fmt ./reporting/...
 	go fmt ./cmd/...
 
 # Lint code
 lint:
-	golangci-lint run ./proxy/...
+	golangci-lint run ./reporting/...
 	golangci-lint run ./cmd/...
 
 # Check for security vulnerabilities
 security:
-	gosec ./proxy/...
+	gosec ./reporting/...
 	gosec ./cmd/...
 
 # Generate documentation
 docs:
-	@echo "Documentation is available in proxy/README.md"
-	@echo "Example configurations are in proxy/config.example.*"
+	@echo "Documentation is available in reporting/README.md"
+	@echo "Example configurations are in reporting/config.example.*"
 
 # Show package information
 info:
-	@echo "TMForum Proxy Package"
-	@echo "===================="
-	@echo "Package: github.com/hesusruiz/isbetmf/proxy"
-	@echo "Command: cmd/tmfproxy"
-	@echo "Configuration: proxy/config.example.*"
-	@echo "Documentation: proxy/README.md"
+	@echo "TMForum Reporting Package"
+	@echo "========================"
+	@echo "Package: github.com/hesusruiz/isbetmf/reporting"
+	@echo "Command: cmd/reporting"
+	@echo "Configuration: reporting/config.example.*"
+	@echo "Documentation: reporting/README.md"
