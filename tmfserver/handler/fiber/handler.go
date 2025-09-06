@@ -26,7 +26,7 @@ func (h *Handler) Health(c *fiber.Ctx) error {
 		StatusCode: 200,
 		Body:       "I am good, thanks",
 	}
-	return sendResponse(c, resp)
+	return SendResponse(c, resp)
 }
 
 // CreateHubSubscription creates a new notification subscription (hub)
@@ -42,7 +42,7 @@ func (h *Handler) CreateHubSubscription(c *fiber.Ctx) error {
 	}
 
 	resp := h.service.CreateHubSubscription(req)
-	return sendResponse(c, resp)
+	return SendResponse(c, resp)
 }
 
 // DeleteHubSubscription deletes an existing notification subscription (hub)
@@ -59,7 +59,7 @@ func (h *Handler) DeleteHubSubscription(c *fiber.Ctx) error {
 	}
 
 	resp := h.service.DeleteHubSubscription(req)
-	return sendResponse(c, resp)
+	return SendResponse(c, resp)
 }
 
 // MockListener is a minimal endpoint to receive notifications locally for testing
@@ -99,7 +99,7 @@ func (h *Handler) CreateGenericObject(c *fiber.Ctx) error {
 	}
 
 	resp := h.service.CreateGenericObject(req)
-	return sendResponse(c, resp)
+	return SendResponse(c, resp)
 }
 
 // GetGenericObject retrieves a TMF object using generalized parameters.
@@ -118,7 +118,7 @@ func (h *Handler) GetGenericObject(c *fiber.Ctx) error {
 	}
 
 	resp := h.service.GetGenericObject(req)
-	return sendResponse(c, resp)
+	return SendResponse(c, resp)
 }
 
 // UpdateGenericObject updates an existing TMF object using generalized parameters.
@@ -136,7 +136,7 @@ func (h *Handler) UpdateGenericObject(c *fiber.Ctx) error {
 	}
 
 	resp := h.service.UpdateGenericObject(req)
-	return sendResponse(c, resp)
+	return SendResponse(c, resp)
 }
 
 // DeleteGenericObject deletes a TMF object using generalized parameters.
@@ -159,7 +159,7 @@ func (h *Handler) DeleteGenericObject(c *fiber.Ctx) error {
 	}
 
 	resp := h.service.DeleteGenericObject(req)
-	return sendResponse(c, resp)
+	return SendResponse(c, resp)
 }
 
 // ListGenericObjects retrieves all TMF objects of a given type using generalized parameters.
@@ -176,10 +176,10 @@ func (h *Handler) ListGenericObjects(c *fiber.Ctx) error {
 	}
 
 	resp := h.service.ListGenericObjects(req)
-	return sendResponse(c, resp)
+	return SendResponse(c, resp)
 }
 
-func sendResponse(c *fiber.Ctx, resp *svc.Response) error {
+func SendResponse(c *fiber.Ctx, resp *svc.Response) error {
 	for key, value := range resp.Headers {
 		c.Set(key, value)
 	}

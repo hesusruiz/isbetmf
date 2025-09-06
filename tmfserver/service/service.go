@@ -745,7 +745,10 @@ func (svc *Service) ListGenericObjects(req *Request) *Response {
 	headers := make(map[string]string)
 	headers["X-Total-Count"] = strconv.Itoa(totalCount)
 
-	var responseData []map[string]any
+	// var responseData []map[string]any
+
+	responseData := make([]map[string]any, 0)
+
 	for _, obj := range objs {
 		var item map[string]any
 		err := json.Unmarshal(obj.Content, &item)

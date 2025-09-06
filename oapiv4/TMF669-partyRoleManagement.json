@@ -1,12 +1,12 @@
 {
     "swagger": "2.0",
     "info": {
-        "title": "Event Streaming API",
-        "description": "My api short documentation",
-        "version": "4.0.0"
+        "title": "Party Role Management",
+        "description": "This is Swagger UI environment generated for the TMF Party Role Management specification",
+        "version": "4.0"
     },
     "host": "serverRoot",
-    "basePath": "/tmf-api/event/v4/",
+    "basePath": "/tmf-api/partyRoleManagement/v4/",
     "schemes": [
         "https"
     ],
@@ -18,13 +18,7 @@
     ],
     "tags": [
         {
-            "name": "event"
-        },
-        {
-            "name": "topic"
-        },
-        {
-            "name": "hub"
+            "name": "partyRole"
         },
         {
             "name": "notification listeners (client side)"
@@ -34,22 +28,15 @@
         }
     ],
     "paths": {
-        "/topic/{topicId}/event": {
+        "/partyRole": {
             "get": {
-                "operationId": "listEvent",
-                "summary": "List or find Event objects",
-                "description": "This operation list or find Event entities",
+                "operationId": "listPartyRole",
+                "summary": "List or find PartyRole objects",
+                "description": "This operation list or find PartyRole entities",
                 "tags": [
-                    "event"
+                    "partyRole"
                 ],
                 "parameters": [
-                    {
-                        "name": "topicId",
-                        "description": "Identifier of the parent Topic entity",
-                        "required": true,
-                        "type": "string",
-                        "in": "path"
-                    },
                     {
                         "name": "fields",
                         "description": "Comma-separated properties to be provided in response",
@@ -88,7 +75,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/Event"
+                                "$ref": "#/definitions/PartyRole"
                             }
                         }
                     },
@@ -137,26 +124,19 @@
                 }
             },
             "post": {
-                "operationId": "createEvent",
-                "summary": "Creates a Event",
-                "description": "This operation creates a Event entity.",
+                "operationId": "createPartyRole",
+                "summary": "Creates a PartyRole",
+                "description": "This operation creates a PartyRole entity.",
                 "tags": [
-                    "event"
+                    "partyRole"
                 ],
                 "parameters": [
                     {
-                        "name": "topicId",
-                        "description": "Identifier of the parent Topic entity",
-                        "required": true,
-                        "type": "string",
-                        "in": "path"
-                    },
-                    {
-                        "name": "event",
-                        "description": "The Event to be created",
+                        "name": "partyRole",
+                        "description": "The PartyRole to be created",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/Event_Create"
+                            "$ref": "#/definitions/PartyRole_Create"
                         },
                         "in": "body"
                     }
@@ -165,7 +145,7 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/Event"
+                            "$ref": "#/definitions/PartyRole"
                         }
                     },
                     "400": {
@@ -207,25 +187,18 @@
                 }
             }
         },
-        "/topic/{topicId}/event/{id}": {
+        "/partyRole/{id}": {
             "get": {
-                "operationId": "retrieveEvent",
-                "summary": "Retrieves a Event by ID",
-                "description": "This operation retrieves a Event entity. Attribute selection is enabled for all first level attributes.",
+                "operationId": "retrievePartyRole",
+                "summary": "Retrieves a PartyRole by ID",
+                "description": "This operation retrieves a PartyRole entity. Attribute selection is enabled for all first level attributes.",
                 "tags": [
-                    "event"
+                    "partyRole"
                 ],
                 "parameters": [
                     {
-                        "name": "topicId",
-                        "description": "Identifier of the parent Topic entity",
-                        "required": true,
-                        "type": "string",
-                        "in": "path"
-                    },
-                    {
                         "name": "id",
-                        "description": "Identifier of the Event",
+                        "description": "Identifier of the PartyRole",
                         "required": true,
                         "type": "string",
                         "in": "path"
@@ -242,103 +215,7 @@
                     "200": {
                         "description": "Success",
                         "schema": {
-                            "$ref": "#/definitions/Event"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "405": {
-                        "description": "Method Not allowed",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    }
-                }
-            }
-        },
-        "/topic": {
-            "get": {
-                "operationId": "listTopic",
-                "summary": "List or find Topic objects",
-                "description": "This operation list or find Topic entities",
-                "tags": [
-                    "topic"
-                ],
-                "parameters": [
-                    {
-                        "name": "fields",
-                        "description": "Comma-separated properties to be provided in response",
-                        "required": false,
-                        "in": "query",
-                        "type": "string"
-                    },
-                    {
-                        "name": "offset",
-                        "description": "Requested index for start of resources to be provided in response",
-                        "required": false,
-                        "in": "query",
-                        "type": "integer"
-                    },
-                    {
-                        "name": "limit",
-                        "description": "Requested number of resources to be provided in response",
-                        "required": false,
-                        "in": "query",
-                        "type": "integer"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "headers": {
-                            "X-Result-Count": {
-                                "description": "Actual number of items returned in the response body",
-                                "type": "integer"
-                            },
-                            "X-Total-Count": {
-                                "description": "Total number of items matching criteria",
-                                "type": "integer"
-                            }
-                        },
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Topic"
-                            }
+                            "$ref": "#/definitions/PartyRole"
                         }
                     },
                     "400": {
@@ -385,99 +262,36 @@
                     }
                 }
             },
-            "post": {
-                "operationId": "createTopic",
-                "summary": "Creates a Topic",
-                "description": "This operation creates a Topic entity.",
+            "patch": {
+                "operationId": "patchPartyRole",
+                "summary": "Updates partially a PartyRole",
+                "description": "This operation updates partially a PartyRole entity.",
                 "tags": [
-                    "topic"
-                ],
-                "parameters": [
-                    {
-                        "name": "topic",
-                        "description": "The Topic to be created",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/Topic_Create"
-                        },
-                        "in": "body"
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/Topic"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "405": {
-                        "description": "Method Not allowed",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    }
-                }
-            }
-        },
-        "/topic/{id}": {
-            "get": {
-                "operationId": "retrieveTopic",
-                "summary": "Retrieves a Topic by ID",
-                "description": "This operation retrieves a Topic entity. Attribute selection is enabled for all first level attributes.",
-                "tags": [
-                    "topic"
+                    "partyRole"
                 ],
                 "parameters": [
                     {
                         "name": "id",
-                        "description": "Identifier of the Topic",
+                        "description": "Identifier of the PartyRole",
                         "required": true,
                         "type": "string",
                         "in": "path"
                     },
                     {
-                        "name": "fields",
-                        "description": "Comma-separated properties to provide in response",
-                        "required": false,
-                        "type": "string",
-                        "in": "query"
+                        "name": "partyRole",
+                        "description": "The PartyRole to be updated",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/PartyRole_Update"
+                        },
+                        "in": "body"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success",
+                        "description": "Updated",
                         "schema": {
-                            "$ref": "#/definitions/Topic"
+                            "$ref": "#/definitions/PartyRole"
                         }
                     },
                     "400": {
@@ -525,343 +339,16 @@
                 }
             },
             "delete": {
-                "operationId": "deleteTopic",
-                "summary": "Deletes a Topic",
-                "description": "This operation deletes a Topic entity.",
+                "operationId": "deletePartyRole",
+                "summary": "Deletes a PartyRole",
+                "description": "This operation deletes a PartyRole entity.",
                 "tags": [
-                    "topic"
+                    "partyRole"
                 ],
                 "parameters": [
                     {
                         "name": "id",
-                        "description": "Identifier of the Topic",
-                        "required": true,
-                        "type": "string",
-                        "in": "path"
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "Deleted"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "405": {
-                        "description": "Method Not allowed",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    }
-                }
-            }
-        },
-        "/topic/{topicId}/hub": {
-            "get": {
-                "operationId": "listHub",
-                "summary": "List or find Hub objects",
-                "description": "This operation list or find Hub entities",
-                "tags": [
-                    "hub"
-                ],
-                "parameters": [
-                    {
-                        "name": "topicId",
-                        "description": "Identifier of the parent Topic entity",
-                        "required": true,
-                        "type": "string",
-                        "in": "path"
-                    },
-                    {
-                        "name": "fields",
-                        "description": "Comma-separated properties to be provided in response",
-                        "required": false,
-                        "in": "query",
-                        "type": "string"
-                    },
-                    {
-                        "name": "offset",
-                        "description": "Requested index for start of resources to be provided in response",
-                        "required": false,
-                        "in": "query",
-                        "type": "integer"
-                    },
-                    {
-                        "name": "limit",
-                        "description": "Requested number of resources to be provided in response",
-                        "required": false,
-                        "in": "query",
-                        "type": "integer"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "headers": {
-                            "X-Result-Count": {
-                                "description": "Actual number of items returned in the response body",
-                                "type": "integer"
-                            },
-                            "X-Total-Count": {
-                                "description": "Total number of items matching criteria",
-                                "type": "integer"
-                            }
-                        },
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Hub"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "405": {
-                        "description": "Method Not allowed",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "operationId": "createHub",
-                "summary": "Creates a Hub",
-                "description": "This operation creates a Hub entity.",
-                "tags": [
-                    "hub"
-                ],
-                "parameters": [
-                    {
-                        "name": "topicId",
-                        "description": "Identifier of the parent Topic entity",
-                        "required": true,
-                        "type": "string",
-                        "in": "path"
-                    },
-                    {
-                        "name": "hub",
-                        "description": "The Hub to be created",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/Hub_Create"
-                        },
-                        "in": "body"
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/Hub"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "405": {
-                        "description": "Method Not allowed",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    }
-                }
-            }
-        },
-        "/topic/{topicId}/hub/{id}": {
-            "get": {
-                "operationId": "retrieveHub",
-                "summary": "Retrieves a Hub by ID",
-                "description": "This operation retrieves a Hub entity. Attribute selection is enabled for all first level attributes.",
-                "tags": [
-                    "hub"
-                ],
-                "parameters": [
-                    {
-                        "name": "topicId",
-                        "description": "Identifier of the parent Topic entity",
-                        "required": true,
-                        "type": "string",
-                        "in": "path"
-                    },
-                    {
-                        "name": "id",
-                        "description": "Identifier of the Hub",
-                        "required": true,
-                        "type": "string",
-                        "in": "path"
-                    },
-                    {
-                        "name": "fields",
-                        "description": "Comma-separated properties to provide in response",
-                        "required": false,
-                        "type": "string",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success",
-                        "schema": {
-                            "$ref": "#/definitions/Hub"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "405": {
-                        "description": "Method Not allowed",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "operationId": "deleteHub",
-                "summary": "Deletes a Hub",
-                "description": "This operation deletes a Hub entity.",
-                "tags": [
-                    "hub"
-                ],
-                "parameters": [
-                    {
-                        "name": "topicId",
-                        "description": "Identifier of the parent Topic entity",
-                        "required": true,
-                        "type": "string",
-                        "in": "path"
-                    },
-                    {
-                        "name": "id",
-                        "description": "Identifier of the Hub",
+                        "description": "Identifier of the PartyRole",
                         "required": true,
                         "type": "string",
                         "in": "path"
@@ -1047,11 +534,11 @@
                 }
             }
         },
-        "/listener/topicCreateEvent": {
+        "/listener/partyRoleCreateEvent": {
             "post": {
-                "operationId": "listenToTopicCreateEvent",
-                "summary": "Client listener for entity TopicCreateEvent",
-                "description": "Example of a client listener for receiving the notification TopicCreateEvent",
+                "operationId": "listenToPartyRoleCreateEvent",
+                "summary": "Client listener for entity PartyRoleCreateEvent",
+                "description": "Example of a client listener for receiving the notification PartyRoleCreateEvent",
                 "tags": [
                     "notification listeners (client side)"
                 ],
@@ -1062,7 +549,7 @@
                         "in": "body",
                         "description": "The event data",
                         "schema": {
-                            "$ref": "#/definitions/TopicCreateEvent"
+                            "$ref": "#/definitions/PartyRoleCreateEvent"
                         }
                     }
                 ],
@@ -1118,11 +605,11 @@
                 }
             }
         },
-        "/listener/topicChangeEvent": {
+        "/listener/partyRoleAttributeValueChangeEvent": {
             "post": {
-                "operationId": "listenToTopicChangeEvent",
-                "summary": "Client listener for entity TopicChangeEvent",
-                "description": "Example of a client listener for receiving the notification TopicChangeEvent",
+                "operationId": "listenToPartyRoleAttributeValueChangeEvent",
+                "summary": "Client listener for entity PartyRoleAttributeValueChangeEvent",
+                "description": "Example of a client listener for receiving the notification PartyRoleAttributeValueChangeEvent",
                 "tags": [
                     "notification listeners (client side)"
                 ],
@@ -1133,7 +620,7 @@
                         "in": "body",
                         "description": "The event data",
                         "schema": {
-                            "$ref": "#/definitions/TopicChangeEvent"
+                            "$ref": "#/definitions/PartyRoleAttributeValueChangeEvent"
                         }
                     }
                 ],
@@ -1189,11 +676,11 @@
                 }
             }
         },
-        "/listener/topicDeleteEvent": {
+        "/listener/partyRoleStateChangeEvent": {
             "post": {
-                "operationId": "listenToTopicDeleteEvent",
-                "summary": "Client listener for entity TopicDeleteEvent",
-                "description": "Example of a client listener for receiving the notification TopicDeleteEvent",
+                "operationId": "listenToPartyRoleStateChangeEvent",
+                "summary": "Client listener for entity PartyRoleStateChangeEvent",
+                "description": "Example of a client listener for receiving the notification PartyRoleStateChangeEvent",
                 "tags": [
                     "notification listeners (client side)"
                 ],
@@ -1204,7 +691,78 @@
                         "in": "body",
                         "description": "The event data",
                         "schema": {
-                            "$ref": "#/definitions/TopicDeleteEvent"
+                            "$ref": "#/definitions/PartyRoleStateChangeEvent"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Notified",
+                        "schema": {
+                            "$ref": "#/definitions/EventSubscription"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "405": {
+                        "description": "Method Not allowed",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/listener/partyRoleDeleteEvent": {
+            "post": {
+                "operationId": "listenToPartyRoleDeleteEvent",
+                "summary": "Client listener for entity PartyRoleDeleteEvent",
+                "description": "Example of a client listener for receiving the notification PartyRoleDeleteEvent",
+                "tags": [
+                    "notification listeners (client side)"
+                ],
+                "parameters": [
+                    {
+                        "name": "data",
+                        "required": true,
+                        "in": "body",
+                        "description": "The event data",
+                        "schema": {
+                            "$ref": "#/definitions/PartyRoleDeleteEvent"
                         }
                     }
                 ],
@@ -1262,6 +820,86 @@
         }
     },
     "definitions": {
+        "AccountRef": {
+            "type": "object",
+            "description": "Account reference. A account may be a party account or a financial account.",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "description": "Unique identifier of the account"
+                },
+                "href": {
+                    "type": "string",
+                    "description": "Reference of the account"
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Detailed description of the account"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Name of the account"
+                },
+                "@baseType": {
+                    "type": "string",
+                    "description": "When sub-classing, this defines the super-class"
+                },
+                "@schemaLocation": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "A URI to a JSON-Schema file that defines additional attributes and relationships"
+                },
+                "@type": {
+                    "type": "string",
+                    "description": "When sub-classing, this defines the sub-class entity name"
+                },
+                "@referredType": {
+                    "type": "string",
+                    "description": "The actual type of the target instance when needed for disambiguation."
+                }
+            }
+        },
+        "AgreementRef": {
+            "type": "object",
+            "description": "Agreement reference. An agreement represents a contract or arrangement, either written or verbal and sometimes enforceable by law, such as a service level agreement or a customer price agreement. An agreement involves a number of other business entities, such as products, services, and resources and/or their specifications.",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "description": "Unique identifier of a related entity."
+                },
+                "href": {
+                    "type": "string",
+                    "description": "Reference of the related entity."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Name of the agreement"
+                },
+                "@baseType": {
+                    "type": "string",
+                    "description": "When sub-classing, this defines the super-class"
+                },
+                "@schemaLocation": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "A URI to a JSON-Schema file that defines additional attributes and relationships"
+                },
+                "@type": {
+                    "type": "string",
+                    "description": "When sub-classing, this defines the sub-class entity name"
+                },
+                "@referredType": {
+                    "type": "string",
+                    "description": "The actual type of the target instance when needed for disambiguation."
+                }
+            },
+            "required": [
+                "id"
+            ]
+        },
         "Any": {},
         "Characteristic": {
             "type": "object",
@@ -1271,10 +909,6 @@
                 "value"
             ],
             "properties": {
-                "id": {
-                    "type": "string",
-                    "description": "Unique identifier of the characteristic"
-                },
                 "name": {
                     "type": "string",
                     "description": "Name of the characteristic"
@@ -1282,12 +916,6 @@
                 "valueType": {
                     "type": "string",
                     "description": "Data type of the value of the characteristic"
-                },
-                "characteristicRelationship": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/CharacteristicRelationship"
-                    }
                 },
                 "value": {
                     "$ref": "#/definitions/Any",
@@ -1308,17 +936,69 @@
                 }
             }
         },
-        "CharacteristicRelationship": {
+        "ContactMedium": {
             "type": "object",
-            "description": "Another Characteristic that is related to the current Characteristic;",
+            "description": "Indicates the contact medium that could be used to contact the party.",
+            "required": [
+                "mediumType",
+                "characteristic"
+            ],
             "properties": {
-                "id": {
+                "mediumType": {
                     "type": "string",
-                    "description": "Unique identifier of the characteristic"
+                    "description": "Type of the contact medium, such as: email address, telephone number, postal address"
                 },
-                "relationshipType": {
+                "preferred": {
+                    "type": "boolean",
+                    "description": "If true, indicates that is the preferred contact medium"
+                },
+                "characteristic": {
+                    "$ref": "#/definitions/MediumCharacteristic",
+                    "description": "Any additional characteristic(s) of this contact medium"
+                },
+                "validFor": {
+                    "$ref": "#/definitions/TimePeriod",
+                    "description": "The time period that the contact medium is valid for"
+                },
+                "@baseType": {
                     "type": "string",
-                    "description": "The type of relationship"
+                    "description": "When sub-classing, this defines the super-class"
+                },
+                "@schemaLocation": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "A URI to a JSON-Schema file that defines additional attributes and relationships"
+                },
+                "@type": {
+                    "type": "string",
+                    "description": "When sub-classing, this defines the sub-class entity name"
+                }
+            }
+        },
+        "CreditProfile": {
+            "type": "object",
+            "description": "Credit profile for the party (containing credit scoring, ...). By default only the current credit profile  is retrieved. It can be used as a list to give the party credit profiles history, the first one in the list will be the current one.",
+            "required": [
+                "creditProfileDate",
+                "validFor"
+            ],
+            "properties": {
+                "creditProfileDate": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "The date the profile was established"
+                },
+                "creditRiskRating": {
+                    "type": "integer",
+                    "description": "This is an integer whose value is used to rate the risk"
+                },
+                "creditScore": {
+                    "type": "integer",
+                    "description": "A measure of a person or organizations creditworthiness calculated on the basis of a combination of factors such as their income and credit history"
+                },
+                "validFor": {
+                    "$ref": "#/definitions/TimePeriod",
+                    "description": "The period for which the profile is valid"
                 },
                 "@baseType": {
                     "type": "string",
@@ -1373,71 +1053,53 @@
                 "id"
             ]
         },
-        "Event": {
+        "MediumCharacteristic": {
             "type": "object",
-            "description": "event with common attributes.",
+            "description": "Describes the contact medium characteristics that could be used to contact a party (an individual or an organization)",
             "properties": {
-                "correlationId": {
+                "city": {
                     "type": "string",
-                    "description": "The correlation id for this event."
+                    "description": "The city"
                 },
-                "description": {
+                "contactType": {
                     "type": "string",
-                    "description": "An explnatory of the event."
+                    "description": "The type of contact, for example: phone number such as mobile, fixed home, fixed office. postal address such as shipping instalation\u2026"
                 },
-                "domain": {
+                "country": {
                     "type": "string",
-                    "description": "The domain of the event."
+                    "description": "The country"
                 },
-                "eventId": {
+                "emailAddress": {
                     "type": "string",
-                    "description": "The identifier of the notification."
+                    "description": "Full email address in standard format"
                 },
-                "eventTime": {
+                "faxNumber": {
                     "type": "string",
-                    "format": "date-time",
-                    "description": "Time of the event occurrence."
+                    "description": "The fax number of the contact"
                 },
-                "eventType": {
+                "phoneNumber": {
                     "type": "string",
-                    "description": "The type of the notification."
+                    "description": "The primary phone number of the contact"
                 },
-                "priority": {
+                "postCode": {
                     "type": "string",
-                    "description": "A priority."
+                    "description": "Postcode"
                 },
-                "timeOcurred": {
+                "socialNetworkId": {
                     "type": "string",
-                    "format": "date-time",
-                    "description": "The time the event occured."
+                    "description": "Identifier as a member of a social network"
                 },
-                "title": {
+                "stateOrProvince": {
                     "type": "string",
-                    "description": "The title of the event."
+                    "description": "State or province"
                 },
-                "analyticCharacteristic": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/Characteristic"
-                    }
+                "street1": {
+                    "type": "string",
+                    "description": "Describes the street"
                 },
-                "event": {
-                    "$ref": "#/definitions/Any",
-                    "description": "The event linked to the involved resource object"
-                },
-                "relatedParty": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/RelatedParty"
-                    }
-                },
-                "reportingSystem": {
-                    "$ref": "#/definitions/EntityRef",
-                    "description": "Reporting System described by EntityRef"
-                },
-                "source": {
-                    "$ref": "#/definitions/EntityRef",
-                    "description": "Source Entity described by EntityRef"
+                "street2": {
+                    "type": "string",
+                    "description": "Complementary street description"
                 },
                 "@baseType": {
                     "type": "string",
@@ -1454,106 +1116,79 @@
                 }
             }
         },
-        "Event_Create": {
+        "PartyRole": {
             "type": "object",
-            "description": "event with common attributes.\nSkipped properties: id,href",
-            "properties": {
-                "correlationId": {
-                    "type": "string",
-                    "description": "The correlation id for this event."
-                },
-                "description": {
-                    "type": "string",
-                    "description": "An explnatory of the event."
-                },
-                "domain": {
-                    "type": "string",
-                    "description": "The domain of the event."
-                },
-                "eventId": {
-                    "type": "string",
-                    "description": "The identifier of the notification."
-                },
-                "eventTime": {
-                    "type": "string",
-                    "format": "date-time",
-                    "description": "Time of the event occurrence."
-                },
-                "eventType": {
-                    "type": "string",
-                    "description": "The type of the notification."
-                },
-                "priority": {
-                    "type": "string",
-                    "description": "A priority."
-                },
-                "timeOcurred": {
-                    "type": "string",
-                    "format": "date-time",
-                    "description": "The time the event occured."
-                },
-                "title": {
-                    "type": "string",
-                    "description": "The title of the event."
-                },
-                "analyticCharacteristic": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/Characteristic"
-                    }
-                },
-                "event": {
-                    "$ref": "#/definitions/Any",
-                    "description": "The event linked to the involved resource object"
-                },
-                "relatedParty": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/RelatedParty"
-                    }
-                },
-                "reportingSystem": {
-                    "$ref": "#/definitions/EntityRef",
-                    "description": "Reporting System described by EntityRef"
-                },
-                "source": {
-                    "$ref": "#/definitions/EntityRef",
-                    "description": "Source Entity described by EntityRef"
-                },
-                "@baseType": {
-                    "type": "string",
-                    "description": "When sub-classing, this defines the super-class"
-                },
-                "@schemaLocation": {
-                    "type": "string",
-                    "format": "uri",
-                    "description": "A URI to a JSON-Schema file that defines additional attributes and relationships"
-                },
-                "@type": {
-                    "type": "string",
-                    "description": "When sub-classing, this defines the sub-class entity name"
-                }
-            }
-        },
-        "Hub": {
-            "type": "object",
-            "description": "A Hub is used to subscribe to an event notification",
-            "required": [
-                "callback",
-                "id"
-            ],
+            "description": "The part played by a party in a given context.",
             "properties": {
                 "id": {
                     "type": "string",
-                    "description": "The unique-id for your subscription - referenced when updating or deleting a subscription"
+                    "description": "Unique identifier for PartyRoles"
                 },
-                "callback": {
+                "href": {
                     "type": "string",
-                    "description": "The URI that will be POSTed to when a notification is triggered"
+                    "description": "Url used to reference the party role."
                 },
-                "query": {
+                "name": {
                     "type": "string",
-                    "description": "This is a query string used to filter notifications in the context of the notifier"
+                    "description": "A word, term, or phrase by which the PartyRole is known and distinguished from other PartyRoles."
+                },
+                "status": {
+                    "type": "string",
+                    "description": "Used to track the lifecycle status of the party role."
+                },
+                "statusReason": {
+                    "type": "string",
+                    "description": "A string providing an explanation on the value of the status lifecycle. For instance if the status is Rejected, statusReason will provide the reason for rejection."
+                },
+                "account": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AccountRef"
+                    }
+                },
+                "agreement": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AgreementRef"
+                    }
+                },
+                "characteristic": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Characteristic"
+                    },
+                    "description": "Describes the characteristic of a party role."
+                },
+                "contactMedium": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ContactMedium"
+                    }
+                },
+                "creditProfile": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/CreditProfile"
+                    }
+                },
+                "engagedParty": {
+                    "$ref": "#/definitions/RelatedParty"
+                },
+                "paymentMethod": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/PaymentMethodRef"
+                    }
+                },
+                "relatedParty": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RelatedParty"
+                    }
+                },
+                "validFor": {
+                    "$ref": "#/definitions/TimePeriod",
+                    "description": "The time period that the PartyRole is valid for."
                 },
                 "@baseType": {
                     "type": "string",
@@ -1570,20 +1205,74 @@
                 }
             }
         },
-        "Hub_Create": {
+        "PartyRole_Create": {
             "type": "object",
-            "description": "A Hub is used to subscribe to an event notification\nSkipped properties: id,href",
+            "description": "The part played by a party in a given context.\nSkipped properties: id,href",
             "required": [
-                "callback"
+                "name"
             ],
             "properties": {
-                "callback": {
+                "name": {
                     "type": "string",
-                    "description": "The URI that will be POSTed to when a notification is triggered"
+                    "description": "A word, term, or phrase by which the PartyRole is known and distinguished from other PartyRoles."
                 },
-                "query": {
+                "status": {
                     "type": "string",
-                    "description": "This is a query string used to filter notifications in the context of the notifier"
+                    "description": "Used to track the lifecycle status of the party role."
+                },
+                "statusReason": {
+                    "type": "string",
+                    "description": "A string providing an explanation on the value of the status lifecycle. For instance if the status is Rejected, statusReason will provide the reason for rejection."
+                },
+                "account": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AccountRef"
+                    }
+                },
+                "agreement": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AgreementRef"
+                    }
+                },
+                "characteristic": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Characteristic"
+                    },
+                    "description": "Describes the characteristic of a party role."
+                },
+                "contactMedium": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ContactMedium"
+                    }
+                },
+                "creditProfile": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/CreditProfile"
+                    }
+                },
+                "engagedParty": {
+                    "$ref": "#/definitions/RelatedParty"
+                },
+                "paymentMethod": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/PaymentMethodRef"
+                    }
+                },
+                "relatedParty": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RelatedParty"
+                    }
+                },
+                "validFor": {
+                    "$ref": "#/definitions/TimePeriod",
+                    "description": "The time period that the PartyRole is valid for."
                 },
                 "@baseType": {
                     "type": "string",
@@ -1599,6 +1288,125 @@
                     "description": "When sub-classing, this defines the sub-class entity name"
                 }
             }
+        },
+        "PartyRole_Update": {
+            "type": "object",
+            "description": "The part played by a party in a given context.\nSkipped properties: id,href",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "A word, term, or phrase by which the PartyRole is known and distinguished from other PartyRoles."
+                },
+                "status": {
+                    "type": "string",
+                    "description": "Used to track the lifecycle status of the party role."
+                },
+                "statusReason": {
+                    "type": "string",
+                    "description": "A string providing an explanation on the value of the status lifecycle. For instance if the status is Rejected, statusReason will provide the reason for rejection."
+                },
+                "account": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AccountRef"
+                    }
+                },
+                "agreement": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AgreementRef"
+                    }
+                },
+                "characteristic": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Characteristic"
+                    },
+                    "description": "Describes the characteristic of a party role."
+                },
+                "contactMedium": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ContactMedium"
+                    }
+                },
+                "creditProfile": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/CreditProfile"
+                    }
+                },
+                "engagedParty": {
+                    "$ref": "#/definitions/RelatedParty"
+                },
+                "paymentMethod": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/PaymentMethodRef"
+                    }
+                },
+                "relatedParty": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RelatedParty"
+                    }
+                },
+                "validFor": {
+                    "$ref": "#/definitions/TimePeriod",
+                    "description": "The time period that the PartyRole is valid for."
+                },
+                "@baseType": {
+                    "type": "string",
+                    "description": "When sub-classing, this defines the super-class"
+                },
+                "@schemaLocation": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "A URI to a JSON-Schema file that defines additional attributes and relationships"
+                },
+                "@type": {
+                    "type": "string",
+                    "description": "When sub-classing, this defines the sub-class entity name"
+                }
+            }
+        },
+        "PaymentMethodRef": {
+            "type": "object",
+            "description": "PaymentMethod reference. A payment method defines a specific mean of payment (e.g direct debit).",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "description": "Unique identifier of the payment mean"
+                },
+                "href": {
+                    "type": "string",
+                    "description": "Reference of the payment mean"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Name of the payment mean"
+                },
+                "@baseType": {
+                    "type": "string",
+                    "description": "When sub-classing, this defines the super-class"
+                },
+                "@schemaLocation": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "A URI to a JSON-Schema file that defines additional attributes and relationships"
+                },
+                "@type": {
+                    "type": "string",
+                    "description": "When sub-classing, this defines the sub-class entity name"
+                },
+                "@referredType": {
+                    "type": "string",
+                    "description": "The actual type of the target instance when needed for disambiguation."
+                }
+            },
+            "required": [
+                "id"
+            ]
         },
         "RelatedParty": {
             "type": "object",
@@ -1643,73 +1451,19 @@
                 }
             }
         },
-        "Topic": {
+        "TimePeriod": {
             "type": "object",
-            "description": "Is a event channel provided by the Event Streaming API",
+            "description": "A period of time, either as a deadline (endDateTime only) a startDateTime only, or both",
             "properties": {
-                "id": {
+                "endDateTime": {
                     "type": "string",
-                    "description": "The identifier of the notification."
+                    "format": "date-time",
+                    "description": "End of the time period, using IETC-RFC-3339 format"
                 },
-                "href": {
+                "startDateTime": {
                     "type": "string",
-                    "description": "Reference of the related entity."
-                },
-                "contentQuery": {
-                    "type": "string",
-                    "description": "is the filter that will be applied on the content of the Event."
-                },
-                "headerQuery": {
-                    "type": "string",
-                    "description": "is the filter that will be applied on the Event header properties."
-                },
-                "name": {
-                    "type": "string",
-                    "description": "use to identify grouping of events, per domain, per event types, per access control-right and so on."
-                },
-                "@baseType": {
-                    "type": "string",
-                    "description": "When sub-classing, this defines the super-class"
-                },
-                "@schemaLocation": {
-                    "type": "string",
-                    "format": "uri",
-                    "description": "A URI to a JSON-Schema file that defines additional attributes and relationships"
-                },
-                "@type": {
-                    "type": "string",
-                    "description": "When sub-classing, this defines the sub-class entity name"
-                }
-            }
-        },
-        "Topic_Create": {
-            "type": "object",
-            "description": "Is a event channel provided by the Event Streaming API\nSkipped properties: id,href",
-            "properties": {
-                "contentQuery": {
-                    "type": "string",
-                    "description": "is the filter that will be applied on the content of the Event."
-                },
-                "headerQuery": {
-                    "type": "string",
-                    "description": "is the filter that will be applied on the Event header properties."
-                },
-                "name": {
-                    "type": "string",
-                    "description": "use to identify grouping of events, per domain, per event types, per access control-right and so on."
-                },
-                "@baseType": {
-                    "type": "string",
-                    "description": "When sub-classing, this defines the super-class"
-                },
-                "@schemaLocation": {
-                    "type": "string",
-                    "format": "uri",
-                    "description": "A URI to a JSON-Schema file that defines additional attributes and relationships"
-                },
-                "@type": {
-                    "type": "string",
-                    "description": "When sub-classing, this defines the sub-class entity name"
+                    "format": "date-time",
+                    "description": "Start of the time period, using IETC-RFC-3339 format. If you define a start, you must also define an end"
                 }
             }
         },
@@ -1752,17 +1506,17 @@
                 }
             }
         },
-        "TopicCreateEvent": {
+        "PartyRoleCreateEvent": {
             "type": "object",
             "description": "The notification data structure",
             "properties": {
                 "id": {
                     "type": "string",
-                    "description": "Identifier of the Process flow"
+                    "description": "Identifier of the resource involved in the event"
                 },
                 "href": {
                     "type": "string",
-                    "description": "Reference of the ProcessFlow"
+                    "description": "Reference of the resource involved in the event"
                 },
                 "eventId": {
                     "type": "string",
@@ -1791,7 +1545,7 @@
                 },
                 "description": {
                     "type": "string",
-                    "description": "An explnatory of the event."
+                    "description": "An explanatory of the event."
                 },
                 "priority": {
                     "type": "string",
@@ -1804,31 +1558,93 @@
                 },
                 "event": {
                     "description": "The event payload linked to the involved resource object",
-                    "$ref": "#/definitions/TopicCreateEventPayload"
+                    "$ref": "#/definitions/PartyRoleCreateEventPayload"
                 }
             }
         },
-        "TopicCreateEventPayload": {
+        "PartyRoleCreateEventPayload": {
             "type": "object",
             "description": "The event data structure",
             "properties": {
-                "topic": {
+                "partyRole": {
                     "description": "The involved resource data for the event",
-                    "$ref": "#/definitions/Topic"
+                    "$ref": "#/definitions/PartyRole"
                 }
             }
         },
-        "TopicChangeEvent": {
+        "PartyRoleAttributeValueChangeEvent": {
+            "type": "object",
+            "description": "The notification data structure",
+            "properties": {
+                "eventId": {
+                    "type": "string",
+                    "description": "The identifier of the notification."
+                },
+                "eventTime": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Time of the event occurrence."
+                },
+                "eventType": {
+                    "type": "string",
+                    "description": "The type of the notification."
+                },
+                "correlationId": {
+                    "type": "string",
+                    "description": "The correlation id for this event."
+                },
+                "domain": {
+                    "type": "string",
+                    "description": "The domain of the event."
+                },
+                "title": {
+                    "type": "string",
+                    "description": "The title of the event."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "An explanatory of the event."
+                },
+                "priority": {
+                    "type": "string",
+                    "description": "A priority."
+                },
+                "timeOcurred": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "The time the event occured."
+                },
+                "fieldPath": {
+                    "type": "string",
+                    "description": "The path identifying the object field concerned by this notification."
+                },
+                "event": {
+                    "description": "The event payload linked to the involved resource object",
+                    "$ref": "#/definitions/PartyRoleAttributeValueChangeEventPayload"
+                }
+            }
+        },
+        "PartyRoleAttributeValueChangeEventPayload": {
+            "type": "object",
+            "description": "The event data structure",
+            "properties": {
+                "partyRole": {
+                    "description": "The involved resource data for the event",
+                    "$ref": "#/definitions/PartyRole"
+                }
+            }
+        },
+        "PartyRoleStateChangeEvent": {
             "type": "object",
             "description": "The notification data structure",
             "properties": {
                 "id": {
                     "type": "string",
-                    "description": "Identifier of the Process flow"
+                    "description": "Identifier of the resource involved in the event"
                 },
                 "href": {
                     "type": "string",
-                    "description": "Reference of the ProcessFlow"
+                    "description": "Reference of the resource involved in the event"
                 },
                 "eventId": {
                     "type": "string",
@@ -1857,7 +1673,7 @@
                 },
                 "description": {
                     "type": "string",
-                    "description": "An explnatory of the event."
+                    "description": "An explanatory of the event."
                 },
                 "priority": {
                     "type": "string",
@@ -1870,31 +1686,31 @@
                 },
                 "event": {
                     "description": "The event payload linked to the involved resource object",
-                    "$ref": "#/definitions/TopicChangeEventPayload"
+                    "$ref": "#/definitions/PartyRoleStateChangeEventPayload"
                 }
             }
         },
-        "TopicChangeEventPayload": {
+        "PartyRoleStateChangeEventPayload": {
             "type": "object",
             "description": "The event data structure",
             "properties": {
-                "topic": {
+                "partyRole": {
                     "description": "The involved resource data for the event",
-                    "$ref": "#/definitions/Topic"
+                    "$ref": "#/definitions/PartyRole"
                 }
             }
         },
-        "TopicDeleteEvent": {
+        "PartyRoleDeleteEvent": {
             "type": "object",
             "description": "The notification data structure",
             "properties": {
                 "id": {
                     "type": "string",
-                    "description": "Identifier of the Process flow"
+                    "description": "Identifier of the resource involved in the event"
                 },
                 "href": {
                     "type": "string",
-                    "description": "Reference of the ProcessFlow"
+                    "description": "Reference of the resource involved in the event"
                 },
                 "eventId": {
                     "type": "string",
@@ -1923,7 +1739,7 @@
                 },
                 "description": {
                     "type": "string",
-                    "description": "An explnatory of the event."
+                    "description": "An explanatory of the event."
                 },
                 "priority": {
                     "type": "string",
@@ -1936,17 +1752,17 @@
                 },
                 "event": {
                     "description": "The event payload linked to the involved resource object",
-                    "$ref": "#/definitions/TopicDeleteEventPayload"
+                    "$ref": "#/definitions/PartyRoleDeleteEventPayload"
                 }
             }
         },
-        "TopicDeleteEventPayload": {
+        "PartyRoleDeleteEventPayload": {
             "type": "object",
             "description": "The event data structure",
             "properties": {
-                "topic": {
+                "partyRole": {
                     "description": "The involved resource data for the event",
-                    "$ref": "#/definitions/Topic"
+                    "$ref": "#/definitions/PartyRole"
                 }
             }
         },

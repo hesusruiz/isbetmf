@@ -220,3 +220,37 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 		t.Fatalf("get after delete expected 404, got %d", gResp2.StatusCode)
 	}
 }
+
+// TestEmptyList tests that ListGenericObjects returns an empty JSON array and proper X-Total-Count header
+func TestEmptyList(t *testing.T) {
+	s := newTestService(t)
+	resourceName := "TestResource"
+
+	// List objects for a resource that doesn't exist (should return empty list)
+	lReq := newReq("GET", "LIST", "TMF620", resourceName, "", nil, url.Values{})
+	lResp := s.ListGenericObjects(lReq)
+
+	// Should return 200 OK
+	if lResp.StatusCode != http.StatusOK {
+		t.Fatalf("empty list expected 200, got %d", lResp.StatusCode)
+	}
+
+	// Should have X-Total-Count header set to 0
+	if lResp.Headers["X-Total-Count"] != "0" {
+		t.Fatalf("empty list expected X-Total-Count=0, got %s", lResp.Headers["X-Total-Count"])
+	}
+
+	// Body should be an empty array, not nil
+	if lResp.Body == nil {
+		t.Fatalf("empty list body should not be nil")
+	}
+
+	items, ok := lResp.Body.([]map[string]any)
+	if !ok {
+		t.Fatalf("empty list body should be []map[string]any, got %T", lResp.Body)
+	}
+
+	if len(items) != 0 {
+		t.Fatalf("empty list should have 0 items, got %d", len(items))
+	}
+}
