@@ -68,7 +68,7 @@ type Config struct {
 	// TODO: this is temporary for testing
 	FakeClaims bool
 
-	// fixMode enables "smart" automatit fixing of objects so they comply with the DOME specs
+	// fixMode enables "smart" automatic fixing of objects so they comply with the DOME specs
 	// There is no magic. however, and there are things that can not be done.
 	fixMode bool
 

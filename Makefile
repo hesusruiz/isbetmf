@@ -1,86 +1,87 @@
-# Makefile for TMForum Proxy Package
+# Makefile for isbetmf
 
-.PHONY: help build test clean run-proxy build-proxy
+# Binary names
+BINARY_NAME=isbetmf
+REPORTING_BINARY_NAME=tmf-reporting
 
-# Default target
-help:
-	@echo "Available targets:"
-	@echo "  build        - Build the reporting package"
-	@echo "  test         - Run tests for the reporting package"
-	@echo "  build-proxy  - Build the command-line reporting tool"
-	@echo "  run-proxy    - Run the reporting tool with example configuration"
-	@echo "  clean        - Clean build artifacts"
-	@echo "  install      - Install the reporting tool"
+# Build directories
+BIN_DIR=bin
 
-# Build the reporting package
+# Go parameters
+GOCMD=go
+GOBUILD=$(GOCMD) build
+GOCLEAN=$(GOCMD) clean
+GOTEST=$(GOCMD) test
+GOGET=$(GOCMD) get
+GOVET=$(GOCMD) vet
+GOFMT=$(GOCMD) fmt
+
+# Main entry points
+MAIN_SRC=main.go
+REPORTING_SRC=cmd/reporting/main.go
+
+.PHONY: all build build-reporting test clean run help fmt lint vet
+
+all: build build-reporting
+
+# Build the main server binary
 build:
-	go build ./reporting/...
+	@echo "Building $(BINARY_NAME)..."
+	@mkdir -p $(BIN_DIR)
+	$(GOBUILD) -o $(BIN_DIR)/$(BINARY_NAME) $(MAIN_SRC)
 
-# Run tests for the reporting package
+# Build the reporting tool binary
+build-reporting:
+	@echo "Building $(REPORTING_BINARY_NAME)..."
+	@mkdir -p $(BIN_DIR)
+	$(GOBUILD) -o $(BIN_DIR)/$(REPORTING_BINARY_NAME) $(REPORTING_SRC)
+
+# Run the main server locally (default profile)
+run:
+	@echo "Running $(BINARY_NAME)..."
+	$(GOCMD) run $(MAIN_SRC) -run mycredential
+
+# Run tests
 test:
-	go test -v ./reporting/...
-
-# Run tests with coverage
-test-coverage:
-	go test -coverprofile=coverage.out ./reporting/...
-	go tool cover -html=coverage.out
-
-# Build the command-line reporting tool
-build-proxy:
-	@echo "Building tmfproxy binary..."
-	go build -o bin/tmfproxy cmd/reporting/main.go
-	@echo "Binary created at bin/tmfproxy"
-
-# Run the reporting tool with example configuration
-run-proxy: build-proxy
-	@echo "Running reporting tool..."
-	./bin/tmfproxy -help
+	@echo "Running tests..."
+	$(GOTEST) -v ./...
 
 # Clean build artifacts
 clean:
-	rm -rf bin/
+	@echo "Cleaning..."
+	$(GOCLEAN)
+	rm -rf $(BIN_DIR)
 	rm -f coverage.out
-	go clean
-
-# Install the reporting tool
-install:
-	go install ./cmd/reporting
-
-# Create output directory
-setup:
-	mkdir -p bin
-	mkdir -p reports
-
-# Run with example configuration
-example: setup build-proxy
-	@echo "Running reporting tool with example configuration..."
-	./bin/tmfproxy -base-url "https://tmf.example.com" -progress
 
 # Format code
 fmt:
-	go fmt ./reporting/...
-	go fmt ./cmd/...
+	@echo "Formatting code..."
+	$(GOFMT) ./...
 
-# Lint code
+# Vet code
+vet:
+	@echo "Vetting code..."
+	$(GOVET) ./...
+
+# Lint code (requires golangci-lint)
 lint:
-	golangci-lint run ./reporting/...
-	golangci-lint run ./cmd/...
+	@echo "Linting code..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run; \
+	else \
+		echo "golangci-lint not installed. Run 'go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest' to install."; \
+		exit 1; \
+	fi
 
-# Check for security vulnerabilities
-security:
-	gosec ./reporting/...
-	gosec ./cmd/...
-
-# Generate documentation
-docs:
-	@echo "Documentation is available in reporting/README.md"
-	@echo "Example configurations are in reporting/config.example.*"
-
-# Show package information
-info:
-	@echo "TMForum Reporting Package"
-	@echo "========================"
-	@echo "Package: github.com/hesusruiz/isbetmf/reporting"
-	@echo "Command: cmd/reporting"
-	@echo "Configuration: reporting/config.example.*"
-	@echo "Documentation: reporting/README.md"
+# Help target
+help:
+	@echo "Available targets:"
+	@echo "  all              - Build both the server and reporting tool"
+	@echo "  build            - Build the main server binary ($(BINARY_NAME))"
+	@echo "  build-reporting  - Build the reporting tool binary ($(REPORTING_BINARY_NAME))"
+	@echo "  run              - Run the server locally with default profile"
+	@echo "  test             - Run all tests"
+	@echo "  clean            - Remove binaries and artifacts"
+	@echo "  fmt              - Format code"
+	@echo "  vet              - Run go vet"
+	@echo "  lint             - Run golangci-lint (if installed)"

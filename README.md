@@ -1,52 +1,113 @@
-# ISBE-TMF Server Architecture Documentation
+# TM Forum API Server
 
-This document outlines the architecture of `isbetmf`, a Go-based REST API server designed to implement TM Forum APIs. It details the key components, design strategies, and relevant considerations from its development.
+[![Go Report Card](https://goreportcard.com/badge/github.com/hesusruiz/isbetmf)](https://goreportcard.com/report/github.com/hesusruiz/isbetmf)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-It passes the official TMF Conformance Test Kit for TMforum V5 and V4 APIs.
+`isbetmf` is a [TM Forum (TMF) Open API](https://www.tmforum.org/oda/open-apis/directory) server written in Go. It is designed to be highly flexible and compliant with TMF standards.
 
-## 1. Overview
+## Features
 
-The `isbetmf` is an implementation of a TM Forum REST API server, aiming to provide a simple, flexible and robust platform for handling various TM Forum API specifications.
+*   **Dual Operation Modes:**
+    *   **Standalone Server:** Implements TMF Open API specifications using a local SQLite database.
+    *   **Proxy Server:** Acts as a gateway in front of a remote TMF API server.
+*   **Policy Enforcement:** Acts as a Policy Enforcement Point (PEP) and Policy Decision Point (PDP), enforcing authentication and fine-grained authorization using Starlark scripts.
+*   **Reporting & Validation:** Includes a dedicated tool (`tmf-reporting`) for validating TMF API implementations and generating compliance reports.
+*   **Replication:** Supports data replication capabilities (see `replicate` directory).
+*   **Conformance:** Passes the official TMF Conformance Test Kit for TMF V4 and V5 APIs.
+*   **Zero-Downtime Updates:** Uses `tableflip` for graceful restarts and upgrades.
 
-It can work in two modes:
+## Getting Started
 
-*   As a standalone TM Forum server, which is the default.
-*   As a PIP + PDP proxy: an authentication & authorization proxy in front of another implementation of the TM Forum APIs.
+### Prerequisites
 
-## 2. Core Components and Structure
+*   [Go](https://go.dev/dl/) 1.21 or higher
+*   [Docker](https://www.docker.com/) (optional, for containerized deployment)
+*   [Make](https://www.gnu.org/software/make/) (optional, for build automation)
 
-The server's architecture is modular, separating concerns into distinct packages and layers:
+### Local Development
 
-*   **`cmd/isbetmf/main.go`**: The main entry point for the application, responsible for initializing and starting the server.
-*   **`tmfserver/handler/`**: This layer defines the API handlers, abstracting the underlying web framework.
-    *   `tmfserver/handler/fiber/`: Contains handlers implemented using the Fiber web framework.
-    *   Additional frameworks can be implemented in the `handler` package, allowing flexibility in choosing or switching web frameworks. The framework used in production by default is Fiber.
-*   **`tmfserver/repository/`**: Definition of the tables and the main objects close to the database.
-    *   `tables.go`: Defines the database table structures.
-    *   `tmfobject.go`: The generalized TMF object, supporting all the specific TMF objects.
-    *   `organization.go`: The Organization object, which has specific structure and behavior.
-*   **`tmfserver/service/service.go`**: The service layer encapsulates the business logic. It orchestrates operations by interacting with the repository layer and providing an interface for the handlers. This separation ensures that business rules are independent of the web framework or database implementation details.
-*   **`tmfserver/www/`**: This directory serves static assets, primarily for the Swagger UI, enabling interactive API documentation.
+To run the server locally for development:
 
-## 3. Key Architectural Strategies
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/hesusruiz/isbetmf.git
+    cd isbetmf
+    ```
 
-### 3.1 Database Design: Single Table for TM Forum Objects
+2.  **Run with default configuration:**
+    ```bash
+    go run main.go -run mycredential
+    ```
+    Or using Make:
+    ```bash
+    make run
+    ```
+    This starts the server using the `mycredential` profile (configured in `config/config_data.go`), which typically uses a local SQLite database.
 
-TM Forum objects are stored in a single SQLite table. This design choice offers:
-*   **Flexibility**: Accommodates various TM Forum object types without requiring a new table for each, simplifying schema management.
-*   **JSON Storage**: The entire TM Forum object is stored as a JSON field, allowing for schema evolution without database migrations for every object change.
-*   **Metadata Fields**: Some fields are used for metadata and frequently queried attributes, optimizing common SQL queries.
+3.  **Build the binaries:**
+    ```bash
+    make build          # Builds the server (bin/isbetmf)
+    make build-reporting # Builds the reporting tool (bin/tmf-reporting)
+    ```
 
-### 3.2 In-Memory Representation: `map[string]any`
+4.  **Run Tests:**
+    ```bash
+    make test
+    ```
 
-To support a wide range of TM Forum object types with a consistent codebase, the in-memory representation of these objects is based on a `map[string]any` nested structure. This approach provides:
-*   **Genericity**: A single code path can handle most TM Forum APIs, as many objects share common properties.
-*   **Type Safety (with methods)**: While the underlying structure is generic, specific methods are implemented to query and manipulate the map in a type-safe manner, ensuring data integrity and ease of use.
+### Docker Deployment
 
-### 3.3 Error Handling
+The application is designed to be containerized.
 
-The server adheres to a structured error handling approach:
-*   **Standard Go `errors` Package**: Used for internal error propagation.
-*   **`pkg/apierror`**: For errors returned to the client which must be TM Forum compliant, well-defined API error types are used, ensuring consistent and informative error responses.
-*   **`internal/errl`**: A simple wrapper is used to include error source file location information, aiding in debugging and tracing issues.
+1.  **Build the container:**
+    ```bash
+    docker build -t isbetmf .
+    ```
 
+2.  **Run the container:**
+    The container requires the `ISBETMF_RUN_ENVIRONMENT` environment variable to select the configuration profile.
+    ```bash
+    docker run -e ISBETMF_RUN_ENVIRONMENT=isbedev -p 9991:9991 isbetmf
+    ```
+    Possible values for `ISBETMF_RUN_ENVIRONMENT`: `isbedev`, `isbepre`, `isbepro`, `domedev`, `domepre`, `domepro`.
+
+## Configuration
+
+### Profiles
+
+Configuration is managed via profiles defined in `config/config_data.go`. This approach reduces configuration errors by grouping settings into well-defined environments.
+
+To add or modify a profile, edit `config/config_data.go`. You can specify the profile to use at runtime with the `-run` flag:
+```bash
+./bin/isbetmf -run <profile_name>
+```
+
+### Policy Engine (PDP)
+
+Authorization rules are defined in Starlark scripts (e.g., `auth_policies.star`). This allows for dynamic and complex permission logic without recompiling the server. The PDP evaluates these rules for every request to determine access.
+
+## Architecture
+
+The project follows a clean, layered architecture:
+
+1.  **Entrypoint (`main.go`):** Handles initialization, config loading, and graceful restarts.
+2.  **Handler Layer (`tmfserver/handler/fiber`):** Manages HTTP requests using Fiber, translating them into transport-agnostic service requests. Handles generic TMF routing.
+3.  **Service Layer (`tmfserver/service`):** Contains the core business logic, decoupled from HTTP. Handles authentication, authorization (via PDP), and orchestration.
+4.  **Repository Layer (`tmfserver/repository`):** Abstracts database interactions (SQLite).
+5.  **Policy Engine (`pdp`):** Executes Starlark rules for authorization.
+
+## Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1.  Fork the repository.
+2.  Create a feature branch (`git checkout -b feature/amazing-feature`).
+3.  Commit your changes (`git commit -m 'Add amazing feature'`).
+4.  Push to the branch (`git push origin feature/amazing-feature`).
+5.  Open a Pull Request.
+
+Please ensure you run tests (`make test`) and lint your code (`make lint`) before submitting.
+
+## License
+
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
