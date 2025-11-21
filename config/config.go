@@ -138,8 +138,11 @@ func LoadConfig(
 		Level: &logLevel,
 	}
 
-	// Check if the logs should be colored
-	if os.Getenv("ISBETMF_LOGS_NOCOLOR") == "true" {
+	// Check if the logs should be colored:
+	// - If the process is running in a container (pid=1) then do not color the logs
+	// - If the environment variable ISBETMF_LOGS_NOCOLOR is set to "true" then do not color the logs
+	ourpid := os.Getpid()
+	if ourpid == 1 || os.Getenv("ISBETMF_LOGS_NOCOLOR") == "true" {
 		logOptions.NoColor = true
 	}
 
