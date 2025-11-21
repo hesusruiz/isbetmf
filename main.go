@@ -38,7 +38,7 @@ func main() {
 
 	// Parse command-line flags
 	flag.BoolVar(&debugFlag, "d", true, "Enable debug logging")
-	flag.StringVar(&environment, "run", "mycredential", "Environment where run: mycredential, evidenceledger, sbx, dev2, pro")
+	flag.StringVar(&environment, "run", "isbedev", "Environment where run: isbedev, isbepre, domesbx, domedev2, domepro, lcl")
 	flag.IntVar(&restartHour, "rh", 3, "Restart program every day at this hour")
 	flag.IntVar(&restartMinute, "rm", 0, "Restart program every day at this minute")
 	flag.Parse()

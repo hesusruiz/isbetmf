@@ -7,8 +7,8 @@ import "github.com/hesusruiz/isbetmf/types"
 // However, this flexibility is not really needed in practice, as the DOME environments are well defined and stable.
 // Minimizing errors is here much more important than the ease to configure these parameters.
 
-var sbxConfig = &Config{
-	Environment:  DOME_SBX,
+var domedevConfig = &Config{
+	Environment:  DOME_DEV,
 	ProxyEnabled: true,
 
 	ServerOperatorOrganizationIdentifier: "VATSB-12345678J",
@@ -48,8 +48,8 @@ var sbxConfig = &Config{
 	ClonePeriod:     DefaultClonePeriod,
 }
 
-var isbeEvidenceConfig = &Config{
-	Environment:  ISBE_EVIDENCE,
+var isbepreConfig = &Config{
+	Environment:  ISBE_PRE,
 	ProxyEnabled: false,
 
 	ServerOperatorOrganizationIdentifier: "VATES-G87936159",
@@ -91,8 +91,8 @@ var isbeEvidenceConfig = &Config{
 	},
 }
 
-var isbeMycredentialConfig = &Config{
-	Environment:  ISBE_MYCRED,
+var isbedevConfig = &Config{
+	Environment:  ISBE_DEV,
 	ProxyEnabled: false,
 
 	ServerOperatorOrganizationIdentifier: "VATES-G87936159",
@@ -134,7 +134,7 @@ var isbeMycredentialConfig = &Config{
 	},
 }
 
-var proConfig = &Config{
+var domeproConfig = &Config{
 	Environment:  DOME_PRO,
 	ProxyEnabled: true,
 
@@ -170,8 +170,8 @@ var proConfig = &Config{
 	ClonePeriod:     DefaultClonePeriod,
 }
 
-var dev2Config = &Config{
-	Environment:  DOME_DEV2,
+var domepreConfig = &Config{
+	Environment:  DOME_PRE,
 	ProxyEnabled: true,
 
 	LEARPower: types.OnePower{

@@ -15,12 +15,12 @@ import (
 type Environment int
 
 const (
-	DOME_PRO      Environment = 0
-	DOME_DEV2     Environment = 1
-	DOME_SBX      Environment = 2
-	DOME_LCL      Environment = 3
-	ISBE_EVIDENCE Environment = 4
-	ISBE_MYCRED   Environment = 5
+	DOME_PRO Environment = 0
+	DOME_PRE Environment = 1
+	DOME_DEV Environment = 2
+	DOME_LCL Environment = 3
+	ISBE_PRE Environment = 4
+	ISBE_DEV Environment = 5
 )
 
 const DefaultClonePeriod = 10 * time.Minute
@@ -156,27 +156,27 @@ func LoadConfig(
 
 	// Choose the profile from the environment passed
 	switch envir {
-	case "pro":
-		conf = proConfig
-		slog.Info("Using the PRODUCTION environment")
-	case "dev2":
-		conf = dev2Config
-		slog.Info("Using the DEV2 environment")
-	case "sbx":
-		conf = sbxConfig
-		slog.Info("Using the SBX environment")
+	case "domepro":
+		conf = domeproConfig
+		slog.Info("Using the DOME PRO environment")
+	case "domedev2":
+		conf = domepreConfig
+		slog.Info("Using the DOME DEV2 environment")
+	case "domesbx":
+		conf = domedevConfig
+		slog.Info("Using the DOME SBX environment")
 	case "lcl":
 		conf = lclConfig
 		slog.Info("Using the LCL environment")
-	case "evidenceledger":
-		conf = isbeEvidenceConfig
-		slog.Info("Using the ISBE evidence environment")
-	case "mycredential":
-		conf = isbeMycredentialConfig
-		slog.Info("Using the ISBE mycredential environment")
+	case "isbepre":
+		conf = isbepreConfig
+		slog.Info("Using the ISBE PRE environment")
+	case "isbedev":
+		conf = isbedevConfig
+		slog.Info("Using the ISBE DEV environment")
 	default:
-		conf = isbeMycredentialConfig
-		slog.Info("Using the default (ISBE mycredential) environment")
+		conf = isbedevConfig
+		slog.Info("Using the default (ISBE DEV) environment")
 	}
 
 	conf.Debug = debug

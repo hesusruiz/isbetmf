@@ -46,13 +46,6 @@ test:
 	@echo "Running tests..."
 	$(GOTEST) -v ./...
 
-# Clean build artifacts
-clean:
-	@echo "Cleaning..."
-	$(GOCLEAN)
-	rm -rf $(BIN_DIR)
-	rm -f coverage.out
-
 # Format code
 fmt:
 	@echo "Formatting code..."
@@ -81,7 +74,6 @@ help:
 	@echo "  build-reporting  - Build the reporting tool binary ($(REPORTING_BINARY_NAME))"
 	@echo "  run              - Run the server locally with default profile"
 	@echo "  test             - Run all tests"
-	@echo "  clean            - Remove binaries and artifacts"
 	@echo "  fmt              - Format code"
 	@echo "  vet              - Run go vet"
 	@echo "  lint             - Run golangci-lint (if installed)"
