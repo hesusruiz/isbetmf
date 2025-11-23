@@ -131,7 +131,7 @@ func runNormalProcess(configuration *config.Config) {
 	defer cleanup(db)
 
 	// Schedule maintenance tasks every 2 hours
-	repository.ScheduleMaintenance(db, configuration.Dbname, 2*time.Hour)
+	repository.ScheduleMaintenance(db, configuration.Dbname, 2)
 
 	// Create the PDP (aka Policy Decision Point or rules engine)
 	rulesEngine, err := pdp.NewPDPService(&pdp.Config{

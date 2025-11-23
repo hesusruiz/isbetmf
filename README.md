@@ -36,13 +36,13 @@ To run the server locally for development:
 
 2.  **Run with default configuration:**
     ```bash
-    go run main.go -run mycredential
+    go run main.go -run isbedev
     ```
     Or using Make:
     ```bash
     make run
     ```
-    This starts the server using the `mycredential` profile (configured in `config/config_data.go`), which typically uses a local SQLite database.
+    This starts the server using the `isbedev` profile (configured in `config/config_data.go`), which typically uses a local SQLite database.
 
 3.  **Build the binaries:**
     ```bash
@@ -70,6 +70,16 @@ The application is designed to be containerized.
     docker run -e ISBETMF_RUN_ENVIRONMENT=isbedev -p 9991:9991 isbetmf
     ```
     Possible values for `ISBETMF_RUN_ENVIRONMENT`: `isbedev`, `isbepre`, `isbepro`, `domedev`, `domepre`, `domepro`.
+
+3.  **The database and backups:**
+    The application uses SQLite as the database. The database is stored in the `/data` directory of the container. To persist the database in the host filesystem, you can use a volume mapped to the `/data` directory of the container.
+
+    The system maintains backups of the database in the `/data/backups` directory of the container. It maintains a rotating set of 7 backups, one for each day of the week. The backups contain the number of the day of the week in the name (e.g., `backup_01.db`, `backup_02.db`, etc.). The backups are performed every 2 hours in the backup file corresponding to the day of the week. The backups are performed alligned to the clock (that is, at 10:00 and never at 10:02 or 10:04, etc.). Storing the backups in a different system (e.g., in a cloud storage service) is as simple as copying the `/data/backups` directory (or just the latest backup file) to the desired location.
+
+    ```bash
+    docker run -e ISBETMF_RUN_ENVIRONMENT=isbedev -p 9991:9991 -v /path/to/your/database:/data isbetmf
+    ```
+    This will persist the database in the `/data` directory of the container.
 
 ## Configuration
 

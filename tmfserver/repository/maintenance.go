@@ -10,22 +10,27 @@ import (
 
 // ScheduleMaintenance schedules periodic database maintenance tasks like VACUUM or backups.
 // It runs the maintenance task every 'interval'.
-func ScheduleMaintenance(db *sqlx.DB, dbPath string, interval time.Duration) {
-	if interval <= 0 {
-		return
+func ScheduleMaintenance(db *sqlx.DB, dbPath string, hours int) {
+
+	if hours < 1 {
+		hours = 1
 	}
 
-	// Perform an initial maintenance task, and then once every 'interval'
+	interval := time.Duration(hours) * time.Hour
+
+	// Perform maintenance when started
 	PerformMaintenance(db, dbPath)
 
 	go func() {
 		slog.Info("Database maintenance scheduled", "interval", interval)
 
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
+		// then, perform maintenance at exactly the time "o-clock" every interval hours
+		nextRun := time.Now().Truncate(time.Hour).Add(interval)
 
-		for range ticker.C {
+		for {
+			time.Sleep(time.Until(nextRun))
 			PerformMaintenance(db, dbPath)
+			nextRun = time.Now().Truncate(time.Hour).Add(interval)
 		}
 	}()
 }
