@@ -52,10 +52,6 @@ func main() {
 	defer configuration.Close()
 	slog.Info("Configuration loaded", slog.Any("config", configuration))
 
-	for i := range 100000 {
-		slog.Info("Looping" + fmt.Sprintf("%d", i))
-	}
-
 	// Set restart schedule
 	configuration.RestartHour = restartHour
 	configuration.RestartMinute = restartMinute
@@ -373,7 +369,7 @@ func runAsInitProcess(ourExecPath string, args []string) {
 				slog.Error("INIT: failed to forward signal to child process", "signal", sig, "PID", cmd.Process.Pid, "error", err)
 			}
 
-			// If we receive a SIGTERM or SIGINT, wait 5 seconds for the child to terminate and send a KILL signal
+			// If we receive a SIGTERM or SIGINT, wait 10 seconds for the child to terminate and send a KILL signal
 			if sig == syscall.SIGTERM || sig == syscall.SIGINT {
 
 				go func() {

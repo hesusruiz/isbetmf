@@ -238,11 +238,11 @@ func (m *SimpleFileCache) GetURL(fileName string) (*FileEntry, error) {
 				entry.Expires, err = time.Parse(time.RFC1123, expires)
 				if err != nil {
 					// If we cannot parse the Expires header, set the default one
-					entry.Expires = time.Now().Add(freshnessForServerFiles)
+					entry.Expires = now.Add(freshnessForServerFiles)
 				}
 			} else {
 				// If the Expires header is not present, set the default one
-				entry.Expires = time.Now().Add(freshnessForServerFiles)
+				entry.Expires = now.Add(freshnessForServerFiles)
 			}
 
 			slog.Debug("readFileIfNew", "file", fileName, "msg", "file refreshed from the server")
@@ -320,11 +320,11 @@ func (m *SimpleFileCache) GetURL(fileName string) (*FileEntry, error) {
 			entry.Expires, err = time.Parse(time.RFC1123, expires)
 			if err != nil {
 				// If we cannot parse the Expires header, set the default one
-				entry.Expires = time.Now().Add(freshnessForServerFiles)
+				entry.Expires = now.Add(freshnessForServerFiles)
 			}
 		} else {
 			// If the Expires header is not present, set the default one
-			entry.Expires = time.Now().Add(freshnessForServerFiles)
+			entry.Expires = now.Add(freshnessForServerFiles)
 		}
 
 		slog.Debug("readFileIfNew", "file", fileName, "msg", "file read from the server")

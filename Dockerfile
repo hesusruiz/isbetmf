@@ -24,8 +24,7 @@ WORKDIR /
 COPY --from=builder /isbetmf /isbetmf
 COPY www /www
 COPY ./auth_policies.star /auth_policies.star
-COPY ./data/sqlite3_rsync /sqlite3_rsync
-RUN chmod +x /sqlite3_rsync
+COPY --chmod=755 ./data/sqlite3_rsync /sqlite3_rsync
 
 # Expose the port the server runs on
 EXPOSE 9991
