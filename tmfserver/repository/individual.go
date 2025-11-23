@@ -11,54 +11,6 @@ import (
 	"github.com/hesusruiz/isbetmf/types"
 )
 
-const exampleIndividualObject = `
-{
-  "@type": "individual",
-  "contactMedium": [],
-  "countryOfBirth": "",
-  "externalReference": [
-    {
-      "externalReferenceType": "idm_id",
-      "name": "did:key:zDnaeqy64MRbQfM9TNMmfBrsFnbsxGXD5kYihyxbC4PXkmnAo"
-    }
-  ],
-  "familyName": "Alba Lopez",
-  "gender": "",
-  "givenName": "Alba Lopez",
-  "href": "/tmf-api/party/v4/individual/urn:ngsi-ld:individual:60746ac1-f523-4a0b-8106-d9f5b77b47ad",
-  "id": "urn:ngsi-ld:individual:60746ac1-f523-4a0b-8106-d9f5b77b47ad",
-  "lastUpdate": "2025-10-15T09:06:27.383980245Z",
-  "maritalStatus": "",
-  "nationality": "",
-  "partyCharacteristic": [],
-  "placeOfBirth": "",
-  "relatedParty": [
-    {
-      "@referredType": null,
-      "href": "urn:ngsi-ld:organization:2bcbe859-e316-42f2-919c-f470cff9e235",
-      "id": "urn:ngsi-ld:organization:2bcbe859-e316-42f2-919c-f470cff9e235",
-      "name": "IN2 INGENIERIA DE LA INFORMACION SOCIEDAD LIMITADA",
-      "role": "orgAdmin"
-    },
-    {
-      "@referredType": "Organization",
-      "href": "urn:ngsi-ld:organization:did:elsi:VATES-B60645900",
-      "id": "urn:ngsi-ld:organization:did:elsi:VATES-B60645900",
-      "name": "did:elsi:VATES-B60645900",
-      "role": "Seller"
-    },
-    {
-      "@referredType": "Organization",
-      "href": "urn:ngsi-ld:organization:did:elsi:VATES-11111111K",
-      "id": "urn:ngsi-ld:organization:did:elsi:VATES-11111111K",
-      "name": "did:elsi:VATES-11111111K",
-      "role": "SellerOperator"
-    }
-  ],
-  "title": "",
-  "version": "1.0"
-}`
-
 func TMFIndividualFromCredential(verifiableCredential map[string]any, user *Organization) (*TMFRecord, error) {
 
 	// TODO: what happens if we receive a LEARCredentialMachine?

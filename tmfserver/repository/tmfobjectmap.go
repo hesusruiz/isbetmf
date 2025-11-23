@@ -75,15 +75,11 @@ func (obj TMFObjectMap) Validate(resourceName string) ValidationResult {
 		Timestamp:  time.Now(),
 	}
 
-	if obj.ID() == "urn:ngsi-ld:agreement:adc8a095-b1bd-471c-87f0-a49487618c7c" {
-		fmt.Println("Found")
-	}
-
 	// Validate required fields
 	obj.validateRequiredFields(resourceName, &result)
 
 	// Validate related party requirements
-	obj.validateRelatedParty(resourceName, &result)
+	obj.validateRelatedParty(&result)
 
 	// Determine overall validity (object is valid if it has zero validation errors)
 	result.Valid = len(result.Errors) == 0
@@ -149,7 +145,7 @@ func (obj TMFObjectMap) validateRequiredFields(resourceName string, result *Vali
 
 }
 
-func (obj TMFObjectMap) validateRelatedParty(resourceName string, result *ValidationResult) {
+func (obj TMFObjectMap) validateRelatedParty(result *ValidationResult) {
 
 	// We just return if the object does not require Seller nor Buyer info
 	if !obj.RequiresSellerInfo() {

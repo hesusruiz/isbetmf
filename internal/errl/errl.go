@@ -171,17 +171,17 @@ type ValidationMessage struct {
 
 type ValidationMessages []ValidationMessage
 
-func (m ValidationMessages) Add(severity SeverityLevel, message string) {
-	m = append(m, ValidationMessage{Severity: severity, Message: message})
+func (m *ValidationMessages) Add(severity SeverityLevel, message string) {
+	*m = append(*m, ValidationMessage{Severity: severity, Message: message})
 }
 
-func (m ValidationMessages) Addf(severity SeverityLevel, format string, args ...any) {
+func (m *ValidationMessages) Addf(severity SeverityLevel, format string, args ...any) {
 	m.Add(severity, fmt.Sprintf(format, args...))
 }
 
-func (m ValidationMessages) String() string {
+func (m *ValidationMessages) String() string {
 	var ss strings.Builder
-	for _, v := range m {
+	for _, v := range *m {
 		ss.WriteString(v.Severity.String())
 		ss.WriteString(": ")
 		ss.WriteString(v.Message)

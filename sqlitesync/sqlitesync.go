@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/hesusruiz/isbetmf/internal/errl"
 )
 
 // Sync executes the sqlite3_rsync binary to synchronize an origin database to a destination database.
@@ -35,7 +37,7 @@ func Sync(origin, destination string) error {
 	// Execute the command
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("sqlite3_rsync failed: %w, stderr: %s, stdout: %s", err, stderr.String(), stdout.String())
+		return errl.Errorf("sqlite3_rsync failed: %w, stderr: %s, stdout: %s", err, stderr.String(), stdout.String())
 	}
 
 	return nil
@@ -48,7 +50,7 @@ func Backup(origin string) error {
 	// Get absolute path of origin to safely manipulate directories
 	absOrigin, err := filepath.Abs(origin)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path of origin: %w", err)
+		return errl.Errorf("failed to get absolute path of origin: %w", err)
 	}
 
 	dir := filepath.Dir(absOrigin)
@@ -59,7 +61,7 @@ func Backup(origin string) error {
 	// Create backups directory
 	backupDir := filepath.Join(dir, "backups")
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
-		return fmt.Errorf("failed to create backup directory: %w", err)
+		return errl.Errorf("failed to create backup directory: %w", err)
 	}
 
 	// Determine day of week (1=Monday, ..., 7=Sunday)
@@ -75,7 +77,7 @@ func Backup(origin string) error {
 
 	// Perform sync
 	if err := Sync(origin, destination); err != nil {
-		return fmt.Errorf("failed to perform sync: %w", err)
+		return errl.Errorf("failed to perform sync: %w", err)
 	}
 
 	return nil

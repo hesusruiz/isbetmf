@@ -65,6 +65,8 @@ func main() {
 	// Exclude the name of the program from the list of arguments
 	args := os.Args[1:]
 
+	slog.Info("Process started", "PID", ourPid, "executable", ourExecPath, "args", args)
+
 	// ******************************************************
 	// ******************************************************
 	// The initial section is for when we are the init process in a container
@@ -84,17 +86,15 @@ func main() {
 
 	if runAsInit {
 		runAsInitProcess(ourPid, ourExecPath, args)
-		return
+	} else {
+		runNormalProcess(configuration)
 	}
-
-	slog.Info("Process started", "PID", os.Getpid(), "executable", ourExecPath, "args", args)
-
-	runNormalProcess(configuration)
 
 }
 
 func runNormalProcess(configuration *config.Config) {
 	// We are now executing the normal process
+	slog.Info("Running as a normal process")
 
 	// Perform the backup
 	if !configuration.BackupDisabled {
@@ -304,7 +304,7 @@ func scheduleRestart(configuration *config.Config, upg *tableflip.Upgrader) {
 
 func runAsInitProcess(ourPid int, ourExecPath string, args []string) {
 	// We are the init process in a container, or testing the functionality
-	fmt.Println("We are the init process! PID:", ourPid)
+	slog.Info("We are the init process! PID:", "PID", ourPid)
 
 	// Pass to child all arguments following the "init" entry (first argument after program name)
 	cmd := exec.Command(ourExecPath, args...)
@@ -325,19 +325,19 @@ func runAsInitProcess(ourPid int, ourExecPath string, args []string) {
 		for sig := range sigs {
 
 			if sig == syscall.SIGHUP {
-				fmt.Println("INIT: process received SIGHUP")
+				slog.Info("INIT: process received SIGHUP")
 			} else {
-				fmt.Printf("INIT: process received %v signal\n", sig)
+				slog.Info("INIT: process received signal", "signal", sig)
 			}
 
 			if cmd.Process != nil {
-				fmt.Printf("INIT: received %v signal for PID %v\n", sig, cmd.Process.Pid)
+				slog.Info("INIT: received signal for PID", "PID", cmd.Process.Pid)
 				_ = cmd.Process.Signal(sig)
 			}
 
 			if sig == syscall.SIGTERM || sig == syscall.SIGINT {
 				// We are done, and the init process will terminate
-				fmt.Println("INIT: using DONE channel to terminate init process")
+				slog.Info("INIT: using DONE channel to terminate init process")
 				done <- true
 			}
 		}
@@ -351,19 +351,19 @@ func runAsInitProcess(ourPid int, ourExecPath string, args []string) {
 			if pid <= 0 || err != nil {
 				time.Sleep(1 * time.Second)
 			} else {
-				fmt.Printf("INIT: reaped zombie child with PID: %v\n", pid)
+				slog.Info("INIT: reaped zombie child with PID", "PID", pid)
 			}
 		}
 
 	}()
 
 	// Start the child (a fork of ourselves) without waiting for termination
-	fmt.Println("INIT: starting child process")
+	slog.Info("INIT: starting child process")
 	if err := cmd.Start(); err != nil {
-		log.Fatalf("INIT: failed to start child process: %v", err)
+		slog.Error("INIT: failed to start child process", "error", err)
 	}
 
-	fmt.Println("INIT: awaiting signal to terminate init process")
+	slog.Info("INIT: awaiting signal to terminate init process")
 	<-done
-	fmt.Println("INIT: exiting init process")
+	slog.Info("INIT: exiting init process")
 }

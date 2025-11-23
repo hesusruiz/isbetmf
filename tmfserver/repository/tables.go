@@ -68,11 +68,15 @@ func NewDBService(configuration *config.Config) (*sqlx.DB, error) {
 		return nil, errl.Errorf("failed to connect to database: %w", err)
 	}
 
+	// Create tables if they do not exist
 	slog.Info("About to create tables if they do not exist")
 	err = CreateTables(db)
 	if err != nil {
 		return nil, errl.Error(err)
 	}
+
+	// Schedule maintenance tasks
+	ScheduleMaintenance(db, configuration.Dbname, configuration.RestartHour, configuration.RestartMinute)
 
 	return db, nil
 }

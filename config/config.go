@@ -12,15 +12,15 @@ import (
 
 // Indicates the environment (SBX, DEV2, PRO, LCL) where the server is running.
 // It is used to determine the default configuration profile if the user does not specify anything else.
-type Environment int
+type Environment string
 
 const (
-	DOME_PRO Environment = 0
-	DOME_PRE Environment = 1
-	DOME_DEV Environment = 2
-	DOME_LCL Environment = 3
-	ISBE_PRE Environment = 4
-	ISBE_DEV Environment = 5
+	DOME_PRO Environment = "domepro"
+	DOME_PRE Environment = "domepre"
+	DOME_DEV Environment = "domedev"
+	DOME_LCL Environment = "domelcl"
+	ISBE_PRE Environment = "isbepre"
+	ISBE_DEV Environment = "isbedev"
 )
 
 const DefaultClonePeriod = 10 * time.Minute
@@ -159,24 +159,26 @@ func LoadConfig(
 	// And set the default logging system for all components
 	slog.SetDefault(slog.New(sqlog))
 
+	environment := Environment(envir)
+
 	// Choose the profile from the environment passed
-	switch envir {
-	case "domepro":
+	switch environment {
+	case DOME_PRO:
 		conf = domeproConfig
 		slog.Info("Using the DOME PRO environment")
-	case "domedev2":
+	case DOME_PRE:
 		conf = domepreConfig
-		slog.Info("Using the DOME DEV2 environment")
-	case "domesbx":
+		slog.Info("Using the DOME PRE environment")
+	case DOME_DEV:
 		conf = domedevConfig
 		slog.Info("Using the DOME SBX environment")
-	case "lcl":
+	case DOME_LCL:
 		conf = lclConfig
 		slog.Info("Using the LCL environment")
-	case "isbepre":
+	case ISBE_PRE:
 		conf = isbepreConfig
 		slog.Info("Using the ISBE PRE environment")
-	case "isbedev":
+	case ISBE_DEV:
 		conf = isbedevConfig
 		slog.Info("Using the ISBE DEV environment")
 	default:
