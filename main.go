@@ -1,10 +1,8 @@
 package main
 
 import (
-	"context"
 	"flag" // Added
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -24,10 +22,10 @@ import (
 	"github.com/hesusruiz/isbetmf/internal/sqlogger"
 	_ "github.com/hesusruiz/isbetmf/migrations"
 	"github.com/hesusruiz/isbetmf/pdp"
-	"github.com/hesusruiz/isbetmf/sqlitesync"
 	fiberhandler "github.com/hesusruiz/isbetmf/tmfserver/handler/fiber"
 	repository "github.com/hesusruiz/isbetmf/tmfserver/repository"
 	service "github.com/hesusruiz/isbetmf/tmfserver/service"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -48,7 +46,8 @@ func main() {
 	// parameters for each environment, but that can be easity extended for other purposes.
 	configuration, err := config.LoadConfig(environment, debugFlag)
 	if err != nil {
-		panic(err)
+		slog.Error("Failed to load configuration", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	// Set restart schedule
@@ -59,13 +58,12 @@ func main() {
 	ourPid := os.Getpid()
 	ourExecPath, err := os.Executable()
 	if err != nil {
-		log.Fatalf("Failed to get executable path: %v", err)
+		slog.Error("Failed to get executable path", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	// Exclude the name of the program from the list of arguments
 	args := os.Args[1:]
-
-	slog.Info("Process started", "PID", ourPid, "executable", ourExecPath, "args", args)
 
 	// ******************************************************
 	// ******************************************************
@@ -85,31 +83,49 @@ func main() {
 	}
 
 	if runAsInit {
-		runAsInitProcess(ourPid, ourExecPath, args)
+		slog.Info("We are the INIT process!", "PID", ourPid, "executable", ourExecPath, "args", args)
+		runAsInitProcess(ourExecPath, args)
 	} else {
+		slog.Info("TMF API server starting", "PID", ourPid, "executable", ourExecPath, "args", args)
 		runNormalProcess(configuration)
 	}
 
 }
 
-func runNormalProcess(configuration *config.Config) {
-	// We are now executing the normal process
-	slog.Info("Running as a normal process")
+func cleanup(db *sqlx.DB) {
+	// This deferred function will run!
+	fmt.Println("Running deferred cleanup functions...")
 
-	// Perform the backup
-	if !configuration.BackupDisabled {
-		err := sqlitesync.Backup(configuration.Dbname)
-		if err != nil {
-			slog.Error("failed to perform backup", slog.Any("error", err))
-		}
+	// Close database connection (triggers WAL cleanup)
+	fmt.Println("Closing database connection and exiting...")
+	db.Close()
+
+	fmt.Println("Database connections closed.")
+}
+
+// runNormalProcess starts the TMF API server and handles its lifecycle,
+// including database connection, rules engine initialization, and graceful shutdown.
+func runNormalProcess(configuration *config.Config) {
+
+	// TABLEFLIP for seamless restarts and upgrades
+	upg, err := tableflip.New(tableflip.Options{
+		PIDFile: "isbetmf.pid",
+	})
+	if err != nil {
+		slog.Error("failed to create tableflip upgrader, exiting", slog.Any("error", err))
+		panic(err)
 	}
 
 	// Connect to the database and create tables if they do not exist
 	db, err := repository.NewDBService(configuration)
 	if err != nil {
 		slog.Error("failed to connect to database", slog.Any("error", err))
-		os.Exit(1)
+		return
 	}
+	defer cleanup(db)
+
+	// Schedule maintenance tasks every 2 hours
+	repository.ScheduleMaintenance(db, configuration.Dbname, 2*time.Hour)
 
 	// Create the PDP (aka Policy Decision Point or rules engine)
 	rulesEngine, err := pdp.NewPDPService(&pdp.Config{
@@ -118,14 +134,14 @@ func runNormalProcess(configuration *config.Config) {
 	})
 	if err != nil {
 		slog.Error("failed to create rules engine", slog.Any("error", err))
-		os.Exit(1)
+		return
 	}
 
 	// Create the service, which will use the database and the rules engine
 	s, err := service.NewTMFService(configuration, db, rulesEngine)
 	if err != nil {
 		slog.Error("failed to create service", slog.Any("error", err))
-		os.Exit(1)
+		return
 	}
 
 	// Create Fiber web server with custom configuration
@@ -191,33 +207,14 @@ func runNormalProcess(configuration *config.Config) {
 	h := fiberhandler.NewHandler(s)
 	h.RegisterRoutes(webServer)
 
-	// TABLEFLIP for seamless restarts and upgrades
-	upg, err := tableflip.New(tableflip.Options{
-		PIDFile: "isbetmf.pid",
-	})
-	if err != nil {
-		slog.Error("failed to create tableflip upgrader, exiting", slog.Any("error", err))
-		os.Exit(1)
-	}
-	defer upg.Stop()
-
-	// Listen for the process signal to trigger the tableflip upgrade.
-	go func() {
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, syscall.SIGHUP)
-		for range sig {
-			fmt.Println("Received SIGHUP, upgrading...")
-			upg.Upgrade()
-		}
-	}()
-
 	// Schedule restarts if enabled
-	scheduleRestart(configuration, upg)
+	scheduleRestart(configuration, db, upg)
 
 	// Listen must be called before signaling we are ready
 	ln, err := upg.Listen("tcp", "0.0.0.0:9991")
 	if err != nil {
-		panic(errl.Error(err))
+		slog.Error("failed to listen on port 9991, exiting", slog.Any("error", err))
+		panic(err)
 	}
 	defer ln.Close()
 
@@ -231,35 +228,56 @@ func runNormalProcess(configuration *config.Config) {
 		}
 	}()
 
-	// tableflip ready
-	slog.Info("Server is ready")
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+
+	go func() {
+		for sig := range sigs {
+			// Process each type of signal
+			switch sig {
+
+			case syscall.SIGINT, syscall.SIGTERM:
+				fmt.Println("CHILD: Received SIGINT or SIGTERM, exiting...")
+
+				// Close listeners and inherited FDs
+				// Call upg.Stop() to shut down listeners immediately
+				upg.Stop()
+
+			case syscall.SIGHUP:
+				// Perform a Tableflip upgrade
+				fmt.Println("CHILD: Received SIGHUP, upgrading...")
+				upg.Upgrade()
+			}
+		}
+	}()
+
+	// Signal that we are ready so Tableflip can stop the parent process
+	slog.Info("CHILD: Server is ready")
 	if err := upg.Ready(); err != nil {
 		panic(errl.Error(err))
 	}
 
+	// Wait until we are told to exit by the Tableflip mechanism.
+	// This happens when the child process has signalled that it is ready.
+	fmt.Println("CHILD: Waiting for Tableflip to exit...")
 	<-upg.Exit()
+	fmt.Println("CHILD: Tableflip exit received")
 
-	// Make sure to set a deadline on exiting the process
-	// after upg.Exit() is closed. No new upgrades can be
-	// performed if the parent doesn't exit.
-	time.AfterFunc(30*time.Second, func() {
-		log.Println("Graceful shutdown timed out")
-		os.Exit(1)
-	})
-
-	// Wait for connections to drain.
-	err = webServer.ShutdownWithContext(context.Background())
+	// Wait for connections to drain for a maximum of 30 seconds
+	fmt.Println("CHILD: Waiting for connections to drain...")
+	err = webServer.ShutdownWithTimeout(30 * time.Second)
 	if err != nil {
-		fmt.Println("Exiting with error:", errl.Error(err).Error())
+		fmt.Println("CHILD: Exiting with error", errl.Error(err))
+		os.Exit(1)
 	} else {
-		fmt.Println("Exiting without error")
+		fmt.Println("CHILD: Exiting without error")
 	}
 
 }
 
 // scheduleRestart starts a goroutine to initiate an upgrade at the scheduled time every day.
-// The restart uses the https://github.com/cloudflare/tableflip graceful restart to keeo client connections
-func scheduleRestart(configuration *config.Config, upg *tableflip.Upgrader) {
+// The restart uses the https://github.com/cloudflare/tableflip graceful restart to keep client connections
+func scheduleRestart(configuration *config.Config, db *sqlx.DB, upg *tableflip.Upgrader) {
 
 	if configuration.RestartHour < 0 {
 		return
@@ -294,6 +312,9 @@ func scheduleRestart(configuration *config.Config, upg *tableflip.Upgrader) {
 			// Wait until the next run time
 			time.Sleep(duration)
 
+			// Perform the maintenance tasks before restarting (VACUUM and Backup)
+			repository.PerformMaintenance(db, configuration.Dbname)
+
 			// Execute the function
 			fmt.Println("Executing scheduled restart...")
 			upg.Upgrade()
@@ -302,9 +323,17 @@ func scheduleRestart(configuration *config.Config, upg *tableflip.Upgrader) {
 
 }
 
-func runAsInitProcess(ourPid int, ourExecPath string, args []string) {
-	// We are the init process in a container, or testing the functionality
-	slog.Info("We are the init process! PID:", "PID", ourPid)
+// runAsInitProcess acts as an init process, launching a child process and forwarding
+// signals to it. This is typically used in container environments where
+// `main` might be PID 1.
+//
+// It sets up the child process to share stdout/stderr, places it in the same
+// process group, and captures system signals (SIGINT, SIGTERM, SIGHUP) to
+// gracefully relay them to the child.
+//
+//   - ourExecPath: The path to the executable to run as the child process.
+//   - args: Command-line arguments to pass to the child process.
+func runAsInitProcess(ourExecPath string, args []string) {
 
 	// Pass to child all arguments following the "init" entry (first argument after program name)
 	cmd := exec.Command(ourExecPath, args...)
@@ -313,6 +342,13 @@ func runAsInitProcess(ourPid int, ourExecPath string, args []string) {
 	cmd.Stderr = os.Stderr
 	// Set ProcessGroupID for child process as init process. Both will be under same process group
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	// Start the child (a fork of ourselves) without waiting for termination
+	slog.Info("INIT: starting child process")
+	if err := cmd.Start(); err != nil {
+		slog.Error("INIT: failed to start child process", "error", err)
+		return
+	}
 
 	// We need notification of all relevant signals
 	sigs := make(chan os.Signal, 1)
@@ -324,19 +360,23 @@ func runAsInitProcess(ourPid int, ourExecPath string, args []string) {
 	go func() {
 		for sig := range sigs {
 
-			if sig == syscall.SIGHUP {
-				slog.Info("INIT: process received SIGHUP")
-			} else {
-				slog.Info("INIT: process received signal", "signal", sig)
+			// Forward the signal to the child process
+			slog.Info("INIT: forwarding signal to child process", "signal", sig, "PID", cmd.Process.Pid)
+			err := cmd.Process.Signal(sig)
+			if err != nil {
+				slog.Error("INIT: failed to forward signal to child process", "signal", sig, "PID", cmd.Process.Pid, "error", err)
 			}
 
-			if cmd.Process != nil {
-				slog.Info("INIT: received signal for PID", "PID", cmd.Process.Pid)
-				_ = cmd.Process.Signal(sig)
-			}
-
+			// If we receive a SIGTERM or SIGINT, wait 5 seconds for the child to terminate and send a KILL signal
 			if sig == syscall.SIGTERM || sig == syscall.SIGINT {
-				// We are done, and the init process will terminate
+
+				go func() {
+					// Wait 10 seconds for the child process to finish
+					time.Sleep(10 * time.Second)
+					// Kill the child immediately
+					cmd.Process.Kill()
+				}()
+
 				slog.Info("INIT: using DONE channel to terminate init process")
 				done <- true
 			}
@@ -349,7 +389,7 @@ func runAsInitProcess(ourPid int, ourExecPath string, args []string) {
 			var ws syscall.WaitStatus
 			pid, err := syscall.Wait4(-1, &ws, syscall.WNOHANG, nil)
 			if pid <= 0 || err != nil {
-				time.Sleep(1 * time.Second)
+				time.Sleep(5 * time.Second)
 			} else {
 				slog.Info("INIT: reaped zombie child with PID", "PID", pid)
 			}
@@ -357,13 +397,12 @@ func runAsInitProcess(ourPid int, ourExecPath string, args []string) {
 
 	}()
 
-	// Start the child (a fork of ourselves) without waiting for termination
-	slog.Info("INIT: starting child process")
-	if err := cmd.Start(); err != nil {
-		slog.Error("INIT: failed to start child process", "error", err)
-	}
-
 	slog.Info("INIT: awaiting signal to terminate init process")
 	<-done
+
+	// Wait for the child process to finish and release its resources
+	slog.Info("INIT: waiting for child process to finish")
+	cmd.Process.Wait()
+
 	slog.Info("INIT: exiting init process")
 }

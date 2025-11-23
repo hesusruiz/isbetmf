@@ -9,38 +9,22 @@ import (
 )
 
 // ScheduleMaintenance schedules periodic database maintenance tasks like VACUUM or backups.
-// Periodicity is one per day, at the provided time.
-func ScheduleMaintenance(db *sqlx.DB, dbPath string, hour, minute int) {
-	if hour < 0 {
+// It runs the maintenance task every 'interval'.
+func ScheduleMaintenance(db *sqlx.DB, dbPath string, interval time.Duration) {
+	if interval <= 0 {
 		return
 	}
 
-	// Schedule cleanups every night
-	targetHour := hour
-	targetMinute := minute
-	targetSecond := 0
+	// Perform an initial maintenance task, and then once every 'interval'
+	PerformMaintenance(db, dbPath)
 
 	go func() {
-		for {
-			now := time.Now()
+		slog.Info("Database maintenance scheduled", "interval", interval)
 
-			// Calculate the next scheduled time
-			nextRun := time.Date(
-				now.Year(), now.Month(), now.Day(),
-				targetHour, targetMinute, targetSecond, 0, now.Location(),
-			)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
 
-			// If the next run time is in the past, schedule it for the next day
-			if nextRun.Before(now) {
-				nextRun = nextRun.Add(24 * time.Hour)
-			}
-
-			slog.Info("Next database cleanup scheduled", "time", nextRun)
-
-			// Wait until the next run time
-			time.Sleep(time.Until(nextRun))
-
-			// Execute the function
+		for range ticker.C {
 			PerformMaintenance(db, dbPath)
 		}
 	}()
@@ -50,17 +34,34 @@ func ScheduleMaintenance(db *sqlx.DB, dbPath string, hour, minute int) {
 func PerformMaintenance(db *sqlx.DB, dbPath string) {
 	slog.Info("Executing scheduled database cleanup...")
 
-	// Perform VACUUM
-	if _, err := db.Exec(VacuumSQL); err != nil {
-		slog.Error("failed to vacuum database", "error", err)
+	// Perform a checkpoint to ensure the WAL file is truncated
+	start := time.Now()
+	if err := forceWalTruncate(db); err != nil {
+		slog.Error("failed to truncate WAL file", "error", err, "elapsed", time.Since(start))
 	} else {
-		slog.Info("Database vacuumed successfully")
+		slog.Info("WAL file truncated successfully", "elapsed", time.Since(start))
+	}
+
+	// Perform VACUUM
+	start = time.Now()
+	if _, err := db.Exec(VacuumSQL); err != nil {
+		slog.Error("failed to vacuum database", "error", err, "elapsed", time.Since(start))
+	} else {
+		slog.Info("Database vacuumed successfully", "elapsed", time.Since(start))
 	}
 
 	// Perform Backup
+	start = time.Now()
 	if err := sqlitesync.Backup(dbPath); err != nil {
-		slog.Error("failed to backup database", "error", err)
+		slog.Error("failed to backup database", "error", err, "elapsed", time.Since(start))
 	} else {
-		slog.Info("Database backup completed successfully")
+		slog.Info("Database backup completed successfully", "elapsed", time.Since(start))
 	}
+}
+
+func forceWalTruncate(db *sqlx.DB) error {
+	// TRUNCATE ensures the checkpoint runs to completion, deleting the WAL file.
+	// This call can block briefly if a write is in progress.
+	_, err := db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+	return err
 }

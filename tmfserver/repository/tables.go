@@ -75,9 +75,6 @@ func NewDBService(configuration *config.Config) (*sqlx.DB, error) {
 		return nil, errl.Error(err)
 	}
 
-	// Schedule maintenance tasks
-	ScheduleMaintenance(db, configuration.Dbname, configuration.RestartHour, configuration.RestartMinute)
-
 	return db, nil
 }
 
