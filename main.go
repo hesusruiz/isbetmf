@@ -47,7 +47,13 @@ func main() {
 	configuration, err := config.LoadConfig(environment, debugFlag)
 	if err != nil {
 		slog.Error("Failed to load configuration", slog.Any("error", err))
-		os.Exit(1)
+		panic(err)
+	}
+	defer configuration.Close()
+	slog.Info("Configuration loaded", slog.Any("config", configuration))
+
+	for i := range 100000 {
+		slog.Info("Looping" + fmt.Sprintf("%d", i))
 	}
 
 	// Set restart schedule
@@ -59,7 +65,7 @@ func main() {
 	ourExecPath, err := os.Executable()
 	if err != nil {
 		slog.Error("Failed to get executable path", slog.Any("error", err))
-		os.Exit(1)
+		panic(err)
 	}
 
 	// Exclude the name of the program from the list of arguments

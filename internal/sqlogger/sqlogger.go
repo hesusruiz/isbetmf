@@ -29,8 +29,6 @@ PRAGMA journal_mode = WAL;
 PRAGMA synchronous = NORMAL;
 PRAGMA busy_timeout = 5000;
 
-DROP TABLE IF EXISTS entries;
-
 CREATE TABLE IF NOT EXISTS entries (
   epoch_secs LONG,
   nanos INTEGER, 
@@ -244,7 +242,7 @@ func (h *SQLogHandler) rotate() error {
 
 	// Get the next file name
 	h.currentName = fmt.Sprintf("%s.%d.%s", logFileBasename, h.currentLogId, logFileExtension)
-	slog.Info("rotating log file", "name", h.currentLogId)
+	fmt.Println("rotating log file", "name", h.currentLogId)
 
 	// Open the new log database
 	db, err := sql.Open("sqlite3", filepath.Join(h.logDir, h.currentName))

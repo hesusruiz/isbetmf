@@ -154,7 +154,6 @@ func LoadConfig(
 		slog.Error("failed to initialize SQLogHandler, exiting", slog.Any("error", err))
 		os.Exit(1)
 	}
-	defer sqlog.Close()
 
 	// And set the default logging system for all components
 	slog.SetDefault(slog.New(sqlog))
@@ -187,6 +186,7 @@ func LoadConfig(
 	}
 
 	conf.Debug = debug
+	conf.LogHandler = sqlog
 
 	// Check for overrides with environment variables
 
@@ -213,6 +213,12 @@ func LoadConfig(
 
 	return conf, nil
 
+}
+
+func (c *Config) Close() {
+	if c.LogHandler != nil {
+		c.LogHandler.Close()
+	}
 }
 
 // The names of some special objects in the DOME ecosystem
