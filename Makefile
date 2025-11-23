@@ -39,7 +39,7 @@ build-reporting:
 # Run the main server locally (default profile)
 run:
 	@echo "Running $(BINARY_NAME)..."
-	$(GOCMD) run $(MAIN_SRC) -run mycredential
+	$(GOCMD) run $(MAIN_SRC) -run isbedev
 
 # Run tests
 test:

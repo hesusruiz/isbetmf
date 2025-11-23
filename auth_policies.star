@@ -6,7 +6,7 @@ The function determines if the request is allowed and must reply
 True (allowed) or False (denied).
 
 The 'authorize' function has access to an object called 'input' which contains
-four objects that can be used to implement the authorization policies: 'request', 'token', 'user' and 'tmf':
+four sub-objects that can be used to implement the authorization policies: 'request', 'token', 'user' and 'tmf':
 
 "request" is an object with the following fields representing the HTTP request received:
 

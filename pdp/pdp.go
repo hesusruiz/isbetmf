@@ -49,9 +49,6 @@ func (c *Config) Validate() error {
 // use by different goroutines.
 type PDP struct {
 
-	// // The configuration of the PDP, which includes the file with the policies and other parameters.
-	// config *Config
-
 	// The name of the file where the policy rules reside.
 	scriptname string
 
@@ -59,7 +56,6 @@ type PDP struct {
 
 	// The file cache to read the policy and other files. Modifications to the original file
 	// are picked up automatically according to a freshness policy.
-	// fileCache    sync.Map
 	fileCache *filecache.SimpleFileCache
 
 	// The pool of instances of the policy execution engines, to minimize startup
@@ -76,8 +72,8 @@ type PDP struct {
 
 var threadPoolCounter int
 
-// NewPDP creates a new PDP instance.
-func NewPDP(
+// NewPDPService creates a new PDP instance.
+func NewPDPService(
 	config *Config,
 ) (*PDP, error) {
 

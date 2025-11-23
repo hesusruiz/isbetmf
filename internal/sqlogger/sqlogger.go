@@ -69,6 +69,7 @@ type SQLogHandler struct {
 	lastInsertId  int64
 	stdLogHandler slog.Handler
 	cwd           string
+	logDir        string
 }
 
 type SQLogHandlerInterface interface {
@@ -83,6 +84,10 @@ type Options struct {
 	Level slog.Leveler
 
 	NoColor bool
+
+	// LogDir specifies the directory where log files will be stored.
+	// If empty, the current working directory is used.
+	LogDir string
 }
 
 func NewSQLogHandler(opts *Options) (*SQLogHandler, error) {
@@ -107,14 +112,31 @@ func NewSQLogHandler(opts *Options) (*SQLogHandler, error) {
 
 	h.stdLogHandler = slog.Default().Handler()
 
+	// Determine the log directory
+	logDir := h.opts.LogDir
+	if logDir == "" {
+		logDir = h.cwd
+	} else {
+		// If a relative path is provided, join it with the current working directory
+		if !filepath.IsAbs(logDir) {
+			logDir = filepath.Join(h.cwd, logDir)
+		}
+	}
+
+	// Ensure the log directory exists
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create log directory: %w", err)
+	}
+	h.logDir = logDir
+
 	// Look at the current directory and determine the current log file name
-	currentName, err := DetermineCurrentNameOnStartup()
+	currentName, err := determineCurrentNameOnStartup(h.logDir)
 	if err != nil {
 		return nil, err
 	}
 	h.currentName = currentName
 
-	db, err := sql.Open("sqlite3", h.currentName)
+	db, err := sql.Open("sqlite3", filepath.Join(h.logDir, h.currentName))
 	if err != nil {
 		return nil, err
 	}
@@ -133,10 +155,10 @@ func NewSQLogHandler(opts *Options) (*SQLogHandler, error) {
 
 }
 
-func DetermineCurrentNameOnStartup() (string, error) {
+func determineCurrentNameOnStartup(logDir string) (string, error) {
 
 	// Read all entries in the current directory
-	dirEntry, err := os.ReadDir(".")
+	dirEntry, err := os.ReadDir(logDir)
 	if err != nil {
 		return "", err
 	}
@@ -225,7 +247,7 @@ func (h *SQLogHandler) rotate() error {
 	slog.Info("rotating log file", "name", h.currentLogId)
 
 	// Open the new log database
-	db, err := sql.Open("sqlite3", h.currentName)
+	db, err := sql.Open("sqlite3", filepath.Join(h.logDir, h.currentName))
 	if err != nil {
 		return err
 	}

@@ -1,3 +1,7 @@
+// Package filecache implements a simple file cache for local and remote files.
+// It supports caching of file contents in memory, with configurable freshness
+// policies for both disk-based and server-based files. It handles HTTP ETag
+// and Expires headers to optimize network usage and ensure data consistency.
 package filecache
 
 import (
@@ -24,7 +28,7 @@ type FileEntry struct {
 	FileModTime  time.Time
 	Content      []byte
 	Etag         string
-	expires      time.Time
+	Expires      time.Time
 	FileHash     uint64
 }
 
@@ -117,7 +121,7 @@ func (m *SimpleFileCache) GetURL(fileName string) (*FileEntry, error) {
 		// Return the entry if it is fresh enough, or read it again if it is not.
 
 		entry := fe.(*FileEntry)
-		if now.Before(entry.expires) {
+		if now.Before(entry.Expires) {
 
 			// We return directly the entry in the cache if it is fresh enough.
 			slog.Debug("readFileIfNew", "file", fileName, "msg", "found and cache entry is fresh")
@@ -163,11 +167,18 @@ func (m *SimpleFileCache) GetURL(fileName string) (*FileEntry, error) {
 				// Refresh the expires header if present in the response from the server
 				// Again, given the status 304, the expires should not change, but we update it just in case.
 				if expires := resp.Header.Get("Expires"); expires != "" {
-					entry.expires, err = time.Parse(time.RFC1123, expires)
+					entry.Expires, err = time.Parse(time.RFC1123, expires)
 					if err != nil {
 						// If we cannot parse the Expires header, we just log the error,
 						// so the system can continue working, even with stale data.
 						slog.Error("readFileIfNew", "file", fileName, "msg", "error parsing Expires header", slogor.Err(err))
+					}
+				}
+
+				// Update Last-Modified if present
+				if lastMod := resp.Header.Get("Last-Modified"); lastMod != "" {
+					if t, err := time.Parse(time.RFC1123, lastMod); err == nil {
+						entry.FileModTime = t
 					}
 				}
 
@@ -214,16 +225,24 @@ func (m *SimpleFileCache) GetURL(fileName string) (*FileEntry, error) {
 			if etag := resp.Header.Get("Etag"); etag != "" {
 				entry.Etag = etag
 			}
+
+			// Set the FileModTime if Last-Modified header is present
+			if lastMod := resp.Header.Get("Last-Modified"); lastMod != "" {
+				if t, err := time.Parse(time.RFC1123, lastMod); err == nil {
+					entry.FileModTime = t
+				}
+			}
+
 			// Set the expires header if present in the response from the server
 			if expires := resp.Header.Get("Expires"); expires != "" {
-				entry.expires, err = time.Parse(time.RFC1123, expires)
+				entry.Expires, err = time.Parse(time.RFC1123, expires)
 				if err != nil {
 					// If we cannot parse the Expires header, set the default one
-					entry.expires = time.Now().Add(freshnessForServerFiles)
+					entry.Expires = time.Now().Add(freshnessForServerFiles)
 				}
 			} else {
 				// If the Expires header is not present, set the default one
-				entry.expires = time.Now().Add(freshnessForServerFiles)
+				entry.Expires = time.Now().Add(freshnessForServerFiles)
 			}
 
 			slog.Debug("readFileIfNew", "file", fileName, "msg", "file refreshed from the server")
@@ -242,6 +261,11 @@ func (m *SimpleFileCache) GetURL(fileName string) (*FileEntry, error) {
 
 		// Request the file from the server.
 		req, err := http.NewRequest("GET", fileName, nil)
+		if err != nil {
+			slog.Error("readFileIfNew", "file", fileName, "msg", "error creating request", slogor.Err(err))
+			return nil, err
+		}
+
 		resp, err := m.httpClient.Do(req)
 		if err != nil {
 			// If we cannot read the file, we return an error after logging it
@@ -283,16 +307,24 @@ func (m *SimpleFileCache) GetURL(fileName string) (*FileEntry, error) {
 		if etag := resp.Header.Get("Etag"); etag != "" {
 			entry.Etag = etag
 		}
+
+		// Set the FileModTime if Last-Modified header is present
+		if lastMod := resp.Header.Get("Last-Modified"); lastMod != "" {
+			if t, err := time.Parse(time.RFC1123, lastMod); err == nil {
+				entry.FileModTime = t
+			}
+		}
+
 		// Set the expires header if present in the response from the server
 		if expires := resp.Header.Get("Expires"); expires != "" {
-			entry.expires, err = time.Parse(time.RFC1123, expires)
+			entry.Expires, err = time.Parse(time.RFC1123, expires)
 			if err != nil {
 				// If we cannot parse the Expires header, set the default one
-				entry.expires = time.Now().Add(freshnessForServerFiles)
+				entry.Expires = time.Now().Add(freshnessForServerFiles)
 			}
 		} else {
 			// If the Expires header is not present, set the default one
-			entry.expires = time.Now().Add(freshnessForServerFiles)
+			entry.Expires = time.Now().Add(freshnessForServerFiles)
 		}
 
 		slog.Debug("readFileIfNew", "file", fileName, "msg", "file read from the server")
@@ -314,7 +346,7 @@ func (m *SimpleFileCache) GetFile(fileName string) (*FileEntry, error) {
 		entry := fe.(*FileEntry)
 
 		// Return the entry if it is fresh enough.
-		if now.Sub(entry.EntryUpdated) < freshnessForDiskFiles {
+		if now.Before(entry.Expires) {
 			slog.Debug("readFileIfNew", "file", fileName, "msg", "found and cache entry is fresh")
 			return entry, nil
 		}
@@ -353,6 +385,7 @@ func (m *SimpleFileCache) GetFile(fileName string) (*FileEntry, error) {
 			FileModTime:  modifiedAt,
 			Content:      content,
 			FileHash:     maphash.Bytes(seed, content),
+			Expires:      now.Add(m.options.FreshnessForDiskFiles),
 		}
 
 		m.fileCache.Store(fileName, entry)
@@ -380,6 +413,7 @@ func (m *SimpleFileCache) GetFile(fileName string) (*FileEntry, error) {
 			FileModTime:  modifiedAt,
 			Content:      content,
 			FileHash:     maphash.Bytes(seed, content),
+			Expires:      now.Add(m.options.FreshnessForDiskFiles),
 		}
 
 		slog.Debug("readFileIfNew", "file", fileName, "msg", "file modification is later than in entry")
@@ -392,6 +426,7 @@ func (m *SimpleFileCache) GetFile(fileName string) (*FileEntry, error) {
 		// Updating the timestamp extends the TTL of the entry.
 		slog.Debug("readFileIfNew", "file", fileName, "msg", "entry was not fresh but still valid")
 		entry.EntryUpdated = now
+		entry.Expires = now.Add(m.options.FreshnessForDiskFiles)
 
 		// And return contents
 		return entry, nil
@@ -419,7 +454,7 @@ func (m *SimpleFileCache) Set(fileName string, content []byte, ttl time.Duration
 		FileModTime:  now,
 		Content:      content,
 		FileHash:     maphash.Bytes(seed, content),
-		expires:      time.Now().Add(ttl),
+		Expires:      time.Now().Add(ttl),
 	}
 
 	m.fileCache.Store(fileName, entry)

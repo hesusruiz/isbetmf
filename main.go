@@ -24,10 +24,10 @@ import (
 	"github.com/hesusruiz/isbetmf/internal/sqlogger"
 	_ "github.com/hesusruiz/isbetmf/migrations"
 	"github.com/hesusruiz/isbetmf/pdp"
+	"github.com/hesusruiz/isbetmf/sqlitesync"
 	fiberhandler "github.com/hesusruiz/isbetmf/tmfserver/handler/fiber"
 	repository "github.com/hesusruiz/isbetmf/tmfserver/repository"
 	service "github.com/hesusruiz/isbetmf/tmfserver/service"
-	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -96,19 +96,23 @@ func main() {
 func runNormalProcess(configuration *config.Config) {
 	// We are now executing the normal process
 
-	// Connect to the database
-	db := sqlx.MustConnect("sqlite3", configuration.Dbname)
-	defer db.Close()
+	// Perform the backup
+	if !configuration.BackupDisabled {
+		err := sqlitesync.Backup(configuration.Dbname)
+		if err != nil {
+			slog.Error("failed to perform backup", slog.Any("error", err))
+		}
+	}
 
-	slog.Info("About to create tables if they do not exist")
-	err := repository.CreateTables(db)
+	// Connect to the database and create tables if they do not exist
+	db, err := repository.NewDBService(configuration)
 	if err != nil {
-		slog.Error("failed to create tables", slog.Any("error", err))
+		slog.Error("failed to connect to database", slog.Any("error", err))
 		os.Exit(1)
 	}
 
 	// Create the PDP (aka Policy Decision Point or rules engine)
-	rulesEngine, err := pdp.NewPDP(&pdp.Config{
+	rulesEngine, err := pdp.NewPDPService(&pdp.Config{
 		PolicyFileName: configuration.PolicyFileName,
 		Debug:          configuration.Debug,
 	})
@@ -117,15 +121,15 @@ func runNormalProcess(configuration *config.Config) {
 		os.Exit(1)
 	}
 
-	// Create the service
+	// Create the service, which will use the database and the rules engine
 	s, err := service.NewTMFService(configuration, db, rulesEngine)
 	if err != nil {
 		slog.Error("failed to create service", slog.Any("error", err))
 		os.Exit(1)
 	}
 
-	// Create Fiber app with custom configuration
-	app := fiber.New(fiber.Config{
+	// Create Fiber web server with custom configuration
+	webServer := fiber.New(fiber.Config{
 		AppName:      "TMForum API Server",
 		ServerHeader: "TMForum",
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
@@ -147,12 +151,12 @@ func runNormalProcess(configuration *config.Config) {
 	// Add middleware in order (order matters!)
 
 	// 1. Recovery middleware - should be first to catch panics
-	app.Use(recover.New(recover.Config{
+	webServer.Use(recover.New(recover.Config{
 		EnableStackTrace: configuration.Debug,
 	}))
 
 	// 2. Request ID middleware - for tracing requests
-	app.Use(requestid.New(requestid.Config{
+	webServer.Use(requestid.New(requestid.Config{
 		Header: "X-Request-Id",
 		Generator: func() string {
 			return "req_" + time.Now().Format("20060102150405") + "_" + os.Getenv("HOSTNAME")
@@ -160,7 +164,7 @@ func runNormalProcess(configuration *config.Config) {
 	}))
 
 	// 3. CORS middleware - enable cross-origin requests
-	app.Use(cors.New(cors.Config{
+	webServer.Use(cors.New(cors.Config{
 		AllowOrigins:     "*", // Allow all origins as requested
 		AllowMethods:     "GET,POST,HEAD,PUT,DELETE,PATCH,OPTIONS",
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Request-Id",
@@ -170,22 +174,22 @@ func runNormalProcess(configuration *config.Config) {
 	}))
 
 	// 4. Compression middleware - compress responses
-	app.Use(compress.New(compress.Config{
+	webServer.Use(compress.New(compress.Config{
 		Level: compress.LevelBestSpeed,
 	}))
 
 	// 5. Logger middleware - log requests and replies
-	app.Use(sqlogger.FiberRequestLogger)
+	webServer.Use(sqlogger.FiberRequestLogger)
 
 	// TODO: Implement request timeout
 
 	// Serve the OpenAPI UI. We support V4 and V5
-	app.Static("/oapiv5", "./www/oapiv5")
-	app.Static("/oapiv4", "./www/oapiv4")
+	webServer.Static("/oapiv5", "./www/oapiv5")
+	webServer.Static("/oapiv4", "./www/oapiv4")
 
 	// Create handler and set the routes for the APIs
 	h := fiberhandler.NewHandler(s)
-	h.RegisterRoutes(app)
+	h.RegisterRoutes(webServer)
 
 	// TABLEFLIP for seamless restarts and upgrades
 	upg, err := tableflip.New(tableflip.Options{
@@ -220,7 +224,7 @@ func runNormalProcess(configuration *config.Config) {
 	// Start the server in a separate goroutine
 	go func() {
 		slog.Info("TMF API server starting", slog.String("port", ":9991"))
-		err := app.Listener(ln)
+		err := webServer.Listener(ln)
 		if err != nil {
 			slog.Error("Error starting TMF API server", "error", errl.Error(err))
 			panic(err)
@@ -244,7 +248,7 @@ func runNormalProcess(configuration *config.Config) {
 	})
 
 	// Wait for connections to drain.
-	err = app.ShutdownWithContext(context.Background())
+	err = webServer.ShutdownWithContext(context.Background())
 	if err != nil {
 		fmt.Println("Exiting with error:", errl.Error(err).Error())
 	} else {

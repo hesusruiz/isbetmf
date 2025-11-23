@@ -45,7 +45,8 @@ type Config struct {
 
 	// Dbname is the name of the database file where the TMForum data is stored
 	// It is used to store the data in a local SQLite database, the best SQL database for this purpose.
-	Dbname string
+	Dbname         string
+	BackupDisabled bool
 
 	// The power required by a caller to be considered LEAR
 	LEARPower types.OnePower
@@ -135,7 +136,8 @@ func LoadConfig(
 
 	// Initialize the custom SQLogHandler
 	logOptions := &sqlogger.Options{
-		Level: &logLevel,
+		Level:  &logLevel,
+		LogDir: "data/logs",
 	}
 
 	// Check if the logs should be colored:
