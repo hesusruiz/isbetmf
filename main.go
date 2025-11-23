@@ -50,7 +50,7 @@ func main() {
 		panic(err)
 	}
 	defer configuration.Close()
-	slog.Info("Configuration loaded", slog.Any("config", configuration))
+slog.Info("Configuration loaded", "environment", configuration.Environment, "debug", configuration.Debug, "proxy", configuration.ProxyEnabled)
 
 	// Set restart schedule
 	configuration.RestartHour = restartHour
