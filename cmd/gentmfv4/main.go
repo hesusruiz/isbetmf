@@ -25,7 +25,7 @@ var routesTemplate string
 var (
 	managementToUpstream = map[string]string{}
 	resourceToManagement = map[string]string{}
-	resourceToPath       = map[string]string{}
+	resourceToFullPath   = map[string]string{}
 )
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 
 	// Read the directory entries
 	dirEntries, err := os.ReadDir(swaggerDir)
-if err != nil {
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading directory %s: %v\n", swaggerDir, err)
 		os.Exit(1)
 	}
@@ -65,7 +65,7 @@ if err != nil {
 	var b bytes.Buffer
 	err = tmpl.Execute(&b, map[string]any{
 		"ResourceToManagement":   resourceToManagement,
-		"ResourceToStandardPath": resourceToPath,
+		"ResourceToStandardPath": resourceToFullPath,
 		"ManagementToUpstream":   managementToUpstream,
 	})
 	if err != nil {
@@ -118,7 +118,12 @@ func processOneFile(filePath string) {
 	apiFamily := basePathParts[1]
 	fmt.Println("API family:", apiFamily)
 
-	// Get the "paths" key from the map
+	// Get the "paths" key from the map, which has this form:
+	// "paths": {
+	//     "/catalog": {
+	//         "get": {
+	// ... (and other HTTP methods)
+
 	paths := jpath.GetMap(swagMap, "paths")
 
 	localResourceNames := map[string]bool{}
@@ -131,19 +136,24 @@ func processOneFile(filePath string) {
 		pathParts := strings.Split(thePath, "/")
 		resourceName := pathParts[0]
 
+		// Skip importJob and exportJob
 		if resourceName == "importJob" || resourceName == "exportJob" {
-			// We do not implement these APIs
 			continue
 		}
 
+		// Skip hub and listener
 		if resourceName == "hub" || resourceName == "listener" {
-			// TODO: implement special processing for these paths
 			continue
 		}
 
+		// Add to the set of canonicalized resource names
 		localResourceNames[strings.ToLower(resourceName)] = true
+
+		// Map of resource name to management system
 		resourceToManagement[resourceName] = apiFamily
-		resourceToPath[resourceName] = path.Join("/tmf-api", basePath, resourceName)
+
+		// Map of resource name to full collection path
+		resourceToFullPath[resourceName] = path.Join("/tmf-api", basePath, resourceName)
 
 	}
 
@@ -153,10 +163,12 @@ func processOneFile(filePath string) {
 
 	for definitionName, v := range definitions {
 
+		// Skip Event definitions
 		if strings.Contains(definitionName, "ChangeEvent") || strings.Contains(definitionName, "DeleteEvent") || strings.Contains(definitionName, "CreateEvent") {
 			continue
 		}
 
+		// Get all properties
 		properties := jpath.GetMap(v, "properties")
 
 		var found bool

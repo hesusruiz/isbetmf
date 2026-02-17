@@ -121,6 +121,7 @@ func LoadConfig(
 	// Normalize to lowercase for comparisons
 	envir = strings.ToLower(envir)
 
+	// The environment has precedence over the parameter
 	en := os.Getenv("ISBETMF_RUN_ENVIRONMENT")
 	if en != "" {
 		envir = en

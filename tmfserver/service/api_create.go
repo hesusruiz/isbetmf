@@ -80,7 +80,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	// ************************************************************************************************
 	{
 
-		incomingObjectMap, err = repo.NewTMFObjectMapFromRequest(req.ResourceName, req.Body)
+		incomingObjectMap, err = repo.NewTMFObjectMapFromBytes(req.ResourceName, req.Body)
 		if err != nil {
 			return ErrorResponsef(http.StatusBadRequest, "failed to bind request body: %w", errl.Error(err))
 		}
@@ -167,7 +167,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	// based on the rules defined by the user in the policy engine.
 	// ************************************************************************************************
 
-	if authorized, err := svc.takeDecision(svc.ruleEngine, req, req.TokenMap, incomingObjectMap); !authorized {
+	if authorized, err := svc.takeDecision(svc.ruleEngine, req, incomingObjectMap); !authorized {
 		return ErrorResponsef(http.StatusForbidden,
 			"user %s is not authorized, object: %s, error: %w",
 			req.AuthUser.OrganizationIdentifier,
@@ -182,7 +182,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	// Now we can proceed, creating an object in the database or the remote server in proxy mode
 	// ************************************************************************************************
 
-	obj := incomingObjectMap.ToTMFObject(req.ResourceName)
+	obj := incomingObjectMap.ToTMFRecord(req.ResourceName)
 
 	respSt := svc.createLocalOrRemoteObject(req, obj)
 

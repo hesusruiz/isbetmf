@@ -16,9 +16,14 @@ import (
 
 // TMFObjectMap represents a TMForum object as a map with utility methods
 // This is designed to make fixing validation errors simple and efficient
+// Using a map makes it easier to support the many types of different objects of TM Forum,
+// and be more robust to slight variations in the JSON data received from the TM Forum server.
+// But to make manipulations as type-safe as possible, the map is surrounded by a set of methods.
 type TMFObjectMap map[string]any
 
-// NewTMFObject creates a new TMFObject from a JSON byte slice
+// NewTMFObjectMap creates a new TMFObjectMap from a JSON byte slice.
+// This is intended to be used to instantiate a TMFObjectMap from the content of the database record,
+// and does not perform any validations, so any JSON object will be accepted.
 func NewTMFObjectMap(data []byte) (TMFObjectMap, error) {
 	var obj TMFObjectMap
 	err := json.Unmarshal(data, &obj)
@@ -28,9 +33,11 @@ func NewTMFObjectMap(data []byte) (TMFObjectMap, error) {
 	return obj, nil
 }
 
-// NewTMFObjectMapFromRequest creates a new TMFObject from a JSON byte slice.
+// NewTMFObjectMapFromBytes creates a new TMFObject from a JSON byte slice.
 // It is intended to be used with data received from a remote TMF server.
-func NewTMFObjectMapFromRequest(resourceName string, data []byte) (TMFObjectMap, error) {
+// The `@type` field is checked to ensure it matches the resourceName passed by the caller.
+// If the `@type` field is not present, it is added to the object.
+func NewTMFObjectMapFromBytes(resourceName string, data []byte) (TMFObjectMap, error) {
 	var obj TMFObjectMap
 	err := json.Unmarshal(data, &obj)
 	if err != nil {
@@ -117,10 +124,6 @@ func (obj TMFObjectMap) validateRequiredFields(resourceName string, result *Vali
 	// This checks the fields that are required for all objects
 	for _, field := range RequiredFieldsForAllObjects {
 		if !obj.HasField(field) {
-			// TODO: Implement fixing logic for missing required fields
-			// If v.config.FixValidationErrors is true, attempt to fix the missing field
-			// and move the error to result.ErrorsFixed if successfully fixed
-
 			result.Errors = append(result.Errors, ValidationError{
 				Field:   field,
 				Message: fmt.Sprintf("Required field '%s' is missing", field),
@@ -129,12 +132,9 @@ func (obj TMFObjectMap) validateRequiredFields(resourceName string, result *Vali
 		}
 	}
 
+	// Generate the warnings for the recommended fields
 	for _, field := range RecommendedFieldsForAllObjects {
 		if !obj.HasField(field) {
-			// TODO: Implement fixing logic for missing required fields
-			// If v.config.FixValidationErrors is true, attempt to fix the missing field
-			// and move the error to result.ErrorsFixed if successfully fixed
-
 			result.Warnings = append(result.Warnings, ValidationWarning{
 				Field:   field,
 				Message: fmt.Sprintf("Recommended field '%s' is missing", field),
@@ -147,7 +147,7 @@ func (obj TMFObjectMap) validateRequiredFields(resourceName string, result *Vali
 
 func (obj TMFObjectMap) validateRelatedParty(result *ValidationResult) {
 
-	// We just return if the object does not require Seller nor Buyer info
+	// Return if the object does not require Seller nor Buyer info
 	if !obj.RequiresSellerInfo() {
 		return
 	}
@@ -175,6 +175,11 @@ func (obj TMFObjectMap) validateRelatedParty(result *ValidationResult) {
 	buyerRole := strings.ToLower("Buyer")
 	buyerOperatorRole := strings.ToLower("BuyerOperator")
 
+	sellerRoleCount := 0
+	sellerOperatorRoleCount := 0
+	buyerRoleCount := 0
+	buyerOperatorRoleCount := 0
+
 	for _, rp := range relatedParties {
 		// Cast the entry to a map[string]any
 		rpMap, _ := rp.(map[string]any)
@@ -198,6 +203,7 @@ func (obj TMFObjectMap) validateRelatedParty(result *ValidationResult) {
 
 		switch rpRole {
 		case sellerRole:
+			sellerRoleCount++
 			sellerDid, _ = rpMap["name"].(string)
 			if sellerDid == "" {
 				result.Errors = append(result.Errors, ValidationError{
@@ -207,6 +213,7 @@ func (obj TMFObjectMap) validateRelatedParty(result *ValidationResult) {
 				})
 			}
 		case sellerOperatorRole:
+			sellerOperatorRoleCount++
 			sellerOperatorDid, _ = rpMap["name"].(string)
 			if sellerOperatorDid == "" {
 				result.Errors = append(result.Errors, ValidationError{
@@ -216,6 +223,7 @@ func (obj TMFObjectMap) validateRelatedParty(result *ValidationResult) {
 				})
 			}
 		case buyerRole:
+			buyerRoleCount++
 			buyerDid, _ = rpMap["name"].(string)
 			if buyerDid == "" {
 				result.Errors = append(result.Errors, ValidationError{
@@ -225,6 +233,7 @@ func (obj TMFObjectMap) validateRelatedParty(result *ValidationResult) {
 				})
 			}
 		case buyerOperatorRole:
+			buyerOperatorRoleCount++
 			buyerOperatorDid, _ = rpMap["name"].(string)
 			if buyerOperatorDid == "" {
 				result.Errors = append(result.Errors, ValidationError{
@@ -258,6 +267,22 @@ func (obj TMFObjectMap) validateRelatedParty(result *ValidationResult) {
 		})
 	}
 
+	// Check that we have the correct number of Seller and SellerOperator entries
+	if sellerRoleCount > 1 {
+		result.Errors = append(result.Errors, ValidationError{
+			Field:   "relatedParty",
+			Message: "Too many 'relatedParty' entries for 'Seller' role",
+			Code:    "TOO_MANY_RELATED_PARTY_INFO",
+		})
+	}
+	if sellerOperatorRoleCount > 1 {
+		result.Errors = append(result.Errors, ValidationError{
+			Field:   "relatedParty",
+			Message: "Too many 'relatedParty' entries for 'SellerOperator' role",
+			Code:    "TOO_MANY_RELATED_PARTY_INFO",
+		})
+	}
+
 	if !obj.RequiresBuyerInfo() {
 		return
 	}
@@ -283,9 +308,25 @@ func (obj TMFObjectMap) validateRelatedParty(result *ValidationResult) {
 		})
 	}
 
+	// Check that we have the correct number of Buyer and BuyerOperator entries
+	if buyerRoleCount > 1 {
+		result.Errors = append(result.Errors, ValidationError{
+			Field:   "relatedParty",
+			Message: "Too many 'relatedParty' entries for 'Buyer' role",
+			Code:    "TOO_MANY_RELATED_PARTY_INFO",
+		})
+	}
+	if buyerOperatorRoleCount > 1 {
+		result.Errors = append(result.Errors, ValidationError{
+			Field:   "relatedParty",
+			Message: "Too many 'relatedParty' entries for 'BuyerOperator' role",
+			Code:    "TOO_MANY_RELATED_PARTY_INFO",
+		})
+	}
+
 }
 
-func (obj TMFObjectMap) ToTMFObject(resourceName string) *TMFRecord {
+func (obj TMFObjectMap) ToTMFRecord(resourceName string) *TMFRecord {
 
 	id := obj.ID()
 	objectType := obj.Type()
@@ -559,24 +600,6 @@ func (obj TMFObjectMap) SetMapField(field string, value map[string]any) {
 	obj[field] = value
 }
 
-// Clone creates a deep copy of the TMFObjectMap
-func (obj TMFObjectMap) Clone() TMFObjectMap {
-	// Use JSON marshaling/unmarshaling for deep copy
-	data, err := obj.ToJSON()
-	if err != nil {
-		// If JSON fails, create a shallow copy
-		return NewTMFObjectFromMap(obj.ToMap())
-	}
-
-	clone, err := NewTMFObjectMap(data)
-	if err != nil {
-		// If unmarshaling fails, create a shallow copy
-		return NewTMFObjectFromMap(obj.ToMap())
-	}
-
-	return clone
-}
-
 // IsEmpty returns true if the object is empty
 func (obj TMFObjectMap) IsEmpty() bool {
 	return len(obj) == 0
@@ -605,19 +628,20 @@ func (obj TMFObjectMap) String() string {
 	return string(data)
 }
 
+// IsOwner checks if the caller can modify the object in the server operated by serverOperatorDid
 func (obj TMFObjectMap) IsOwner(caller types.AuthUser, serverOperatorDid string) (isOwner bool, reason string) {
 
 	// Ownership of an object depends on the type of object
 	objType, _ := obj["@type"].(string)
 	objType = strings.ToLower(objType)
 
+	// If the caller is us (the server operator), then we can read/write/update/delete
+	if SameOrganizations(caller.OrganizationIdentifier, serverOperatorDid) {
+		return true, fmt.Sprintf("caller %s is server operator %s", caller.OrganizationIdentifier, serverOperatorDid)
+	}
+
 	switch objType {
 	case "organization":
-
-		// If the caller is us (the server operator), then we can read/write/update/delete
-		if SameOrganizations(caller.OrganizationIdentifier, serverOperatorDid) {
-			return true, fmt.Sprintf("caller %s is server operator %s", caller.OrganizationIdentifier, serverOperatorDid)
-		}
 
 		// If the organization of the caller and object are the same, then the caller can read/write/update/delete
 		objectOrganizationId := jpath.GetString(obj, "organizationIdentification.*.identificationId")
@@ -629,12 +653,7 @@ func (obj TMFObjectMap) IsOwner(caller types.AuthUser, serverOperatorDid string)
 
 	case "individual":
 
-		// TODO: revise this policy to be restrictive
-
-		// If the caller is us (the server operator), then we can read/write/update/delete
-		if SameOrganizations(caller.OrganizationIdentifier, serverOperatorDid) {
-			return true, fmt.Sprintf("caller %s is server operator %s", caller.OrganizationIdentifier, serverOperatorDid)
-		}
+		// TODO: revise this policy to be more restrictive
 
 		// If the caller is the Organization that is the mandator is the LEARCredential of the employee
 		// then the caller can read/write/update/delete
@@ -658,19 +677,10 @@ func (obj TMFObjectMap) IsOwner(caller types.AuthUser, serverOperatorDid string)
 
 	case "category":
 
-		// If the caller is us (the server operator), then we can read/write/update/delete
-		if SameOrganizations(caller.OrganizationIdentifier, serverOperatorDid) {
-			return true, fmt.Sprintf("caller %s is server operator %s", caller.OrganizationIdentifier, serverOperatorDid)
-		}
-
+		// category objects can only be modified by the server operator
 		return false, fmt.Sprintf("caller %s is not the server operator %s", caller.OrganizationIdentifier, serverOperatorDid)
 
 	default:
-
-		// If the caller is us (the server operator), then we can read/write/update/delete
-		if SameOrganizations(caller.OrganizationIdentifier, serverOperatorDid) {
-			return true, fmt.Sprintf("caller %s is server operator %s", caller.OrganizationIdentifier, serverOperatorDid)
-		}
 
 		// For any other objects, we require that the object includes the Seller info, and then
 		// the user must be either the server operator or the seller

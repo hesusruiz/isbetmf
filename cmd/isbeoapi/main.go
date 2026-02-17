@@ -14,9 +14,9 @@ import (
 	"golang.org/x/tools/imports"
 )
 
-// This is a simple tool to process the Swagger files in the "swagger" directory
+// This is a simple tool to process the OpenAPI files in the "oapiv5" directory
 // and extract the mapping of last path part to management system and the routes.
-// It assumes the Swagger files are in the format used by the TMForum APIs.
+// It assumes the OpenAPI files are in the format used by the TMForum APIs.
 // It will print the mapping and the routes to the standard output in JSON format.
 
 //go:embed routes.hbs
@@ -24,9 +24,8 @@ var routesTemplate string
 
 func main() {
 
-	// Visit recursively the directories in the "swagger" directory
-	// It assumes an "almost" flat structure with directories named after the management system
-	// and one file inside each directory named "api.json" or similar.
+	// Visit the "oapiv5" directory
+	// It assumes a flat structure with files named after the management system
 	baseDir := "./oapiv5"
 
 	managementToUpstream := map[string]string{}

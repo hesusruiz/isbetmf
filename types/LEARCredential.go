@@ -76,9 +76,9 @@ func (p *OnePower) SameAs(other *OnePower) bool {
 // Includes reports whether a given power p "includes" the supplied other power.
 //
 // It returns true iff all of the following conditions hold:
-//   - p.Tmf_type equals other.Tmf_type (case-insensitive, via strings.EqualFold)
-//   - p.Tmf_domain equals other.Tmf_domain (case-insensitive)
-//   - p.Tmf_function equals other.Tmf_function (case-insensitive)
+//   - p.type equals other.type (case-insensitive, via strings.EqualFold)
+//   - p.domain equals other.domain (case-insensitive)
+//   - p.function equals other.function (case-insensitive)
 //   - every action in other power is present in the actions of p
 //
 // The method performs early returns and returns false on the first mismatch. It treats p.Tmf_action as a superset:
@@ -101,7 +101,7 @@ func (p *OnePower) Includes(other OnePower) bool {
 		return false
 	}
 
-	// Check that each element of other.Tmf_action is included in p.Tmf_action
+	// Check that each element of other.action is included in p.action
 	// The comparison of individual elements must be case-insensitive using strings.EqualFold
 	for _, otherAction := range other.Action {
 		found := false
@@ -146,7 +146,7 @@ type LEARCredentialEmployee struct {
 	ValidFrom         string `json:"validFrom,omitempty"`
 	ValidUntil        string `json:"validUntil,omitempty"`
 	CredentialSubject struct {
-		Mandate Mandate `json:"mandate,omitempty"`
+		Mandate Mandate `json:"mandate"`
 	} `json:"credentialSubject"`
 }
 

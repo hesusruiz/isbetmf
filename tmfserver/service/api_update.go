@@ -66,7 +66,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	// ************************************************************************************************
 	{
 
-		incomingObjMap, err = repo.NewTMFObjectMapFromRequest(req.ResourceName, req.Body)
+		incomingObjMap, err = repo.NewTMFObjectMapFromBytes(req.ResourceName, req.Body)
 		if err != nil {
 			return ErrorResponsef(http.StatusBadRequest, "failed to bind request body: %w", errl.Error(err))
 		}
@@ -133,7 +133,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	// based on the rules defined by the user in the policy engine.
 	// ************************************************************************************************
 
-	if authorized, err := svc.takeDecision(svc.ruleEngine, req, req.TokenMap, existingObjectMap); !authorized {
+	if authorized, err := svc.takeDecision(svc.ruleEngine, req, existingObjectMap); !authorized {
 		return ErrorResponsef(http.StatusForbidden,
 			"user %s is not authorized, object: %s, error: %w",
 			req.AuthUser.OrganizationIdentifier,

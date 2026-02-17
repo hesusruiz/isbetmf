@@ -7,26 +7,6 @@ import (
 	"github.com/hesusruiz/isbetmf/internal/errl"
 )
 
-// TMFRecord represents a generic TMForum object.
-// It is used to store and retrieve objects from the database.
-type TMFRecord struct {
-	ID             string           `db:"id"`
-	Type           string           `db:"type"`
-	Version        string           `db:"version"`
-	APIVersion     string           `db:"api_version"`
-	Seller         string           `db:"seller"`
-	SellerOperator string           `db:"seller_operator"`
-	Buyer          string           `db:"buyer"`
-	BuyerOperator  string           `db:"buyer_operator"`
-	LastUpdate     string           `db:"last_update"`
-	Random         int              `db:"random"`
-	Content        []byte           `db:"content"`
-	ContentMap     TMFObjectMap     `db:"-"`
-	Validations    ValidationResult `db:"-"`
-	CreatedAt      int64            `db:"created_at"`
-	UpdatedAt      int64            `db:"updated_at"`
-}
-
 // NewTMFRecord creates a new TMFObject.
 func NewTMFRecord(id, objectType, version, apiVersion, lastUpdate string, content []byte) *TMFRecord {
 	now := time.Now()
@@ -80,7 +60,8 @@ func (o *TMFRecord) Validate() error {
 }
 
 // ToTMFObjectMap returns a TMFObjectMap reusing any previous marshalling and validation.
-// To force to always marshal of o.Content and running validations, use o.MustToMap
+// To force to always marshal of o.Content and running validations, use o.MustToTMFObjectMap
+// After the call, the validations results are in o.Validations
 func (o *TMFRecord) ToTMFObjectMap() (TMFObjectMap, error) {
 	if o == nil {
 		return nil, errl.Errorf("object is nil")

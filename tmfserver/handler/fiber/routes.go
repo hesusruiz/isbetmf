@@ -10,7 +10,7 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	// Mock listener for local testing (accepts any listener path)
 	app.Post("/listener/*", h.MockListener)
 
-	// Health check)
+	// Health check
 	app.Get("/health", h.Health)
 
 	// Group routes for TMF API V5

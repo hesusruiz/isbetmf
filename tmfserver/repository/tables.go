@@ -26,6 +26,26 @@ const CreateTMFTableSQL = `CREATE TABLE IF NOT EXISTS tmf_object (
 	PRIMARY KEY ("id", "type", "version")
 );`
 
+// TMFRecord represents a generic TMForum object.
+// It is used to store and retrieve objects from the database.
+type TMFRecord struct {
+	ID             string           `db:"id"`
+	Type           string           `db:"type"`
+	Version        string           `db:"version"`
+	APIVersion     string           `db:"api_version"`
+	Seller         string           `db:"seller"`
+	SellerOperator string           `db:"seller_operator"`
+	Buyer          string           `db:"buyer"`
+	BuyerOperator  string           `db:"buyer_operator"`
+	LastUpdate     string           `db:"last_update"`
+	Content        []byte           `db:"content"`
+	Random         int              `db:"random"`
+	CreatedAt      int64            `db:"created_at"`
+	UpdatedAt      int64            `db:"updated_at"`
+	ContentMap     TMFObjectMap     `db:"-"`
+	Validations    ValidationResult `db:"-"`
+}
+
 // Used for migrations and to keep the database file compact
 const DeleteTMFTableSQL = `DROP TABLE IF EXISTS tmf_object;`
 const VacuumSQL = `VACUUM;`
@@ -33,6 +53,7 @@ const VacuumSQL = `VACUUM;`
 func NewDBService(configuration *config.Config) (*sqlx.DB, error) {
 
 	// Build the connection string with the parameters we want to use.
+	// We specify the parameters even if they are the default ones, to make it explicit.
 
 	// _journal_mode=WAL Enables Write-Ahead Logging for high concurrency (many readers, one writer).
 	dbName := "file:" + configuration.Dbname + "?_journal_mode=WAL"
@@ -68,7 +89,7 @@ func NewDBService(configuration *config.Config) (*sqlx.DB, error) {
 		return nil, errl.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Create tables if they do not exist
+	// Create tables if they do not exist, and run migrations
 	slog.Info("About to create tables if they do not exist")
 	err = CreateTables(db)
 	if err != nil {
