@@ -146,7 +146,7 @@ func (svc *Service) ListGenericObjects(req *Request) *Response {
 					continue
 				}
 
-				obj := objectMap.ToTMFObject(req.ResourceName)
+				obj := objectMap.ToTMFRecord(req.ResourceName)
 
 				// Store locally for further usage
 				if err := svc.upsertObject(obj); err != nil {
@@ -161,7 +161,7 @@ func (svc *Service) ListGenericObjects(req *Request) *Response {
 				}
 
 				// Check if the object can be read by the user
-				authorized, err := svc.takeDecision(svc.ruleEngine, req, req.TokenMap, objectMap)
+				authorized, err := svc.takeDecision(svc.ruleEngine, req, objectMap)
 				if !authorized {
 					invalidObjects++
 					slog.Debug("object %s not authorized: %s", objectMap.ID(), errl.Error(err))
@@ -259,7 +259,7 @@ func (svc *Service) ListGenericObjects(req *Request) *Response {
 			}
 
 			// Check if the user can access the object
-			authorized, err := svc.takeDecision(svc.ruleEngine, req, req.TokenMap, objMap)
+			authorized, err := svc.takeDecision(svc.ruleEngine, req, objMap)
 			if !authorized {
 				slog.Debug("object %s not authorized: %w", obj.ID, errl.Error(err))
 				return false

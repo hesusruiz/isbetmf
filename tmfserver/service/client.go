@@ -68,7 +68,7 @@ func ForwardTMFPost(req *Request, remoteServer string, objMap repository.TMFObje
 		return nil, []error{errl.Errorf("unexpected status code: %d", statusCode)}
 	}
 
-	obj, err := repository.NewTMFObjectMapFromRequest(req.ResourceName, responseBody)
+	obj, err := repository.NewTMFObjectMapFromBytes(req.ResourceName, responseBody)
 	if err != nil {
 		return nil, []error{errl.Errorf("failed to bind request body: %w", err)}
 	}

@@ -33,7 +33,6 @@ import (
 func (svc *Service) takeDecision(
 	ruleEngine *pdp.PDP,
 	req *Request,
-	tokenClaims map[string]any,
 	objectMap repo.TMFObjectMap,
 ) (authorized bool, err error) {
 
@@ -48,7 +47,7 @@ func (svc *Service) takeDecision(
 	// The user policies will determine the final decision.
 	req.AuthUser.IsOwner = decision
 
-	if err := svc.userPolicies(ruleEngine, req, tokenClaims, objectMap); err != nil {
+	if err := svc.userPolicies(ruleEngine, req, req.TokenMap, objectMap); err != nil {
 		return false, errl.Errorf("user policies in PDP engine: %w", err)
 	}
 

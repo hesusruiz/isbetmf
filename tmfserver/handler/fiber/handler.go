@@ -140,6 +140,15 @@ func (h *Handler) CreateGenericObject(c *fiber.Ctx) error {
 	// Extract API version from the URL path
 	apiVersion := extractAPIVersion(c.Path())
 
+	// Authentication: process the AccessToken to extract caller info from its claims in the payload
+	// The tokenMap may be nil, which means that the user did not send any authorization header, and
+	// this will be checked in the service downstream.
+	tokenMap, authUser, err := h.service.ProcessAccessToken(jwtToken)
+	if err != nil {
+		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
+		return SendResponse(c, resp)
+	}
+
 	req := &svc.Request{
 		Method:       c.Method(),
 		Action:       svc.HttpActions[c.Method()],
@@ -148,18 +157,9 @@ func (h *Handler) CreateGenericObject(c *fiber.Ctx) error {
 		ResourceName: resourceName,
 		Body:         c.Body(),
 		AccessToken:  jwtToken, // Store the raw JWT token
+		AuthUser:     *authUser,
+		TokenMap:     tokenMap,
 	}
-
-	// Authentication: process the AccessToken to extract caller info from its claims in the payload
-	// The tokenMap may be nil, which means that the user did not send any authorization header, and
-	// this will be checked in the service downstream.
-	tokenMap, err := h.service.ProcessAccessToken(req)
-	if err != nil {
-		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
-		return SendResponse(c, resp)
-	}
-
-	req.TokenMap = tokenMap
 
 	resp := h.service.CreateGenericObject(req)
 	return SendResponse(c, resp)
@@ -172,6 +172,15 @@ func (h *Handler) GetGenericObject(c *fiber.Ctx) error {
 	// Extract API version from the URL path
 	apiVersion := extractAPIVersion(c.Path())
 
+	// Authentication: process the AccessToken to extract caller info from its claims in the payload
+	// The tokenMap may be nil, which means that the user did not send any authorization header, and
+	// this will be checked in the service downstream.
+	tokenMap, authUser, err := h.service.ProcessAccessToken(jwtToken)
+	if err != nil {
+		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
+		return SendResponse(c, resp)
+	}
+
 	queryParams, _ := url.ParseQuery(string(c.Request().URI().QueryString()))
 	idParam, _ := url.QueryUnescape(c.Params("id"))
 	req := &svc.Request{
@@ -183,18 +192,9 @@ func (h *Handler) GetGenericObject(c *fiber.Ctx) error {
 		ID:           idParam,
 		QueryParams:  queryParams,
 		AccessToken:  jwtToken,
+		AuthUser:     *authUser,
+		TokenMap:     tokenMap,
 	}
-
-	// Authentication: process the AccessToken to extract caller info from its claims in the payload
-	// The tokenMap may be nil, which means that the user did not send any authorization header, and
-	// this will be checked in the service downstream.
-	tokenMap, err := h.service.ProcessAccessToken(req)
-	if err != nil {
-		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
-		return SendResponse(c, resp)
-	}
-
-	req.TokenMap = tokenMap
 
 	resp := h.service.GetGenericObject(req)
 	return SendResponse(c, resp)
@@ -207,6 +207,15 @@ func (h *Handler) UpdateGenericObject(c *fiber.Ctx) error {
 	// Extract API version from the URL path
 	apiVersion := extractAPIVersion(c.Path())
 
+	// Authentication: process the AccessToken to extract caller info from its claims in the payload
+	// The tokenMap may be nil, which means that the user did not send any authorization header, and
+	// this will be checked in the service downstream.
+	tokenMap, authUser, err := h.service.ProcessAccessToken(jwtToken)
+	if err != nil {
+		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
+		return SendResponse(c, resp)
+	}
+
 	idParam, _ := url.QueryUnescape(c.Params("id"))
 	req := &svc.Request{
 		Method:       c.Method(),
@@ -217,18 +226,9 @@ func (h *Handler) UpdateGenericObject(c *fiber.Ctx) error {
 		ID:           idParam,
 		Body:         c.Body(),
 		AccessToken:  jwtToken, // Store the raw JWT token
+		AuthUser:     *authUser,
+		TokenMap:     tokenMap,
 	}
-
-	// Authentication: process the AccessToken to extract caller info from its claims in the payload
-	// The tokenMap may be nil, which means that the user did not send any authorization header, and
-	// this will be checked in the service downstream.
-	tokenMap, err := h.service.ProcessAccessToken(req)
-	if err != nil {
-		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
-		return SendResponse(c, resp)
-	}
-
-	req.TokenMap = tokenMap
 
 	resp := h.service.UpdateGenericObject(req)
 	return SendResponse(c, resp)
@@ -247,6 +247,15 @@ func (h *Handler) DeleteGenericObject(c *fiber.Ctx) error {
 	// Extract API version from the URL path
 	apiVersion := extractAPIVersion(c.Path())
 
+	// Authentication: process the AccessToken to extract caller info from its claims in the payload
+	// The tokenMap may be nil, which means that the user did not send any authorization header, and
+	// this will be checked in the service downstream.
+	tokenMap, authUser, err := h.service.ProcessAccessToken(jwtToken)
+	if err != nil {
+		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
+		return SendResponse(c, resp)
+	}
+
 	idParam, _ := url.QueryUnescape(c.Params("id"))
 	req := &svc.Request{
 		Method:       c.Method(),
@@ -256,18 +265,9 @@ func (h *Handler) DeleteGenericObject(c *fiber.Ctx) error {
 		ResourceName: c.Params("resourceName"),
 		ID:           idParam,
 		AccessToken:  jwtToken, // Store the raw JWT token
+		AuthUser:     *authUser,
+		TokenMap:     tokenMap,
 	}
-
-	// Authentication: process the AccessToken to extract caller info from its claims in the payload
-	// The tokenMap may be nil, which means that the user did not send any authorization header, and
-	// this will be checked in the service downstream.
-	tokenMap, err := h.service.ProcessAccessToken(req)
-	if err != nil {
-		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
-		return SendResponse(c, resp)
-	}
-
-	req.TokenMap = tokenMap
 
 	resp := h.service.DeleteGenericObject(req)
 	return SendResponse(c, resp)
@@ -280,6 +280,15 @@ func (h *Handler) ListGenericObjects(c *fiber.Ctx) error {
 	// Extract API version from the URL path
 	apiVersion := extractAPIVersion(c.Path())
 
+	// Authentication: process the AccessToken to extract caller info from its claims in the payload
+	// The tokenMap may be nil, which means that the user did not send any authorization header, and
+	// this will be checked in the service downstream.
+	tokenMap, authUser, err := h.service.ProcessAccessToken(jwtToken)
+	if err != nil {
+		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
+		return SendResponse(c, resp)
+	}
+
 	queryParams, _ := url.ParseQuery(string(c.Request().URI().QueryString()))
 	req := &svc.Request{
 		Method:       c.Method(),
@@ -289,18 +298,9 @@ func (h *Handler) ListGenericObjects(c *fiber.Ctx) error {
 		ResourceName: c.Params("resourceName"),
 		QueryParams:  queryParams,
 		AccessToken:  jwtToken, // Store the raw JWT token
+		AuthUser:     *authUser,
+		TokenMap:     tokenMap,
 	}
-
-	// Authentication: process the AccessToken to extract caller info from its claims in the payload
-	// The tokenMap may be nil, which means that the user did not send any authorization header, and
-	// this will be checked in the service downstream.
-	tokenMap, err := h.service.ProcessAccessToken(req)
-	if err != nil {
-		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
-		return SendResponse(c, resp)
-	}
-
-	req.TokenMap = tokenMap
 
 	resp := h.service.ListGenericObjects(req)
 	return SendResponse(c, resp)

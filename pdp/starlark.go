@@ -45,7 +45,7 @@ func init() {
 	st.Universe["star"] = Module
 }
 
-// threadEntry represents the pool of Starlark threads for policy rules execution.
+// threadEntry is one entry in a pool of Starlark threads for policy rules execution.
 // All instances are normally the same, using the same compiled version of the same file.
 // The pool increases concurrency because a given Starlark thread can be reused
 // among goroutines, but not used concurrently by the same goroutine.

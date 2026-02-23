@@ -50,7 +50,7 @@ func (e *ErrObjectConflict) Error() string {
 
 // createObject creates a new TMF object. Returns &ErrObjectExists if the object already existed.
 func (svc *Service) createObject(obj *repo.TMFRecord) error {
-	slog.Debug("dbLayer: Creating object", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
+	slog.Debug("dbLayer: createObject", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
 
 	// Direct to another storage system if defined
 	if svc.storage != nil {
@@ -63,8 +63,11 @@ func (svc *Service) createObject(obj *repo.TMFRecord) error {
 	obj.UpdatedAt = now.Unix()
 
 	// Execute the SQL
-	_, err := svc.db.NamedExec(`INSERT INTO tmf_object (id, type, version, api_version, seller, buyer, last_update, content, created_at, updated_at)
-		VALUES (:id, :type, :version, :api_version, :seller, :buyer, :last_update, :content, :created_at, :updated_at)`, obj)
+	_, err := svc.db.NamedExec(`INSERT INTO tmf_object
+		(id, type, version, api_version, seller, buyer, last_update, content, created_at, updated_at)
+		VALUES (:id, :type, :version, :api_version, :seller, :buyer, :last_update, :content, :created_at, :updated_at)`,
+		obj,
+	)
 	if err != nil {
 		var sqliteErr sqlite3.Error
 		if errors.As(err, &sqliteErr) {
@@ -78,7 +81,7 @@ func (svc *Service) createObject(obj *repo.TMFRecord) error {
 }
 
 func (svc *Service) createObjectIfNotExist(obj *repo.TMFRecord) error {
-	slog.Debug("dbLayer: Creating object", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
+	slog.Debug("dbLayer: createObjectIfNotExist", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
 
 	// Direct to another storage system if defined
 	if svc.storage != nil {
@@ -91,8 +94,12 @@ func (svc *Service) createObjectIfNotExist(obj *repo.TMFRecord) error {
 	obj.UpdatedAt = now.Unix()
 
 	// Execute the SQL
-	_, err := svc.db.NamedExec(`INSERT INTO tmf_object (id, type, version, api_version, seller, buyer, last_update, content, created_at, updated_at)
-		VALUES (:id, :type, :version, :api_version, :seller, :buyer, :last_update, :content, :created_at, :updated_at) ON CONFLICT DO NOTHING`, obj)
+	_, err := svc.db.NamedExec(`INSERT INTO tmf_object
+		(id, type, version, api_version, seller, buyer, last_update, content, created_at, updated_at)
+		VALUES (:id, :type, :version, :api_version, :seller, :buyer, :last_update, :content, :created_at, :updated_at)
+		ON CONFLICT DO NOTHING`,
+		obj,
+	)
 	if err != nil {
 		var sqliteErr sqlite3.Error
 		if errors.As(err, &sqliteErr) {
@@ -106,7 +113,7 @@ func (svc *Service) createObjectIfNotExist(obj *repo.TMFRecord) error {
 }
 
 func (svc *Service) upsertObject(obj *repo.TMFRecord) error {
-	slog.Debug("dbLayer: Creating object", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
+	slog.Debug("dbLayer: upsertObject", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
 
 	// Direct to another storage system if defined
 	if svc.storage != nil {
@@ -119,9 +126,13 @@ func (svc *Service) upsertObject(obj *repo.TMFRecord) error {
 	obj.UpdatedAt = now.Unix()
 
 	// Execute the SQL
-	_, err := svc.db.NamedExec(`INSERT INTO tmf_object (id, type, version, api_version, seller, buyer, last_update, content, created_at, updated_at)
-		VALUES (:id, :type, :version, :api_version, :seller, :buyer, :last_update, :content, :created_at, :updated_at) ON CONFLICT DO
-		UPDATE SET version = :version, seller = :seller, buyer = :buyer, last_update = :last_update, content = :content, updated_at = :updated_at`, obj)
+	_, err := svc.db.NamedExec(`INSERT INTO tmf_object 
+		(id, type, version, api_version, seller, buyer, last_update, content, created_at, updated_at)
+		VALUES (:id, :type, :version, :api_version, :seller, :buyer, :last_update, :content, :created_at, :updated_at)
+		ON CONFLICT DO
+		UPDATE SET version = :version, seller = :seller, buyer = :buyer, last_update = :last_update, content = :content, updated_at = :updated_at`,
+		obj,
+	)
 	if err != nil {
 		var sqliteErr sqlite3.Error
 		if errors.As(err, &sqliteErr) {
@@ -129,7 +140,7 @@ func (svc *Service) upsertObject(obj *repo.TMFRecord) error {
 				return &ErrObjectExists{ID: obj.ID, Type: obj.Type}
 			}
 		}
-		err = errl.Errorf("failed to create object id=%s type=%s: %w", obj.ID, obj.Type, err)
+		err = errl.Errorf("failed to upsert object id=%s type=%s: %w", obj.ID, obj.Type, err)
 	}
 	return err
 }
@@ -153,10 +164,20 @@ func (svc *Service) createLocalOrRemoteObject(req *Request, obj *repo.TMFRecord)
 			}
 		}
 
-		return &Response{StatusCode: http.StatusCreated, Body: objMap}
+		// Set the headers of the reply to the caller, as per TMF specs
+		headers := map[string]string{
+			"Location": objMap.Href(),
+		}
+		slog.Info("Object created successfully", slog.String("id", objMap.ID()), slog.String("resourceName", req.ResourceName), slog.String("location", objMap.Href()))
+
+		return &Response{StatusCode: http.StatusCreated, Headers: headers, Body: objMap}
+
 	}
 
 	// With the proxy enabled, first create the object in the remote server and then locally
+	// We do not have to worry about transaction integrity, because if the remote server fails, we do not create the object locally
+	// If the local server fails, we do not have to do anything, because the object is already in the remote server and our cache will
+	// be updated later on the next call from the user
 
 	remoteObjectMap, errs := ForwardTMFPost(req, svc.RemoteTMFServer, objMap)
 	if len(errs) > 0 {
@@ -171,11 +192,10 @@ func (svc *Service) createLocalOrRemoteObject(req *Request, obj *repo.TMFRecord)
 		slog.Warn("remote server did not return lastUpdate, fixing it", slog.String("id", remoteObjectMap.ID()))
 	}
 
-	remoteObject := remoteObjectMap.ToTMFObject(req.ResourceName)
-
 	// Create the new object in the local database
-	if err := svc.createObject(remoteObject); err != nil {
-		return ErrorResponsef(http.StatusInternalServerError, "failed to create object in service: %w", err)
+	if err := svc.createObject(remoteObjectMap.ToTMFRecord(req.ResourceName)); err != nil {
+		// If we get an error, just log the error because we return the object created remotely
+		slog.Error("failed to create local object", slog.String("id", remoteObjectMap.ID()), slog.String("resourceName", req.ResourceName), slog.String("location", remoteObjectMap.Href()))
 	}
 
 	// Set the headers of the reply to the caller, as per TMF specs
@@ -189,8 +209,9 @@ func (svc *Service) createLocalOrRemoteObject(req *Request, obj *repo.TMFRecord)
 }
 
 // getObject retrieves a TMF object by its ID and type, returning the latest version.
+// If the object is not found anywhere, it returns a nil object and no error.
 func (svc *Service) getObject(id, objectType string) (*repo.TMFRecord, error) {
-	slog.Debug("dbLayer: Getting object", slog.String("id", id), slog.String("type", objectType))
+	slog.Debug("dbLayer: getObject", slog.String("id", id), slog.String("type", objectType))
 
 	// Direct to another storage system if defined
 	if svc.storage != nil {
@@ -208,8 +229,10 @@ func (svc *Service) getObject(id, objectType string) (*repo.TMFRecord, error) {
 	return &obj, err
 }
 
-// getLocalOrRemoteObject retrieves the object from the database. If it is not found, we try to get it from the remote server (if proxy is enabled).
+// getLocalOrRemoteObject retrieves the object from the database.
+// If the proxy is enabled and the object is not found locally or is stale, we try to get it from the remote server.
 // If the object is not found anywhere, it returns a nil object and no error.
+// There is no way to force the retrieval from the remote server if the objec exists locally and is fresh enough.
 func (svc *Service) getLocalOrRemoteObject(req *Request) (*repo.TMFRecord, error) {
 
 	// Check if we have the object locally
@@ -224,7 +247,7 @@ func (svc *Service) getLocalOrRemoteObject(req *Request) (*repo.TMFRecord, error
 		return obj, nil
 	}
 
-	// If we found the object and it is not stale, return it
+	// If we found the object and the database record is not stale, return it
 	if obj != nil {
 		if time.Since(obj.GetUpdatedAt()) < svc.fressness {
 			slog.Debug("Object found in local database and fresh")
@@ -287,7 +310,7 @@ func (svc *Service) getRemoteObject(req *Request) (*repo.TMFRecord, error) {
 	}
 
 	// Build the object from the reply
-	receivedObjectMap, err := repo.NewTMFObjectMapFromRequest(req.ResourceName, body)
+	receivedObjectMap, err := repo.NewTMFObjectMapFromBytes(req.ResourceName, body)
 	if err != nil {
 		return nil, errl.Errorf("failed to bind request body: %w", err)
 	}
@@ -319,7 +342,7 @@ func (svc *Service) getRemoteObject(req *Request) (*repo.TMFRecord, error) {
 
 // updateObject updates an existing TMF object.
 func (svc *Service) updateObject(obj *repo.TMFRecord) error {
-	slog.Debug("dbLayer: Updating object", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
+	slog.Debug("dbLayer: updateObject", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
 
 	// Direct to another storage system if defined
 	if svc.storage != nil {
@@ -329,8 +352,12 @@ func (svc *Service) updateObject(obj *repo.TMFRecord) error {
 	// Make sure timestamps are correct
 	obj.UpdatedAt = time.Now().Unix()
 
-	// Execute the SQL
-	_, err := svc.db.NamedExec(`UPDATE tmf_object SET version = :version, last_update = :last_update, content = :content, updated_at = :updated_at WHERE id = :id AND type = :type`, obj)
+	// Execute the SQL, updating only the allowed fields. E.g. seller and buyer can not be updated.
+	_, err := svc.db.NamedExec(`UPDATE tmf_object
+		SET version = :version, last_update = :last_update, content = :content, updated_at = :updated_at
+		WHERE id = :id AND type = :type`,
+		obj,
+	)
 	if err != nil {
 		var sqliteErr sqlite3.Error
 		if errors.As(err, &sqliteErr) {
@@ -345,7 +372,7 @@ func (svc *Service) updateObject(obj *repo.TMFRecord) error {
 
 // deleteObject deletes a TMF object by its ID and type.
 func (svc *Service) deleteObject(id, objectType string) error {
-	slog.Debug("dbLayer: Deleting object", slog.String("id", id), slog.String("type", objectType))
+	slog.Debug("dbLayer: deleteObject", slog.String("id", id), slog.String("type", objectType))
 
 	// Direct to another storage system if defined
 	if svc.storage != nil {
@@ -360,13 +387,14 @@ func (svc *Service) deleteObject(id, objectType string) error {
 	return err
 }
 
+// objectFilter is a function that filters TMF objects. If it returns false, the object is excluded from the result.
 type objectFilter func(obj *repo.TMFRecord) bool
 
-// listObjects retrieves all TMF objects of a given type, returning only the latest version for each unique ID.
+// listObjects retrieves TMF objects of a given type, returning only the latest version for each unique ID.
 // It supports pagination, filtering, and sorting according to TMF630 guidelines.
 func (svc *Service) listObjects(req *Request, filter objectFilter) ([]repo.TMFRecord, int, error) {
 	if !req.HealthRequest {
-		slog.Debug("dbLayer: Listing objects", "type", req.ResourceName, "queryParams", req.QueryParams)
+		slog.Debug("dbLayer: listObjects", "type", req.ResourceName, "queryParams", req.QueryParams)
 	}
 	// Direct to another storage system if defined
 	if svc.storage != nil {
@@ -405,7 +433,7 @@ func (svc *Service) listObjects(req *Request, filter objectFilter) ([]repo.TMFRe
 
 		// Callback to the caller for filtering/ammendment of the object
 		if filter != nil && !filter(&obj) {
-			// The callback said thatwe should not include this object
+			// The callback said that we should not include this object
 			continue
 		}
 
@@ -462,7 +490,7 @@ func BuildSelectFromParms(tmfResource string, queryValues url.Values) (query str
 		}
 
 		// We here detect and parse expressions like 'arrayName[*].keyName=values'
-		// It is true if the object contains an array 'arrayName' where one element has name 'keyname' with a value equal to 'value'
+		// It is true if the object contains an array 'arrayName' where one element has name 'keyname' with a value in the set of 'values'
 		selector := "[*]."
 		index := strings.Index(key, "[*].")
 		if index == 0 {
@@ -472,7 +500,7 @@ func BuildSelectFromParms(tmfResource string, queryValues url.Values) (query str
 			return "", nil, 0, 0, err
 		}
 		if index > 0 {
-			// index is the length of the array name (the umbre of chars before the left bracket)
+			// index is the length of the array name (the number of chars before the left bracket)
 
 			arrayName := key[:index]
 
@@ -524,7 +552,7 @@ func BuildSelectFromParms(tmfResource string, queryValues url.Values) (query str
 			}
 
 		case "seller", "buyer":
-			// A shortcut for DOME, to simplify life to applications (but can be also done in a TMF-compliant way).
+			// A shortcut for DOME and ISBE, to simplify life to applications (but can be also done in a TMF-compliant way).
 			// Special processing to allow specifying multiple values in the form 'seller=id1,id2,id3'.
 			// We also support the standard HTTP query strings like 'seller=id1,id2&seller=id3'
 			vals := processValues(values)
@@ -539,7 +567,6 @@ func BuildSelectFromParms(tmfResource string, queryValues url.Values) (query str
 
 		case "category.id", "productSpecification.id":
 			// Simplification of the query in the category array for common fields
-			// We will use the SQLite3 JSON functions to select the values
 
 			object := strings.TrimSuffix(key, ".id")
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/hesusruiz/isbetmf/tmfserver/notifications"
 	"github.com/hesusruiz/isbetmf/tmfserver/repository"
+	"github.com/hesusruiz/isbetmf/types"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -30,7 +31,33 @@ func newTestService(t *testing.T) *Service {
 	}
 
 	// Create service struct directly (no external verifier)
-	s := &Service{db: db}
+	s := &Service{
+		db: db,
+		LEARPower: types.OnePower{
+			Type:     "organization",
+			Domain:   "ISBE",
+			Function: "Onboarding",
+			Action:   []string{"Execute"},
+		},
+		ProductCreatePower: types.OnePower{
+			Type:     "organization",
+			Domain:   "ISBE",
+			Function: "ProductOffering",
+			Action:   []string{"Create"},
+		},
+		ProductUpdatePower: types.OnePower{
+			Type:     "organization",
+			Domain:   "ISBE",
+			Function: "ProductOffering",
+			Action:   []string{"Update"},
+		},
+		ProductDeletePower: types.OnePower{
+			Type:     "organization",
+			Domain:   "ISBE",
+			Function: "ProductOffering",
+			Action:   []string{"Delete"},
+		},
+	}
 	// Wire notifications manager to a fake delivery by default
 	s.notif = notifications.NewManager(notifications.NewMemoryStore(), &fakeDelivery{})
 	return s
@@ -118,11 +145,12 @@ func TestCreateGenericObjectPublishesEvent(t *testing.T) {
 	b, _ := json.Marshal(obj)
 	req := newReq("POST", "CREATE", "TMF620", resourceName, "", b, nil)
 
-	tokenMap, err := s.ProcessAccessToken(req)
+	tokenMap, authUser, err := s.ProcessAccessToken(req.AccessToken)
 	if err != nil {
 		t.Fatalf("invalid access token: %v", err)
 	}
 
+	req.AuthUser = *authUser
 	req.TokenMap = tokenMap
 
 	resp := s.CreateGenericObject(req)

@@ -49,9 +49,10 @@ func (h *AdminHandler) ListObjects(c *fiber.Ctx) error {
 
 	// Default to v4 for now, could be made configurable or inferred
 	apiFamily := "productCatalogManagement"
-	if resourceName == "agreement" {
+	switch resourceName {
+	case "agreement":
 		apiFamily = "agreementManagement"
-	} else if resourceName == "individual" || resourceName == "organization" {
+	case "individual", "organization":
 		apiFamily = "partyManagement"
 	}
 
@@ -92,9 +93,10 @@ func (h *AdminHandler) ViewObject(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	apiFamily := "productCatalogManagement"
-	if resourceName == "agreement" {
+	switch resourceName {
+	case "agreement":
 		apiFamily = "agreementManagement"
-	} else if resourceName == "individual" || resourceName == "organization" {
+	case "individual", "organization":
 		apiFamily = "partyManagement"
 	}
 
