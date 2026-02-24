@@ -9,7 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"path"
+	"strings"
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
@@ -46,7 +46,9 @@ type OpenIDConfig struct {
 
 func NewOpenIDConfig(verifierServer string) (*OpenIDConfig, error) {
 
-	verifierWellKnownURL := path.Join(verifierServer, "/.well-known/openid-configuration")
+	verifierServer = strings.TrimRight(verifierServer, "/")
+
+	verifierWellKnownURL := verifierServer + "/.well-known/openid-configuration"
 
 	// Retrieve the configuration of the Verifier
 	res, err := http.Get(verifierWellKnownURL)
