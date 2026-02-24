@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	svc "github.com/hesusruiz/isbetmf/tmfserver/service"
+	"github.com/hesusruiz/isbetmf/types"
 )
 
 // Handler is the handler for the TMF API (both V4 and V5).
@@ -287,6 +288,10 @@ func (h *Handler) ListGenericObjects(c *fiber.Ctx) error {
 	if err != nil {
 		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
 		return SendResponse(c, resp)
+	}
+
+	if authUser == nil {
+		authUser = &types.AuthUser{}
 	}
 
 	queryParams, _ := url.ParseQuery(string(c.Request().URI().QueryString()))

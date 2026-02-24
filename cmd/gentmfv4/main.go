@@ -182,13 +182,13 @@ func processOneFile(filePath string) {
 		}
 
 		if !found {
-			fmt.Println("   NAME NOT REQUIRED FOR", definitionName, ">>>>", propsSlice)
+			// fmt.Println("   NAME NOT REQUIRED FOR", definitionName, ">>>>", propsSlice)
 		}
 
 		if strings.HasSuffix(definitionName, "_Create") || strings.HasSuffix(definitionName, "_Update") {
 			requiredAttributes := jpath.GetListString(v, "required")
 			if len(requiredAttributes) > 0 {
-				fmt.Println("   ", definitionName, "->", requiredAttributes)
+				fmt.Println(" ", definitionName, "->", requiredAttributes)
 			}
 		}
 
