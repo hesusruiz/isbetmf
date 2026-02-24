@@ -25,7 +25,7 @@ const VerifyTokenSignature = false
 // For convenience of the policies, some calculated fields are created and returned in the 'user' object.
 func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[string]any, user *types.AuthUser, err error) {
 
-	var authUser *types.AuthUser
+	authUser := &types.AuthUser{}
 
 	// This is to support testing
 	verify := true
@@ -42,7 +42,7 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 
 	// An empty token is not considered an error, and the caller should enforce its existence if needed
 	if len(accessToken) == 0 {
-		return nil, nil, nil
+		return nil, authUser, nil
 	}
 
 	if accessToken == "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX" {
