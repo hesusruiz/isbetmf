@@ -84,7 +84,7 @@ var isbepreConfig = &Config{
 	},
 
 	PolicyFileName: "auth_policies.star",
-	VerifierServer: "https://verifier.dome-marketplace-dev2.org/",
+	VerifierServer: "https://verifier.dome-marketplace.eu",
 	Dbname:         "data/isbetmf.db",
 	ClonePeriod:    DefaultClonePeriod,
 	Features: Features{
@@ -127,7 +127,7 @@ var isbedevConfig = &Config{
 	},
 
 	PolicyFileName: "auth_policies.star",
-	VerifierServer: "https://verifier.dome-marketplace-dev2.org/",
+	VerifierServer: "https://verifier.dome-marketplace.eu",
 	Dbname:         "data/isbetmf.db",
 	ClonePeriod:    DefaultClonePeriod,
 	Features: Features{

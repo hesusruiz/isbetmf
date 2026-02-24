@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
@@ -44,6 +45,8 @@ type OpenIDConfig struct {
 }
 
 func NewOpenIDConfig(verifierServer string) (*OpenIDConfig, error) {
+
+	verifierServer = strings.TrimRight(verifierServer, "/")
 
 	verifierWellKnownURL := verifierServer + "/.well-known/openid-configuration"
 
