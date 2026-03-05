@@ -125,6 +125,11 @@ func (svc *Service) hardcodedPolicies(req *Request, obj repo.TMFObjectMap) (deci
 	switch objType {
 	case "organization":
 
+		// If the caller is Altia (the server operator), then we can read/write/update/delete
+		if repo.SameOrganizations(caller.OrganizationIdentifier, "VATES-A15456585") {
+			return true, errl.Errorf("caller %s is server operator %s", caller.OrganizationIdentifier, svc.ServerOperatorDid)
+		}
+
 		// If the caller is us (the server operator), then we can read/write/update/delete
 		if repo.SameOrganizations(caller.OrganizationIdentifier, svc.ServerOperatorDid) {
 			return true, errl.Errorf("caller %s is server operator %s", caller.OrganizationIdentifier, svc.ServerOperatorDid)
