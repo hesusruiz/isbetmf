@@ -151,6 +151,7 @@ func (svc *Service) createLocalOrRemoteObject(req *Request, obj *repo.TMFRecord)
 
 	objMap, err := obj.ToTMFObjectMap()
 	if err != nil {
+		err = errl.Errorf("failed to marshal object: %w", err)
 		return ErrorResponsef(http.StatusInternalServerError, "failed to marshal object: %w", err)
 	}
 

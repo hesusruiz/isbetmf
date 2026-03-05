@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"log/slog"
 	"strings"
 	"time"
 
@@ -94,7 +95,8 @@ func (o *TMFRecord) MustToTMFObjectMap() (TMFObjectMap, error) {
 
 	o.Validations = omap.Validate(o.Type)
 	if len(o.Validations.Errors) > 0 {
-		return nil, errl.Errorf("invalid object")
+		slog.Error("invalid object", "id", o.ID, "type", o.Type, "errors", o.Validations.String())
+		return nil, errl.Errorf("invalid object: %s", o.Validations.String())
 	}
 
 	o.ContentMap = omap
