@@ -149,7 +149,7 @@ func (svc *Service) upsertObject(obj *repo.TMFRecord) error {
 // Othewise, it just creates the object in the local database.
 func (svc *Service) createLocalOrRemoteObject(req *Request, obj *repo.TMFRecord) *Response {
 
-	objMap, err := obj.ToTMFObjectMap()
+	objMap, err := obj.ToTMFObjectMapCreate()
 	if err != nil {
 		err = errl.Errorf("failed to marshal object: %w", err)
 		return ErrorResponsef(http.StatusInternalServerError, "failed to marshal object: %w", err)
