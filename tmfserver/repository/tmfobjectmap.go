@@ -94,7 +94,66 @@ func (obj TMFObjectMap) Validate(resourceName string) ValidationResult {
 	return result
 }
 
+func (obj TMFObjectMap) ValidateCreate(resourceName string) ValidationResult {
+	result := ValidationResult{
+		ObjectID:   obj.ID(),
+		ObjectType: resourceName,
+		Valid:      true,
+		Timestamp:  time.Now(),
+	}
+
+	// Validate required fields
+	obj.validateRequiredFieldsCreate(resourceName, &result)
+
+	// Validate related party requirements
+	obj.validateRelatedParty(&result)
+
+	// Determine overall validity (object is valid if it has zero validation errors)
+	result.Valid = len(result.Errors) == 0
+
+	return result
+}
+
 // validateRequiredFields checks if all required fields are present and optionally fixes them
+func (obj TMFObjectMap) validateRequiredFieldsCreate(resourceName string, result *ValidationResult) {
+
+	// Special processiong for the object type: check that the object matches the resourceName and fix the object if needed.
+	objType := obj.Type()
+	if objType != "" {
+		// If the object type is specified, it must match the resourceName passed by the caller
+		field := "@type"
+		if !strings.EqualFold(resourceName, objType) {
+			result.Errors = append(result.Errors, ValidationError{
+				Field:   field,
+				Message: fmt.Sprintf("Object type field '%s' does not match resource type '%s'", objType, resourceName),
+				Code:    "MISSING_INVALID_VALUE",
+			})
+		}
+
+	} else {
+		// No object type in the object, set it to the resourceName
+		field := "@type"
+		result.Warnings = append(result.Warnings, ValidationWarning{
+			Field:   field,
+			Message: fmt.Sprintf("Recommended field '%s' is missing, setting it to %s", field, resourceName),
+			Code:    "MISSING_RECOMMENDED_FIELD",
+		})
+		obj.SetType(resourceName)
+	}
+
+	// Generate the warnings for the recommended fields
+	for _, field := range RecommendedFieldsForAllObjects {
+		if !obj.HasField(field) {
+			result.Warnings = append(result.Warnings, ValidationWarning{
+				Field:   field,
+				Message: fmt.Sprintf("Recommended field '%s' is missing", field),
+				Code:    "MISSING_RECOMMENDED_FIELD",
+			})
+		}
+	}
+
+}
+
 func (obj TMFObjectMap) validateRequiredFields(resourceName string, result *ValidationResult) {
 
 	// Special processiong for the object type: check that the object matches the resourceName and fix the object if needed.
