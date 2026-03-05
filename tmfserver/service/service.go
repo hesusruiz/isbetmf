@@ -158,7 +158,7 @@ func NewTMFService(cnf *config.Config, db *sqlx.DB, ruleEngine *pdp.PDP) (*Servi
 	if svc.proxyEnabled {
 		tmfClientConfig := &TMFClientConfig{
 			BaseURL: cnf.RemoteTMFServer,
-			Timeout: 20,
+			Timeout: 120,
 		}
 
 		svc.tmfClient = NewClient(tmfClientConfig)
