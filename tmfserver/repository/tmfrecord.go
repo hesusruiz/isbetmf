@@ -103,3 +103,43 @@ func (o *TMFRecord) MustToTMFObjectMap() (TMFObjectMap, error) {
 
 	return o.ContentMap, nil
 }
+
+func (o *TMFRecord) ToTMFObjectMapCreate() (TMFObjectMap, error) {
+	if o == nil {
+		return nil, errl.Errorf("object is nil")
+	}
+	if o.ContentMap != nil {
+		return o.ContentMap, nil
+	}
+
+	return o.MustToTMFObjectMapCreate()
+}
+
+func (o *TMFRecord) MustToTMFObjectMapCreate() (TMFObjectMap, error) {
+
+	omap, err := NewTMFObjectMap(o.Content)
+	if err != nil {
+		o.Validations.ObjectID = o.ID
+		o.Validations.ObjectType = o.Type
+		o.Validations.Valid = false
+		o.Validations.Timestamp = time.Now()
+		o.Validations.Errors = append(o.Validations.Errors, ValidationError{
+			Field:   "object",
+			Message: errl.Error(err).Error(),
+			Code:    "INVALID_OBJECT",
+		})
+
+		err = errl.Errorf("failed to unmarshal object content: %w", err)
+		return nil, err
+	}
+
+	o.Validations = omap.ValidateCreate(o.Type)
+	if len(o.Validations.Errors) > 0 {
+		slog.Error("invalid object", "id", o.ID, "type", o.Type, "errors", o.Validations.String())
+		return nil, errl.Errorf("invalid object: %s", o.Validations.String())
+	}
+
+	o.ContentMap = omap
+
+	return o.ContentMap, nil
+}
