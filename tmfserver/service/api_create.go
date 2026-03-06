@@ -122,13 +122,13 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 				id = fmt.Sprintf("urn:ngsi-ld:%s:%s:%s", ToKebabCase(req.ResourceName), req.AuthUser.OrganizationIdentifier, uuid.NewString())
 				incomingObjectMap.SetID(id)
 				slog.Debug("Generated new ID for object", "id", id)
-			}
 
-			// Set default 'version' if not provided by the user
-			if version == "" {
-				version = "0.1"
-				incomingObjectMap.SetVersion(version)
-				slog.Debug("Set default version", slog.String("version", version))
+				// Set default 'version' if not provided by the user
+				if version == "" {
+					version = "0.1"
+					incomingObjectMap.SetVersion(version)
+					slog.Debug("Set default version", slog.String("version", version))
+				}
 			}
 
 		}
