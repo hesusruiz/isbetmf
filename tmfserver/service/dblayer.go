@@ -50,6 +50,9 @@ func (e *ErrObjectConflict) Error() string {
 
 // createObject creates a new TMF object. Returns &ErrObjectExists if the object already existed.
 func (svc *Service) createObject(obj *repo.TMFRecord) error {
+	if obj == nil {
+		return errl.Errorf("object is nil")
+	}
 	slog.Debug("dbLayer: createObject", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
 
 	// Direct to another storage system if defined
