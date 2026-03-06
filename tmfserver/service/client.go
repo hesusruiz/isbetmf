@@ -65,7 +65,9 @@ func ForwardTMFPost(req *Request, remoteServer string, objMap repository.TMFObje
 	}
 
 	if statusCode != fiber.StatusCreated {
-		return nil, []error{errl.Errorf("unexpected status code: %d", statusCode)}
+		// Log the response body
+		slog.Error("unexpected status code", slog.Int("status_code", statusCode), slog.String("response_body", string(responseBody)))
+		return nil, []error{errl.Errorf("unexpected status code: %d, response body: %s", statusCode, string(responseBody))}
 	}
 
 	obj, err := repository.NewTMFObjectMapFromBytes(req.ResourceName, responseBody)
