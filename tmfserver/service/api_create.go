@@ -138,12 +138,12 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 		if !svc.proxyEnabled || !DOMEHacks {
 			incomingObjectMap.SetHref(fmt.Sprintf("/tmf-api/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, id))
 			slog.Debug("Set href", slog.String("href", incomingObjectMap["href"].(string)))
-		}
 
-		// Set the lastUpdate property if the user did not specify one
-		if incomingObjectMap.LastUpdate() == "" {
-			incomingObjectMap.SetLastUpdateNow()
-			slog.Debug("Set lastUpdate", slog.String("lastUpdate", incomingObjectMap["lastUpdate"].(string)))
+			// Set the lastUpdate property if the user did not specify one
+			if incomingObjectMap.LastUpdate() == "" {
+				incomingObjectMap.SetLastUpdateNow()
+				slog.Debug("Set lastUpdate", slog.String("lastUpdate", incomingObjectMap["lastUpdate"].(string)))
+			}
 		}
 
 		// If the object requires a lifecycleStatus, add it if not specified by the caller
