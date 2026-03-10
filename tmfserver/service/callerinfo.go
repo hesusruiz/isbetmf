@@ -334,7 +334,7 @@ func (svc *Service) parseAccessToken(tokenString string, verify bool) (tokenClai
 		authUser.SerialNumber = claims["user_identifier"].(string)
 
 		// TODO: the token from ISBE should contain the country
-		authUser.Country = "SPAIN"
+		authUser.Country = "ES"
 
 		authUser.EmailAddress = claims["email"].(string)
 
