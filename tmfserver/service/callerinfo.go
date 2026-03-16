@@ -46,7 +46,31 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 	}
 
 	if accessToken == "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX" {
-		accessToken = FakeATold
+
+		authUser.IsAuthenticated = true
+		authUser.IsLEAR = true
+		authUser.ProductCreatePower = true
+		authUser.ProductUpdatePower = true
+		authUser.ProductDeletePower = true
+		authUser.OrganizationIdentifier = "VATES-A15456585"
+		authUser.Organization = "Altia Systems"
+		authUser.CommonName = "Juan Lopez"
+		authUser.Country = "ES"
+		authUser.EmailAddress = "example@example.com"
+		authUser.SerialNumber = "1234567Y"
+
+		tokenClaims = make(map[string]any)
+		tokenClaims["tokenType"] = ISBEAccessToken
+		tokenClaims["user_identifier"] = authUser.SerialNumber
+		tokenClaims["organization"] = authUser.Organization
+		tokenClaims["organization_identifier"] = authUser.OrganizationIdentifier
+		tokenClaims["name"] = authUser.CommonName
+		tokenClaims["country"] = authUser.Country
+		tokenClaims["email"] = authUser.EmailAddress
+		tokenClaims["serial_number"] = authUser.SerialNumber
+
+		return tokenClaims, authUser, nil
+
 	}
 
 	// It is an error to send an invaild token with the request, so we have to verify it.
