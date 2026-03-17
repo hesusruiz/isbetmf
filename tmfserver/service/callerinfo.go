@@ -348,16 +348,44 @@ func (svc *Service) parseAccessToken(tokenString string, verify bool) (tokenClai
 	} else {
 
 		var authUser types.AuthUser
+		var ok bool
 
-		authUser.Organization = claims["organization"].(string)
-		authUser.OrganizationIdentifier = claims["organization_identifier"].(string)
-		authUser.CommonName = claims["name"].(string)
-		authUser.SerialNumber = claims["user_identifier"].(string)
+		authUser.Organization, ok = claims["organization"].(string)
+		if !ok {
+			slog.Debug("JWT payload does not contain 'organization' field or it's not a string")
+			return nil, nil, errors.New("missing 'organization' in JWT claims")
+		}
+
+		authUser.OrganizationIdentifier, ok = claims["organization_identifier"].(string)
+		if !ok {
+			slog.Debug("JWT payload does not contain 'organization_identifier' field or it's not a string")
+			return nil, nil, errors.New("missing 'organization_identifier' in JWT claims")
+		}
+
+		authUser.CommonName, ok = claims["name"].(string)
+		if !ok {
+			slog.Debug("JWT payload does not contain 'name' field or it's not a string")
+			return nil, nil, errors.New("missing 'name' in JWT claims")
+		}
+
+		authUser.SerialNumber, ok = claims["user_identifier"].(string)
+		if !ok {
+			slog.Debug("JWT payload does not contain 'user_identifier' field or it's not a string")
+			return nil, nil, errors.New("missing 'user_identifier' in JWT claims")
+		}
 
 		// TODO: the token from ISBE should contain the country
-		authUser.Country = "ES"
+		authUser.Country, ok = claims["country"].(string)
+		if !ok {
+			slog.Debug("JWT payload does not contain 'country' field or it's not a string")
+			authUser.Country = "ES"
+		}
 
-		authUser.EmailAddress = claims["email"].(string)
+		authUser.EmailAddress, ok = claims["email"].(string)
+		if !ok {
+			slog.Debug("JWT payload does not contain 'email' field or it's not a string")
+			return nil, nil, errors.New("missing 'email' in JWT claims")
+		}
 
 		claims["tokenType"] = ISBEAccessToken
 		return claims, &authUser, nil
