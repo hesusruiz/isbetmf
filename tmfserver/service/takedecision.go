@@ -36,6 +36,12 @@ func (svc *Service) takeDecision(
 	objectMap repo.TMFObjectMap,
 ) (authorized bool, err error) {
 
+	// Check if the caller is authenticated and is the server operator.
+	// If so, we grant access immediately.
+	if req.AuthUser.IsAuthenticated && req.AuthUser.OrganizationIdentifier == svc.ServerOperatorDid {
+		return true, nil
+	}
+
 	// Evaluate the hardcoded policies, if they fail return immediately.
 	// Otherwise, continue to see if the user policies allow access
 	decision, reason := svc.hardcodedPolicies(req, objectMap)

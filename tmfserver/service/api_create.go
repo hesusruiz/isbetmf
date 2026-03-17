@@ -51,7 +51,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	// ************************************************************************************************
 	// Authentication: we require the user to be authenticated
 	// ************************************************************************************************
-	if len(req.TokenMap) == 0 {
+	if !req.AuthUser.IsAuthenticated {
 		return ErrorResponsef(http.StatusUnauthorized, "user not authenticated")
 	}
 
@@ -100,6 +100,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 				return ErrorResponsef(http.StatusBadRequest, "tradingName is required in organization object: %s", incomingObjectMap)
 			}
 		} else if name, _ := incomingObjectMap["name"].(string); name == "" {
+			// TODO: check if this is true for all objects
 			// Other objects require name
 			return ErrorResponsef(http.StatusBadRequest, "name is required: %s", incomingObjectMap)
 		}
@@ -113,13 +114,23 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 			return ErrorResponsef(http.StatusBadRequest, "id specified but version is missing: %s", incomingObjectMap)
 		}
 
-		// Create a new 'id' if the user did not specify it
-		if id == "" {
-			// DOME does not support using an 'id' in the incoming object.
-			if !svc.proxyEnabled || !DOMEHacks {
-				// If the incoming object does not have an 'id', we generate a new one
-				// The format is "urn:ngsi-ld:{resource-in-kebab-case}:{uuid}"
-				id = fmt.Sprintf("urn:ngsi-ld:%s:%s:%s", ToKebabCase(req.ResourceName), req.AuthUser.OrganizationIdentifier, uuid.NewString())
+		// DOME does not support using an 'id' in the incoming object.
+		if svc.IsISBE() {
+
+			// Create a new 'id' if the user did not specify it
+			if id == "" {
+
+				if incomingObjectMap.IsOrganization() {
+
+					// For organizations, the ID is of the form "urn:ngsi-ld:organization:{organization-identifier}"
+					// This ensures that there is only one organization with a given organizationIdentifier
+					id = fmt.Sprintf("urn:ngsi-ld:organization:%s", req.AuthUser.OrganizationIdentifier)
+
+				} else {
+
+					// For other objects, the ID is of the form "urn:ngsi-ld:{resource-in-kebab-case}:{organization-identifier}:{uuid}"
+					id = fmt.Sprintf("urn:ngsi-ld:%s:%s:%s", ToKebabCase(req.ResourceName), req.AuthUser.OrganizationIdentifier, uuid.NewString())
+				}
 				incomingObjectMap.SetID(id)
 				slog.Debug("Generated new ID for object", "id", id)
 
@@ -131,12 +142,9 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 				}
 			}
 
-		}
-
-		// Overwrite href in case it is specified by the caller.
-		// We could be more strict and reject the request, but this is more permissive.
-		if !svc.proxyEnabled || !DOMEHacks {
-			incomingObjectMap.SetHref(fmt.Sprintf("/tmf-api/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, id))
+			// Overwrite href in case it is specified by the caller.
+			// We could be more strict and reject the request, but this is more permissive.
+			incomingObjectMap.SetHref(id)
 			slog.Debug("Set href", slog.String("href", incomingObjectMap["href"].(string)))
 
 			// Set the lastUpdate property if the user did not specify one

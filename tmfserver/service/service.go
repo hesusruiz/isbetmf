@@ -79,6 +79,9 @@ type Response struct {
 // Service is the service for the API.
 type Service struct {
 
+	// The environment where we are running
+	environment config.Environment
+
 	// The SQL layer on top of the actual storage engine
 	db *sqlx.DB
 
@@ -136,6 +139,7 @@ type Service struct {
 func NewTMFService(cnf *config.Config, db *sqlx.DB, ruleEngine *pdp.PDP) (*Service, error) {
 	svc := &Service{}
 
+	svc.environment = cnf.Environment
 	svc.db = db
 	svc.ruleEngine = ruleEngine
 	svc.verifierServer = cnf.VerifierServer
@@ -203,6 +207,14 @@ func NewTMFService(cnf *config.Config, db *sqlx.DB, ruleEngine *pdp.PDP) (*Servi
 	svc.notif = notifications.NewManager(store, deliver)
 
 	return svc, nil
+}
+
+func (s *Service) IsDOME() bool {
+	return s.environment == config.DOME_PRO || s.environment == config.DOME_PRE || s.environment == config.DOME_DEV || s.environment == config.DOME_LCL
+}
+
+func (s *Service) IsISBE() bool {
+	return s.environment == config.ISBE_PRE || s.environment == config.ISBE_DEV
 }
 
 // ToKebabCase converts a camelCase string to kebab-case.

@@ -18,7 +18,7 @@ import (
 const AllowFakeClaims = true
 const VerifyTokenSignature = false
 
-// ProcessAccessToken retrieves the Access Token from the request, verifies it if it exists and
+// ProcessAccessToken verifies the Access Token received from the caller and
 // creates a map ready to be passed to the rules engine.
 //
 // The access token may not exist, but if it does then it must be valid.
@@ -30,21 +30,13 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 	// This is to support testing
 	verify := true
 
-	// if len(r.AccessToken) == 0 {
-	// 	// The user did not provide an access token.
-	// 	// Normally this is forbidden, but for testing we can provide a fake one, and do not verify signature
-	// 	if AllowFakeClaims && r.Method != "GET" {
-	// 		slog.Debug("using fake claims for testing")
-	// 		r.AccessToken = FakeATold
-	// 		verify = false
-	// 	}
-	// }
-
 	// An empty token is not considered an error, and the caller should enforce its existence if needed
 	if len(accessToken) == 0 {
 		return nil, authUser, nil
 	}
 
+	// TODO: replace with a setting
+	// This is for testing purposes only. It allows to simulate a LEAR user without a real token.
 	if accessToken == "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX" {
 
 		authUser.IsAuthenticated = true
@@ -52,11 +44,11 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 		authUser.ProductCreatePower = true
 		authUser.ProductUpdatePower = true
 		authUser.ProductDeletePower = true
-		authUser.OrganizationIdentifier = "VATES-A15456585"
-		authUser.Organization = "Altia Systems"
-		authUser.CommonName = "Juan Lopez"
-		authUser.Country = "ES"
-		authUser.EmailAddress = "example@example.com"
+		authUser.OrganizationIdentifier = svc.ServerOperatorOrganizationIdentifier
+		authUser.Organization = svc.ServerOperatorName
+		authUser.CommonName = svc.ServerOperatorName
+		authUser.Country = svc.ServerOperatorCountry
+		authUser.EmailAddress = svc.ServerEmailAddress
 		authUser.SerialNumber = "1234567Y"
 
 		tokenClaims = make(map[string]any)
@@ -89,6 +81,9 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 	authUser.IsAuthenticated = true
 
 	if tokenClaims["tokenType"] == DOMEAccessToken {
+
+		// We are in the DOME system, so we need to extract the Verifiable Credential
+		// from the token
 
 		verifiableCredential := jpath.GetMap(tokenClaims, "vc")
 
@@ -179,6 +174,8 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 		return tokenClaims, authUser, nil
 
 	} else {
+
+		// We are in the ISBE system, so we need to extract the powers from the token
 
 		// Parse the user powers for the ones we only care about
 		authUserPowers := jpath.GetList(tokenClaims, "power")

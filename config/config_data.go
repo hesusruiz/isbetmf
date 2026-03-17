@@ -7,7 +7,109 @@ import "github.com/hesusruiz/isbetmf/types"
 // However, this flexibility is not really needed in practice, as the DOME environments are well defined and stable.
 // Minimizing errors is here much more important than the ease to configure these parameters.
 
-// The DOME SBX environment is used for development and testing
+// ******************************************************************
+// ISBE configurations
+// ******************************************************************
+
+var isbedevConfig = &Config{
+	Environment:  ISBE_DEV,
+	ProxyEnabled: false,
+
+	// The operator is Alastria
+	ServerOperatorOrganizationIdentifier: "VATES-G87936159",
+	ServerOperatorDid:                    "did:elsi:VATES-G87936159",
+	ServerOperatorName:                   "Alastria",
+	ServerOperatorCountry:                "ES",
+
+	LEARPower: types.OnePower{
+		Type:     "domain",
+		Domain:   "DOME",
+		Function: "Onboarding",
+		Action:   []string{"execute"},
+	},
+	ProductCreatePower: types.OnePower{
+		Type:     "domain",
+		Domain:   "DOME",
+		Function: "ProductOffering",
+		Action:   []string{"Create"},
+	},
+	ProductUpdatePower: types.OnePower{
+		Type:     "domain",
+		Domain:   "DOME",
+		Function: "ProductOffering",
+		Action:   []string{"Update"},
+	},
+	ProductDeletePower: types.OnePower{
+		Type:     "domain",
+		Domain:   "DOME",
+		Function: "ProductOffering",
+		Action:   []string{"Delete"},
+	},
+
+	PolicyFileName: "auth_policies.star",
+
+	// TODO: the IdP must be set to the Keycloak instance which generates the access tokens
+	VerifierServer: "https://verifier.dome-marketplace.eu",
+
+	Dbname:      "data/isbetmf.db",
+	ClonePeriod: DefaultClonePeriod,
+	Features: Features{
+		OfferingLaunchOnlyByAdmin: true,
+	},
+}
+
+var isbepreConfig = &Config{
+	Environment:  ISBE_PRE,
+	ProxyEnabled: false,
+
+	// The operator is Alastria
+	ServerOperatorOrganizationIdentifier: "VATES-G87936159",
+	ServerOperatorDid:                    "did:elsi:VATES-G87936159",
+	ServerOperatorName:                   "Alastria",
+	ServerOperatorCountry:                "ES",
+
+	LEARPower: types.OnePower{
+		Type:     "domain",
+		Domain:   "DOME",
+		Function: "Onboarding",
+		Action:   []string{"execute"},
+	},
+	ProductCreatePower: types.OnePower{
+		Type:     "domain",
+		Domain:   "DOME",
+		Function: "ProductOffering",
+		Action:   []string{"Create"},
+	},
+	ProductUpdatePower: types.OnePower{
+		Type:     "domain",
+		Domain:   "DOME",
+		Function: "ProductOffering",
+		Action:   []string{"Update"},
+	},
+	ProductDeletePower: types.OnePower{
+		Type:     "domain",
+		Domain:   "DOME",
+		Function: "ProductOffering",
+		Action:   []string{"Delete"},
+	},
+
+	PolicyFileName: "auth_policies.star",
+
+	// TODO: the IdP must be set to the Keycloak instance which generates the access tokens
+	VerifierServer: "https://verifier.dome-marketplace.eu",
+
+	Dbname:      "data/isbetmf.db",
+	ClonePeriod: DefaultClonePeriod,
+	Features: Features{
+		OfferingLaunchOnlyByAdmin: true,
+	},
+}
+
+// ******************************************************************
+// DOME configurations
+// ******************************************************************
+
+// The DOME SBX environment is used for development and testing, so it is called DOME_DEV
 var domedevConfig = &Config{
 	Environment:  DOME_DEV,
 	ProxyEnabled: true,
@@ -49,14 +151,9 @@ var domedevConfig = &Config{
 	ClonePeriod:     DefaultClonePeriod,
 }
 
-var isbepreConfig = &Config{
-	Environment:  ISBE_PRE,
-	ProxyEnabled: false,
-
-	ServerOperatorOrganizationIdentifier: "VATES-G87936159",
-	ServerOperatorDid:                    "did:elsi:VATES-G87936159",
-	ServerOperatorName:                   "Alastria",
-	ServerOperatorCountry:                "ES",
+var domepreConfig = &Config{
+	Environment:  DOME_PRE,
+	ProxyEnabled: true,
 
 	LEARPower: types.OnePower{
 		Type:     "domain",
@@ -83,56 +180,11 @@ var isbepreConfig = &Config{
 		Action:   []string{"Delete"},
 	},
 
-	PolicyFileName: "auth_policies.star",
-	VerifierServer: "https://verifier.dome-marketplace.eu",
-	Dbname:         "data/isbetmf.db",
-	ClonePeriod:    DefaultClonePeriod,
-	Features: Features{
-		OfferingLaunchOnlyByAdmin: true,
-	},
-}
-
-var isbedevConfig = &Config{
-	Environment:  ISBE_DEV,
-	ProxyEnabled: false,
-
-	ServerOperatorOrganizationIdentifier: "VATES-G87936159",
-	ServerOperatorDid:                    "did:elsi:VATES-G87936159",
-	ServerOperatorName:                   "Alastria",
-	ServerOperatorCountry:                "ES",
-
-	LEARPower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
-		Function: "Onboarding",
-		Action:   []string{"execute"},
-	},
-	ProductCreatePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
-		Function: "ProductOffering",
-		Action:   []string{"Create"},
-	},
-	ProductUpdatePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
-		Function: "ProductOffering",
-		Action:   []string{"Update"},
-	},
-	ProductDeletePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
-		Function: "ProductOffering",
-		Action:   []string{"Delete"},
-	},
-
-	PolicyFileName: "auth_policies.star",
-	VerifierServer: "https://verifier.dome-marketplace.eu",
-	Dbname:         "data/isbetmf.db",
-	ClonePeriod:    DefaultClonePeriod,
-	Features: Features{
-		OfferingLaunchOnlyByAdmin: true,
-	},
+	PolicyFileName:  "auth_policies.star",
+	RemoteTMFServer: "https://tmf.dome-marketplace-dev2.org",
+	VerifierServer:  "https://verifier.dome-marketplace-dev2.org",
+	Dbname:          "data/tmf.dome.dev2.db",
+	ClonePeriod:     DefaultClonePeriod,
 }
 
 var domeproConfig = &Config{
@@ -171,41 +223,9 @@ var domeproConfig = &Config{
 	ClonePeriod:     DefaultClonePeriod,
 }
 
-var domepreConfig = &Config{
-	Environment:  DOME_PRE,
-	ProxyEnabled: true,
-
-	LEARPower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
-		Function: "Onboarding",
-		Action:   []string{"execute"},
-	},
-	ProductCreatePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
-		Function: "ProductOffering",
-		Action:   []string{"Create"},
-	},
-	ProductUpdatePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
-		Function: "ProductOffering",
-		Action:   []string{"Update"},
-	},
-	ProductDeletePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
-		Function: "ProductOffering",
-		Action:   []string{"Delete"},
-	},
-
-	PolicyFileName:  "auth_policies.star",
-	RemoteTMFServer: "https://tmf.dome-marketplace-dev2.org",
-	VerifierServer:  "https://verifier.dome-marketplace-dev2.org",
-	Dbname:          "data/tmf.dome.dev2.db",
-	ClonePeriod:     DefaultClonePeriod,
-}
+// ******************************************************************
+// Local developmentconfiguration
+// ******************************************************************
 
 var lclConfig = &Config{
 	Environment:  DOME_LCL,
