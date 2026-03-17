@@ -43,7 +43,10 @@ type Config struct {
 	// The domain of the remote TMForum API server when we act as proxy
 	RemoteTMFServer string
 
-	// Dbname is the name of the database file where the TMForum data is stored
+	// ProxyEnabled enables the TMF caching proxy functionality.
+	ProxyEnabled bool
+
+	// Dbname is the name of the database file where the local TMForum data is stored
 	// It is used to store the data in a local SQLite database, the best SQL database for this purpose.
 	Dbname         string
 	BackupDisabled bool
@@ -69,10 +72,6 @@ type Config struct {
 	// TODO: this is temporary for testing
 	FakeClaims bool
 
-	// fixMode enables "smart" automatic fixing of objects so they comply with the DOME specs
-	// There is no magic. however, and there are things that can not be done.
-	fixMode bool
-
 	// Enable synchronization with the remote server in background
 	BackgroudSync bool
 
@@ -89,9 +88,6 @@ type Config struct {
 
 	// Hour and minute of the day when the server will automatically restart (each day). Hour=-1 disables restart.
 	RestartHour, RestartMinute int
-
-	// ProxyEnabled enables the TMF caching proxy functionality.
-	ProxyEnabled bool
 
 	// The features of the environment
 	Features Features
@@ -122,10 +118,10 @@ func LoadConfig(
 	envir = strings.ToLower(envir)
 
 	// The environment has precedence over the parameter
-	en := os.Getenv("ISBETMF_RUN_ENVIRONMENT")
-	if en != "" {
-		envir = en
+	if en := os.Getenv("ISBETMF_RUN_ENVIRONMENT"); en != "" {
+		envir = strings.ToLower(en)
 	}
+	environment := Environment(envir)
 
 	// Configure the slog logger
 	var logLevel slog.Level
@@ -158,8 +154,6 @@ func LoadConfig(
 
 	// And set the default logging system for all components
 	slog.SetDefault(slog.New(sqlog))
-
-	environment := Environment(envir)
 
 	// Choose the profile from the environment passed
 	switch environment {
@@ -214,6 +208,14 @@ func LoadConfig(
 
 	return conf, nil
 
+}
+
+func (c *Config) IsDOME() bool {
+	return c.Environment == DOME_PRO || c.Environment == DOME_PRE || c.Environment == DOME_DEV || c.Environment == DOME_LCL
+}
+
+func (c *Config) IsISBE() bool {
+	return c.Environment == ISBE_PRE || c.Environment == ISBE_DEV
 }
 
 func (c *Config) Close() {
