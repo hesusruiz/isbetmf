@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -464,7 +466,7 @@ func (svc *Service) listObjects(req *Request, filter objectFilter) ([]repo.TMFRe
 
 // BuildSelectFromParms creates a SELECT statement based on the query values.
 // Some keys are columns in the database row, but most of them are in the JSON object in the 'content' column
-// For objects with same id, selects the one with the latest version.
+// For TMF objects with same id, selects the one with the latest version.
 func BuildSelectFromParms(tmfResource string, queryValues url.Values) (query string, arguments []any, qlimit int, qoffset int, theerr error) {
 
 	// Default values if the user did not specify them. -1 is equivalent to no values provided.
@@ -488,55 +490,54 @@ func BuildSelectFromParms(tmfResource string, queryValues url.Values) (query str
 	// Build the WHERE by processing the query values specified by the user
 	for key, values := range queryValues {
 
-		if key == "sort" || key == "fields" {
-			// TODO: implement processing for these parameters
-			continue
-		}
+		// // We here detect and parse expressions like 'arrayName[*].keyName=values'
+		// // It is true if the object contains an array 'arrayName' where one element has name 'keyname' with a value in the set of 'values'
+		// selector := "[*]."
+		// index := strings.Index(key, selector)
+		// if index == 0 {
+		// 	// index must be -1 (not found) or >0 (an array name of minimum 1 character before the left '[')
+		// 	// index == 0 is a syntax error of the array expression
+		// 	err := errl.Errorf("array name in array selector is empty")
+		// 	return "", nil, 0, 0, err
+		// }
+		// if index > 0 {
+		// 	// index is the length of the array name (the number of chars before the left bracket)
 
-		// We here detect and parse expressions like 'arrayName[*].keyName=values'
-		// It is true if the object contains an array 'arrayName' where one element has name 'keyname' with a value in the set of 'values'
-		selector := "[*]."
-		index := strings.Index(key, "[*].")
-		if index == 0 {
-			// index must be -1 (not found) or >0 (an array name of minimum 1 character before the left '[')
-			// index == 0 is a syntax error of the array expression
-			err := errl.Errorf("array name in array selector is empty")
-			return "", nil, 0, 0, err
-		}
-		if index > 0 {
-			// index is the length of the array name (the number of chars before the left bracket)
+		// 	arrayName := key[:index]
 
-			arrayName := key[:index]
+		// 	// keyname is the string after the dot until the end
+		// 	keyName := key[index+len(selector):]
+		// 	slog.Debug("array selector", "arrayName", arrayName, "keyName", keyName)
 
-			// keyname is the string after the dot until the end
-			keyName := key[index+len(selector):]
-			slog.Debug("array selector", "arrayName", arrayName, "keyName", keyName)
+		// 	if len(keyName) == 0 {
+		// 		err := errl.Errorf("key name in array selector is empty")
+		// 		return "", nil, 0, 0, err
+		// 	}
 
-			if len(keyName) == 0 {
-				err := errl.Errorf("key name in array selector is empty")
-				return "", nil, 0, 0, err
-			}
+		// 	vals := processValues(values)
 
-			vals := processValues(values)
+		// 	// For a single value, use the SQL '=' to express equality.
+		// 	// For and array of values, use the SQL 'IN' to express inclusion in a set.
+		// 	if len(vals) == 1 {
+		// 		buf.Render(
+		// 			" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", arrayName, "') WHERE json_extract(value, '$.", keyName, "') = ?)",
+		// 		)
+		// 	} else if len(vals) > 1 {
+		// 		buf.Render(
+		// 			" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", arrayName, "') WHERE json_extract(value, '$", keyName, "') IN ").RenderSQLList(vals...).Render(")")
+		// 	}
+		// 	args = append(args, vals...)
 
-			// For a single value, use the SQL '=' to express equality.
-			// For and array of values, use the SQL 'IN' to express inclusion in a set.
-			if len(vals) == 1 {
-				buf.Render(
-					" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", arrayName, "') WHERE json_extract(value, '$.", keyName, "') = ?)",
-				)
-			} else if len(vals) > 1 {
-				buf.Render(
-					" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", arrayName, "') WHERE json_extract(value, '$", keyName, "') IN ").RenderList(vals...).Render(")")
-			}
-			args = append(args, vals...)
+		// 	continue
 
-			continue
-
-		}
+		// }
 
 		// Create additional parts of the SELECT, with some special processing
 		switch key {
+		case "sort", "fields":
+			// TODO: implement processing for these parameters. For the moment, they must be implemented by the caller.
+			continue
+
 		case "limit":
 			// Just extract the value for later, it will not be used in the SELECT
 			limitStr := queryValues.Get("limit")
@@ -565,7 +566,7 @@ func BuildSelectFromParms(tmfResource string, queryValues url.Values) (query str
 			if len(vals) == 1 {
 				buf.Render(" AND ", key, " = ?")
 			} else if len(vals) > 1 {
-				buf.Render(" AND ", key, " IN ").RenderList(vals...)
+				buf.Render(" AND ", key, " IN ").RenderSQLList(vals...)
 			}
 			args = append(args, vals...)
 
@@ -584,14 +585,20 @@ func BuildSelectFromParms(tmfResource string, queryValues url.Values) (query str
 				)
 			} else if len(vals) > 1 {
 				buf.Render(
-					" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", object, "') WHERE json_extract(value, '$.id') IN ").RenderList(vals...).Render(")")
+					" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", object, "') WHERE json_extract(value, '$.id') IN ").RenderSQLList(vals...).Render(")")
 			}
 			args = append(args, vals...)
 
-		case "individualIdentification.id", "individualIdentification[*].identificationId":
-			// Simplification of the query in the category array for the special case of individual identification data
-			arrayName := "individualIdentification"
+		case "organizationIdentification[*].identificationId", "organizationIdentification.identificationId",
+			"individualIdentification[*].identificationId", "individualIdentification.identificationId", "individualIdentification.id":
+			// Simplification of the query in the identification arrays for the special case of organization identification data
+			arrayName := "organizationIdentification"
 			keyName := "identificationId"
+
+			if strings.HasPrefix("individualIdentification", key) {
+				arrayName = "individualIdentification"
+				keyName = "identificationId"
+			}
 
 			// Special processing because TMForum allows to specify multiple values
 			// in the form 'lifecycleStatus=Launched,Active'
@@ -603,7 +610,7 @@ func BuildSelectFromParms(tmfResource string, queryValues url.Values) (query str
 				)
 			} else if len(vals) > 1 {
 				buf.Render(
-					" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", arrayName, "') WHERE json_extract(value, '$.", keyName, "') IN ").RenderList(vals...).Render(")")
+					" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", arrayName, "') WHERE json_extract(value, '$.", keyName, "') IN ").RenderSQLList(vals...).Render(")")
 			}
 			args = append(args, vals...)
 
@@ -613,13 +620,24 @@ func BuildSelectFromParms(tmfResource string, queryValues url.Values) (query str
 			// in the form 'lifecycleStatus=Launched,Active'
 			vals := processValues(values)
 
-			// These keys are not in the fields of the SQL database, and we have to use SQLite JSON expressions to search.
-			if len(vals) == 1 {
-				buf.Render(" AND content->>'$.", key, "' = ?")
+			// We perform special processin when the key is simple (no dots), to use a simple and more efficient SQL expression.
+			pathParts := strings.Split(key, ".")
+			if len(pathParts) == 1 {
+
+				if len(vals) == 1 {
+					buf.Render(" AND content->>'$.", key, "' = ?")
+				} else {
+					buf.Render(" AND content->>'$.", key, "' IN ").RenderSQLList(vals...)
+				}
+				args = append(args, vals...)
 			} else {
-				buf.Render(" AND content->>'$.", key, "' IN ").RenderList(vals...)
+				subSql, _, err := GenerateRecursiveJSONQuery("tmf_object", key, vals)
+				if err != nil {
+					return "", nil, 0, 0, err
+				}
+				buf.Render(" AND ", subSql)
+				args = append(args, vals)
 			}
-			args = append(args, vals...)
 
 		}
 	}
@@ -644,11 +662,80 @@ func BuildSelectFromParms(tmfResource string, queryValues url.Values) (query str
 	return sql, args, limit, offset, nil
 }
 
-// StringRenderer is a utility for efficiently building strings by rendering values to a buffer
+// GenerateRecursiveJSONQuery generates a SQL query to search for a value in a JSON object, given a JSON path where some elements may be arrays.
+// It uses the SQLite json_tree function to recursively search for the value in the JSON object.
+// It returns the SQL query and the value to be used in the query.
+func GenerateRecursiveJSONQuery(tableName string, pathInput string, values any) (string, string, error) {
+
+	v := reflect.ValueOf(values)
+	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
+		return "", "", fmt.Errorf("invalid values: must be a slice or array")
+	}
+
+	if v.Len() == 0 {
+		return "", "", fmt.Errorf("invalid values: no values provided for recursive JSON queries")
+	}
+
+	targetValue, ok := v.Index(0).Interface().(string)
+	if !ok {
+		return "", "", fmt.Errorf("invalid value type for recursive query: %T", v.Index(0).Interface())
+	}
+
+	// 2. Transform the path into a GLOB pattern to be used in the SQL query
+	// Example: field1[1].field2.field3 -> $.field1[1].field2.field3
+	// Example: field1.field2.field3    -> $.field1*.field2*.field3*
+	// Example: field1[*].field2.field3    -> $.field1*.field2*.field3*
+
+	pathParts := strings.Split(pathInput, ".")
+	var globPath strings.Builder
+	globPath.WriteString("$")
+
+	// Regex to check if a field already has an index like field1[1]
+	// If the index is '[*]', it means any array index and this will be handled by another part of the code
+	hasIndex := regexp.MustCompile(`^(.+)\[(\d+)\]$`)
+
+	for _, p := range pathParts {
+		matches := hasIndex.FindStringSubmatch(p)
+		if len(matches) > 0 {
+			field := matches[1]
+			index := matches[2]
+			// In GLOB, [[] matches a literal '['
+			// We format it as .field[[]index] which means .field[index]
+			fmt.Fprintf(&globPath, ".%s[[]%s]", field, index)
+		} else {
+			// No index: match the key directly OR any array index for that key
+			// As a special case, also match the string "[*]", meaning 'any array index'
+			// Pattern: .field* matches .field (object) or .field[0] or .field[*]  (array)
+
+			p = strings.TrimSuffix(p, "[*]")
+			fmt.Fprintf(&globPath, ".%s*", p)
+		}
+	}
+
+	// 3. Construct the SQL using json_tree for recursive scanning
+	if v.Len() == 1 {
+		sql := `EXISTS (SELECT 1 FROM json_tree(` + tableName + `.content)
+				WHERE json_tree.fullkey GLOB '` + globPath.String() + `' AND json_tree.value = ?)`
+		return strings.TrimSpace(sql), targetValue, nil
+	} else {
+		var buf StringRenderer
+		buf.Render("EXISTS (SELECT 1 FROM json_tree(" + tableName + ".content) WHERE json_tree.fullkey GLOB '" + globPath.String() + "' AND json_tree.value IN ")
+		buf.RenderSQLList(values)
+		buf.Render(")")
+		return strings.TrimSpace(buf.String()), "", nil
+	}
+
+}
+
+// StringRenderer is a utility for efficiently building strings by rendering values to a buffer.
+// It embeds strings.Builder and adds some convenience methods.
 type StringRenderer struct {
 	strings.Builder
 }
 
+// Render renders the given inputs to the buffer.
+// It supports strings, byte slices, integers, bytes and runes.
+// It returns the StringRenderer for chaining.
 func (r *StringRenderer) Render(inputs ...any) *StringRenderer {
 	for _, s := range inputs {
 		switch v := s.(type) {
@@ -669,15 +756,34 @@ func (r *StringRenderer) Render(inputs ...any) *StringRenderer {
 	return r
 }
 
+// Renderln renders the given inputs to the buffer, followed by a newline.
+// It supports strings, byte slices, integers, bytes and runes.
+// It returns the StringRenderer for chaining.
 func (r *StringRenderer) Renderln(inputs ...any) *StringRenderer {
 	r.Render(inputs...)
 	r.Render('\n')
 	return r
 }
 
-// RenderList renders the arguments as a comma separated list inside parenthesis
-func (r *StringRenderer) RenderList(inputs ...any) *StringRenderer {
+// RenderSQLList renders an SQL argument list like '(?, ?, ?)' from a slice of arguments.
+// The number of '?' is the same as the number of arguments
+func (r *StringRenderer) RenderSQLList(inputs ...any) *StringRenderer {
 	r.Render("(")
+
+	if len(inputs) == 1 {
+		v := reflect.ValueOf(inputs[0])
+		if v.Kind() == reflect.Slice || v.Kind() == reflect.Array {
+			for i := 0; i < v.Len(); i++ {
+				if i > 0 {
+					r.Render(",")
+				}
+				r.Render("?")
+			}
+			r.Render(")")
+			return r
+		}
+	}
+
 	for i := range inputs {
 		if i > 0 {
 			r.Render(",")
@@ -688,11 +794,11 @@ func (r *StringRenderer) RenderList(inputs ...any) *StringRenderer {
 	return r
 }
 
+// processValues converts from a slice of strings to a slice of any, handling the case where the values are comma separated
+// in the form 'value1,value2,value3' as is possible with the url values in an HTTP request
+// For example, the url value 'lifecycleStatus=Launched,Active' will be converted to a slice of two strings "Launched" and "Active"
 func processValues(values []string) []any {
-	// Special processing because TMForum allows to specify multiple values
-	// in the form 'lifecycleStatus=Launched,Active'
 	var vals []any
-	// Allow several instances of 'lifecycleStatus' parameter in the query string
 	for _, v := range values {
 		parts := strings.Split(v, ",")
 		// Allow for whitespace surrounding the elements
