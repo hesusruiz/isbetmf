@@ -244,8 +244,8 @@ func (svc *Service) getLocalOrRemoteObject(req *Request) (*repo.TMFRecord, error
 	// For organization resources, the req.ID is the organization identifier.
 	if req.ResourceName == "organization" {
 
-		if !strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:") {
-			req.ID = "urn:ngsi-ld:organization:did:elsi:" + req.ID
+		if strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:") && !strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:did:elsi:") {
+			req.ID = "urn:ngsi-ld:organization:did:elsi:" + strings.TrimPrefix(req.ID, "urn:ngsi-ld:organization:")
 		}
 
 	}
