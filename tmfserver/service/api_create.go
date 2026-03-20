@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hesusruiz/isbetmf/internal/errl"
+	"github.com/hesusruiz/isbetmf/internal/jpath"
 	repo "github.com/hesusruiz/isbetmf/tmfserver/repository"
 )
 
@@ -124,12 +125,18 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 
 					// For organizations, the ID is of the form "urn:ngsi-ld:organization:{organization-identifier}"
 					// This ensures that there is only one organization with a given organizationIdentifier
-					id = fmt.Sprintf("urn:ngsi-ld:organization:%s", req.AuthUser.OrganizationIdentifier)
+
+					org := jpath.GetString(incomingObjectMap, "organizationIdentification[0].identificationId")
+					if org == "" {
+						return ErrorResponsef(http.StatusBadRequest, "organizationIdentification[0].identificationId is required in organization object: %s", incomingObjectMap)
+					}
+
+					id = fmt.Sprintf("urn:ngsi-ld:organization:%s", org)
 
 				} else {
 
-					// For other objects, the ID is of the form "urn:ngsi-ld:{resource-in-kebab-case}:{organization-identifier}:{uuid}"
-					id = fmt.Sprintf("urn:ngsi-ld:%s:%s:%s", ToKebabCase(req.ResourceName), req.AuthUser.OrganizationIdentifier, uuid.NewString())
+					// For other objects, the ID is of the form "urn:ngsi-ld:{resource-in-kebab-case}:{uuid}"
+					id = fmt.Sprintf("urn:ngsi-ld:%s:%s", ToKebabCase(req.ResourceName), uuid.NewString())
 				}
 				incomingObjectMap.SetID(id)
 				slog.Debug("Generated new ID for object", "id", id)
