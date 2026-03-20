@@ -126,7 +126,13 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 					// For organizations, the ID is of the form "urn:ngsi-ld:organization:{organization-identifier}"
 					// This ensures that there is only one organization with a given organizationIdentifier
 
-					org := jpath.GetString(incomingObjectMap, "organizationIdentification[0].identificationId")
+					// Get the ilst of organizationIdentification
+					orgList := jpath.GetList(incomingObjectMap, "organizationIdentification")
+					if orgList == nil {
+						return ErrorResponsef(http.StatusBadRequest, "organizationIdentification is required in organization object: %s", incomingObjectMap)
+					}
+
+					org := jpath.GetString(orgList[0], "identificationId")
 					if org == "" {
 						return ErrorResponsef(http.StatusBadRequest, "organizationIdentification[0].identificationId is required in organization object: %s", incomingObjectMap)
 					}
