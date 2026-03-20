@@ -645,7 +645,7 @@ func BuildSelectFromParms(tmfResource string, queryValues url.Values) (query str
 					return "", nil, 0, 0, err
 				}
 				buf.Render(" AND ", subSql)
-				args = append(args, vals)
+				args = append(args, vals...)
 			}
 
 		}
