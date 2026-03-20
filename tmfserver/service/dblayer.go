@@ -241,6 +241,17 @@ func (svc *Service) getObject(id, objectType string) (*repo.TMFRecord, error) {
 // There is no way to force the retrieval from the remote server if the objec exists locally and is fresh enough.
 func (svc *Service) getLocalOrRemoteObject(req *Request) (*repo.TMFRecord, error) {
 
+	// For organization resources, the req.ID is the organization identifier.
+	// There are two possible IDs coming:
+	// 1. With prefix urn:ngsi-ld:organization:[identifier]
+	// 2. With prefix urn:ngsi-ld:organization:did:elsi:[identifier]
+	// For case 1, we have to replace the short prefix with the long one.
+	// If the ID already has the prefix urn:ngsi-ld:organization:did:elsi:, we do nothing.
+	nakedID := strings.TrimPrefix(req.ID, "urn:ngsi-ld:organization:")
+	if !strings.HasPrefix(nakedID, "did:elsi:") {
+		req.ID = "urn:ngsi-ld:organization:did:elsi:" + nakedID
+	}
+
 	// Check if we have the object locally
 	obj, err := svc.getObject(req.ID, req.ResourceName)
 	if err != nil {
