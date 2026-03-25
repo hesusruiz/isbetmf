@@ -33,13 +33,13 @@ func (u *Organization) ToMap() map[string]any {
 	}
 }
 
-func TMFOrganizationFromToken(accessToken map[string]any, user *Organization) (*TMFRecord, error) {
+func TMFRecordFromOrganizationAndToken(user *Organization, accessToken map[string]any) (*TMFRecord, error) {
 
-	id := "urn:ngsi-ld:organization:" + user.OrganizationIdentifier
 	did := user.OrganizationIdentifier
 	if !strings.HasPrefix(did, "did:elsi:") {
 		did = "did:elsi:" + did
 	}
+	id := "urn:ngsi-ld:organization:" + did
 
 	now := time.Now()
 	lastUpdate := now.Format(time.RFC3339Nano)

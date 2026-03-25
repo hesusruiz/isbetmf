@@ -177,7 +177,7 @@ func NewTMFService(cnf *config.Config, db *sqlx.DB, ruleEngine *pdp.PDP) (*Servi
 		Organization:           svc.ServerOperatorName,
 		OrganizationIdentifier: svc.ServerOperatorOrganizationIdentifier,
 	}
-	obj, _ := repository.TMFOrganizationFromToken(nil, org)
+	obj, _ := repository.TMFRecordFromOrganizationAndToken(org, nil)
 
 	if err := svc.upsertObject(obj); err != nil {
 		if errors.Is(err, &ErrObjectExists{}) {
@@ -186,6 +186,8 @@ func NewTMFService(cnf *config.Config, db *sqlx.DB, ruleEngine *pdp.PDP) (*Servi
 			err = errl.Errorf("error creating server operator organization: %w", err)
 			panic(err)
 		}
+	} else {
+		slog.Info("server operator organization created", "obj_id", obj.ID)
 	}
 
 	// Retrieve the OpenId configuration of the Verifier server
