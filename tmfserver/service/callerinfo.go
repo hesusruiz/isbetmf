@@ -134,7 +134,7 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 				SerialNumber:           authUser.SerialNumber,
 			}
 
-			obj, _ := repository.TMFOrganizationFromToken(tokenClaims, org)
+			obj, _ := repository.TMFRecordFromOrganizationAndToken(org, tokenClaims)
 
 			if err := svc.createObject(obj); err != nil {
 				if errors.Is(err, &ErrObjectExists{}) {
@@ -219,7 +219,7 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 				SerialNumber:           authUser.SerialNumber,
 			}
 
-			obj, _ := repository.TMFOrganizationFromToken(tokenClaims, org)
+			obj, _ := repository.TMFRecordFromOrganizationAndToken(org, tokenClaims)
 
 			if err := svc.createObject(obj); err != nil {
 				if errors.Is(err, &ErrObjectExists{}) {
