@@ -1,23 +1,7 @@
 # -------------------------------------------------------------------------
 # STAGE 1: Build sqlite3_rsync
 # -------------------------------------------------------------------------
-FROM alpine:3.20 AS sqlite3_rsync_builder
-
-# Install the musl-compatible build tools required for compilation (GCC, make, etc.).
-RUN apk update && \
-    apk add --no-cache \
-    build-base \
-    musl-dev \
-    linux-headers \
-    git
-
-WORKDIR /usr/src
-RUN git clone https://github.com/sqlite/sqlite.git
-RUN mkdir bld
-WORKDIR /usr/src/bld
-RUN ../sqlite/configure
-RUN make sqlite3_rsync
-
+FROM hesusruiz/sqlite3-rsync-alpine:3.51.2 AS sqlite3_rsync
 
 # Stage 2: Build TMForum API server
 FROM golang:1.25-alpine AS tmfbuilder
@@ -53,7 +37,7 @@ WORKDIR /
 COPY --from=tmfbuilder /isbetmf /isbetmf
 COPY www /www
 COPY ./auth_policies.star /auth_policies.star
-COPY --from=sqlite3_rsync_builder --chmod=755 /usr/src/bld/sqlite3_rsync /usr/local/bin/sqlite3_rsync
+COPY --from=sqlite3_rsync --chmod=755 /usr/local/bin/sqlite3_rsync /usr/local/bin/sqlite3_rsync
 
 HEALTHCHECK \
     --interval=60s \
