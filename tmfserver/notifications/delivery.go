@@ -23,7 +23,7 @@ func (d *httpDelivery) Deliver(sub *Subscription, payload any) error {
 	}
 
 	var lastErr error
-	for attempt := 0; attempt < 3; attempt++ {
+	for attempt := range 3 {
 		req, err := http.NewRequest("POST", sub.Callback, bytes.NewReader(body))
 		if err != nil {
 			lastErr = err

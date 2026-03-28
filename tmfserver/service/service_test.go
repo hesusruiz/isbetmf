@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/tmfserver/notifications"
 	"github.com/hesusruiz/isbetmf/tmfserver/repository"
 	"github.com/hesusruiz/isbetmf/types"
@@ -32,7 +33,8 @@ func newTestService(t *testing.T) *Service {
 
 	// Create service struct directly (no external verifier)
 	s := &Service{
-		db: db,
+		db:                db,
+		ServerOperatorDid: "VATES-G87936159",
 		LEARPower: types.OnePower{
 			Type:     "organization",
 			Domain:   "ISBE",
@@ -57,25 +59,36 @@ func newTestService(t *testing.T) *Service {
 			Function: "ProductOffering",
 			Action:   []string{"Delete"},
 		},
+		Features: config.Features{
+			GenerateIDOnCreate: true,
+		},
 	}
 	// Wire notifications manager to a fake delivery by default
 	s.notif = notifications.NewManager(notifications.NewMemoryStore(), &fakeDelivery{})
 	return s
 }
 
-// newReq creates a fresh Request without AccessToken to ensure AllowFakeClaims path is used
+// newReq creates a fresh Request with a default authenticated user
 func newReq(method, action, api, resource, id string, body []byte, qp url.Values) *Request {
 	return &Request{
 		Method:       method,
 		AccessToken:  FakeATold,
-		Action:       HttpActions[method],
+		Action:       HttpActions[action],
 		APIfamily:    api,
+		APIVersion:   "v4",
 		ResourceName: resource,
 		ID:           id,
 		Body:         body,
 		QueryParams:  qp,
+		AuthUser: types.AuthUser{
+			IsAuthenticated:        true,
+			OrganizationIdentifier: "VATES-11111111K",
+			ProductCreatePower:     true,
+			ProductUpdatePower:     true,
+			ProductDeletePower:     true,
+		},
+		TokenMap: map[string]any{"sub": "test"},
 	}
-
 }
 
 // fakeDelivery records delivered payloads for assertions
@@ -150,6 +163,9 @@ func TestCreateGenericObjectPublishesEvent(t *testing.T) {
 		t.Fatalf("invalid access token: %v", err)
 	}
 
+	// Grant power manually for the test
+	authUser.ProductCreatePower = true
+
 	req.AuthUser = *authUser
 	req.TokenMap = tokenMap
 
@@ -181,6 +197,7 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	resourceName := "productOffering"
 	createObj := map[string]any{
 		"@type": resourceName,
+		"name":  "Test Product",
 	}
 	bCreate, _ := json.Marshal(createObj)
 	cReq := newReq("POST", "CREATE", "TMF620", resourceName, "", bCreate, nil)
@@ -188,7 +205,7 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	if cResp.StatusCode != http.StatusCreated {
 		t.Fatalf("create expected 201, got %d", cResp.StatusCode)
 	}
-	bodyMap := cResp.Body.(map[string]any)
+	bodyMap := cResp.Body.(repository.TMFObjectMap)
 	id, _ := bodyMap["id"].(string)
 	if id == "" {
 		t.Fatalf("no id returned")
@@ -213,7 +230,7 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	if uResp.StatusCode != http.StatusOK {
 		t.Fatalf("update expected 200, got %d", uResp.StatusCode)
 	}
-	updated := uResp.Body.(map[string]any)
+	updated := uResp.Body.(repository.TMFObjectMap)
 	if updated["version"].(string) != "1.1" {
 		t.Fatalf("expected version 1.1, got %v", updated["version"])
 	}
@@ -234,9 +251,9 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	if lResp2.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200, got %d", lResp2.StatusCode)
 	}
-	items, ok := lResp2.Body.([]map[string]any)
+	items, ok := lResp2.Body.([]repository.TMFObjectMap)
 	if !ok || len(items) == 0 {
-		t.Fatalf("expected list of items")
+		t.Fatalf("expected list of items, got %T", lResp2.Body)
 	}
 	// Expect minimal keys present
 	item := items[0]
@@ -283,9 +300,9 @@ func TestEmptyList(t *testing.T) {
 		t.Fatalf("empty list body should not be nil")
 	}
 
-	items, ok := lResp.Body.([]map[string]any)
+	items, ok := lResp.Body.([]repository.TMFObjectMap)
 	if !ok {
-		t.Fatalf("empty list body should be []map[string]any, got %T", lResp.Body)
+		t.Fatalf("empty list body should be []repository.TMFObjectMap, got %T", lResp.Body)
 	}
 
 	if len(items) != 0 {

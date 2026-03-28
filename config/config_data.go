@@ -55,6 +55,8 @@ var isbedevConfig = &Config{
 	ClonePeriod: DefaultClonePeriod,
 	Features: Features{
 		OfferingLaunchOnlyByAdmin: true,
+		GenerateIDOnCreate:        true,
+		AllowIDInBody:             true,
 	},
 }
 
@@ -102,6 +104,8 @@ var isbepreConfig = &Config{
 	ClonePeriod: DefaultClonePeriod,
 	Features: Features{
 		OfferingLaunchOnlyByAdmin: true,
+		GenerateIDOnCreate:        true,
+		AllowIDInBody:             true,
 	},
 }
 
@@ -149,6 +153,11 @@ var domedevConfig = &Config{
 	VerifierServer:  "https://verifier.dome-marketplace-sbx.org",
 	Dbname:          "data/tmf.dome.sbx.db",
 	ClonePeriod:     DefaultClonePeriod,
+	Features: Features{
+		OfferingLaunchOnlyByAdmin: false,
+		GenerateIDOnCreate:        false,
+		AllowIDInBody:             false,
+	},
 }
 
 var domepreConfig = &Config{
@@ -185,6 +194,11 @@ var domepreConfig = &Config{
 	VerifierServer:  "https://verifier.dome-marketplace-dev2.org",
 	Dbname:          "data/tmf.dome.dev2.db",
 	ClonePeriod:     DefaultClonePeriod,
+	Features: Features{
+		OfferingLaunchOnlyByAdmin: false,
+		GenerateIDOnCreate:        false,
+		AllowIDInBody:             false,
+	},
 }
 
 var domeproConfig = &Config{
@@ -221,6 +235,11 @@ var domeproConfig = &Config{
 	VerifierServer:  "https://verifier.dome-marketplace.eu",
 	Dbname:          "data/tmf.dome.pro.db",
 	ClonePeriod:     DefaultClonePeriod,
+	Features: Features{
+		OfferingLaunchOnlyByAdmin: false,
+		GenerateIDOnCreate:        false,
+		AllowIDInBody:             false,
+	},
 }
 
 // ******************************************************************
@@ -261,4 +280,9 @@ var lclConfig = &Config{
 	VerifierServer:  "https://verifier.dome-marketplace-lcl.org",
 	Dbname:          "data/tmf.dome.lcl.db",
 	ClonePeriod:     DefaultClonePeriod,
+	Features: Features{
+		OfferingLaunchOnlyByAdmin: false,
+		GenerateIDOnCreate:        false,
+		AllowIDInBody:             false,
+	},
 }

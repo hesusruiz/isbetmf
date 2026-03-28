@@ -94,7 +94,7 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 		headers := map[string]string{
 			"Authorization": "Bearer " + req.AccessToken,
 		}
-		path := fmt.Sprintf("/tmf-api/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, req.ID)
+		path := fmt.Sprintf("/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, req.ID)
 		resp, err := svc.tmfClient.Delete(path, headers)
 		if err != nil {
 			return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", err)
@@ -117,7 +117,7 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 	}
 
 	// Delete the object in the local database
-	if err := svc.deleteObject(req.ID, req.ResourceName); err != nil {
+	if err := svc.DeleteObject(req.ID, req.ResourceName); err != nil {
 		return ErrorResponsef(http.StatusInternalServerError, "failed to delete object %s from service: %w", req.ID, err)
 	}
 

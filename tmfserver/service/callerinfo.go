@@ -136,7 +136,7 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 
 			obj, _ := repository.TMFRecordFromOrganizationAndToken(org, tokenClaims)
 
-			if err := svc.createObject(obj); err != nil {
+			if err := svc.CreateObject(obj); err != nil {
 				if errors.Is(err, &ErrObjectExists{}) {
 					slog.Debug("organization already exists", "organizationIdentifier", authUser.OrganizationIdentifier)
 				} else {
@@ -158,7 +158,7 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 			if err != nil {
 				slog.Error("error parsing individual object", slogor.Err(err))
 			} else {
-				if err := svc.createObject(individual); err != nil {
+				if err := svc.CreateObject(individual); err != nil {
 					if errors.Is(err, &ErrObjectExists{}) {
 						slog.Debug("individual already exists", "id", individual.ID)
 					} else {
@@ -221,7 +221,7 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 
 			obj, _ := repository.TMFRecordFromOrganizationAndToken(org, tokenClaims)
 
-			if err := svc.createObject(obj); err != nil {
+			if err := svc.CreateObject(obj); err != nil {
 				if errors.Is(err, &ErrObjectExists{}) {
 					slog.Debug("organization already exists", "organizationIdentifier", authUser.OrganizationIdentifier)
 				} else {

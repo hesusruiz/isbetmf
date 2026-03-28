@@ -96,6 +96,8 @@ type Config struct {
 // Features defines a set of feature flags which may depend on the environment at a given time
 type Features struct {
 	OfferingLaunchOnlyByAdmin bool
+	GenerateIDOnCreate        bool
+	AllowIDInBody             bool
 }
 
 // LoadConfig initializes and returns a Config struct based on the provided parameters.

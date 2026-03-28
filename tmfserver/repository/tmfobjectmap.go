@@ -117,7 +117,7 @@ func (obj TMFObjectMap) ValidateCreate(resourceName string) ValidationResult {
 // validateRequiredFields checks if all required fields are present and optionally fixes them
 func (obj TMFObjectMap) validateRequiredFieldsCreate(resourceName string, result *ValidationResult) {
 
-	// Special processiong for the object type: check that the object matches the resourceName and fix the object if needed.
+	// Special processing for the object type: check that the object matches the resourceName and fix the object if needed.
 	objType := obj.Type()
 	if objType != "" {
 		// If the object type is specified, it must match the resourceName passed by the caller
@@ -396,7 +396,7 @@ func (obj TMFObjectMap) ToTMFRecord(resourceName string) *TMFRecord {
 	// TODO: support for v5 API
 	apiVersion := "v4"
 	lastUpdate := obj.LastUpdate()
-	content, _ := obj.ToJSON()
+	content := obj.ToJSONSimple()
 
 	seller, _, _ := obj.GetSellerInfo("v4")
 	buyer, _, _ := obj.GetBuyerInfo("v4")
@@ -421,6 +421,13 @@ func (obj TMFObjectMap) ToTMFRecord(resourceName string) *TMFRecord {
 // ToJSON converts the TMFObject to JSON bytes
 func (obj TMFObjectMap) ToJSON() ([]byte, error) {
 	return json.Marshal(obj)
+}
+
+// ToJSONSimple converts the TMFObject to JSON bytes without error checking
+// This is used when we know the object is valid
+func (obj TMFObjectMap) ToJSONSimple() []byte {
+	data, _ := obj.ToJSON()
+	return data
 }
 
 // ToMap converts the TMFObject to a regular map[string]any

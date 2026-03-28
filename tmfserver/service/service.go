@@ -161,7 +161,7 @@ func NewTMFService(cnf *config.Config, db *sqlx.DB, ruleEngine *pdp.PDP) (*Servi
 
 	if svc.proxyEnabled {
 		tmfClientConfig := &TMFClientConfig{
-			BaseURL: cnf.RemoteTMFServer,
+			BaseURL: svc.RemoteTMFServer,
 			Timeout: 120,
 		}
 
@@ -179,7 +179,7 @@ func NewTMFService(cnf *config.Config, db *sqlx.DB, ruleEngine *pdp.PDP) (*Servi
 	}
 	obj, _ := repository.TMFRecordFromOrganizationAndToken(org, nil)
 
-	if err := svc.upsertObject(obj); err != nil {
+	if err := svc.UpsertObject(obj); err != nil {
 		if errors.Is(err, &ErrObjectExists{}) {
 			slog.Debug("server operator organization already exists", "organizationIdentifier", svc.ServerOperatorOrganizationIdentifier)
 		} else {

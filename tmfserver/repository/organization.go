@@ -3,15 +3,113 @@ package repository
 import (
 	"encoding/base64"
 	"encoding/json"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
+	"github.com/hesusruiz/isbetmf/internal/jpath"
 )
 
 const eIDASAuthority = "eIDAS"
 const elsiIdentificationType = "did:elsi"
+
+// ELSIOrganizationIdentification returns the ELSI organization identification from the object
+// It returns the identificationId if found, otherwise an error
+func (obj TMFObjectMap) ELSIOrganizationIdentification() (string, error) {
+	// Organization identification information is located in the organizationIdentification array
+	// If the object is not an Organization, or we do not find the array, we just return the empty string
+	organizationIdentificationArray := jpath.GetList(obj, "organizationIdentification")
+	if len(organizationIdentificationArray) == 0 {
+		return "", errl.Errorf("no organizationIdentification")
+	}
+
+	// Loop the array until we find the entry with the identificationType elsiIdentificationType
+	for _, identification := range organizationIdentificationArray {
+
+		identificationMap, _ := identification.(map[string]any)
+
+		// Invalid maps are skipped just logging a warning
+		if len(identificationMap) == 0 {
+			slog.Warn("invalid organizationIdentification entry", "obj", obj.String())
+			continue
+		}
+
+		identificationType, _ := identificationMap["identificationType"].(string)
+		if identificationType != elsiIdentificationType {
+			continue
+		}
+
+		identificationId, _ := identificationMap["identificationId"].(string)
+		if identificationId == "" {
+			// This is an error, but we continue the loop to see if there is another entry
+			slog.Warn("zero length identificationId in organizationIdentification entry", "obj", obj.String())
+			continue
+		}
+
+		return identificationId, nil
+	}
+	return "", errl.Errorf("no identificationType elsiIdentificationType")
+}
+
+// SetELSIOrganizationIdentification sets the ELSI organization identification in the object
+// It modifies an existing entry, or creates a new one if needed
+func (obj TMFObjectMap) SetELSIOrganizationIdentification(identificationId string) error {
+
+	// Normalize the identificationId to have always a prefix "did:elsi:"
+	if !strings.HasPrefix(identificationId, "did:elsi:") {
+		identificationId = "did:elsi:" + identificationId
+	}
+
+	// Pre-create the entry in the array
+	theIdentification := map[string]any{
+		"@type":              "organizationIdentification",
+		"identificationId":   identificationId,
+		"identificationType": elsiIdentificationType,
+		"issuingAuthority":   eIDASAuthority,
+	}
+
+	// If there is no array, create it and return
+	organizationIdentificationArray := jpath.GetList(obj, "organizationIdentification")
+	if len(organizationIdentificationArray) == 0 {
+		obj["organizationIdentification"] = []any{
+			theIdentification,
+		}
+		return nil
+	}
+
+	// Loop the array until we find the entry with the identificationType elsiIdentificationType
+	for _, identification := range organizationIdentificationArray {
+
+		identificationMap, _ := identification.(map[string]any)
+
+		// Invalid maps are skipped just logging a warning
+		if len(identificationMap) == 0 {
+			slog.Warn("invalid organizationIdentification entry", "obj", obj.String())
+			continue
+		}
+
+		identificationType, _ := identificationMap["identificationType"].(string)
+		if identificationType != elsiIdentificationType {
+			continue
+		}
+
+		// Update the identificationId in the map that is part of the array
+		identificationMap["identificationId"] = identificationId
+		identificationMap["identificationType"] = elsiIdentificationType
+		identificationMap["issuingAuthority"] = eIDASAuthority
+		identificationMap["@type"] = "organizationIdentification"
+
+		return nil
+	}
+
+	// No existing entry was found, add a new one
+	organizationIdentificationArray = append(organizationIdentificationArray, theIdentification)
+	obj["organizationIdentification"] = organizationIdentificationArray
+	return nil
+
+}
 
 type Organization struct {
 	CommonName             string `json:"commonName"`
