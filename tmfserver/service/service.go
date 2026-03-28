@@ -15,7 +15,6 @@ import (
 	"github.com/hesusruiz/isbetmf/tmfserver/notifications"
 	"github.com/hesusruiz/isbetmf/tmfserver/repository"
 	"github.com/hesusruiz/isbetmf/types"
-	"github.com/jmoiron/sqlx"
 )
 
 // The DOME implementation has some non-conformances with the TMF specifications, and this is to bypass them.
@@ -82,10 +81,7 @@ type Service struct {
 	// The environment where we are running
 	environment config.Environment
 
-	// The SQL layer on top of the actual storage engine
-	db *sqlx.DB
-
-	// Pluggable storage backend. When nil, falls back to built-in SQLite via db
+	// Pluggable storage backend
 	storage TMFStorage
 
 	// The rules engine implemented using Starlark
@@ -136,11 +132,11 @@ type Service struct {
 }
 
 // NewTMFService creates a new service.
-func NewTMFService(cnf *config.Config, db *sqlx.DB, ruleEngine *pdp.PDP) (*Service, error) {
+func NewTMFService(cnf *config.Config, storage TMFStorage, ruleEngine *pdp.PDP) (*Service, error) {
 	svc := &Service{}
 
 	svc.environment = cnf.Environment
-	svc.db = db
+	svc.storage = storage
 	svc.ruleEngine = ruleEngine
 	svc.verifierServer = cnf.VerifierServer
 	svc.proxyEnabled = cnf.ProxyEnabled

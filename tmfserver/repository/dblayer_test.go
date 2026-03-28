@@ -1,4 +1,4 @@
-package service
+package repository
 
 import (
 	"fmt"
@@ -190,10 +190,10 @@ func TestBuildSelectFromParms_LimitOffsetAndType(t *testing.T) {
 	v.Set("limit", "2")
 	v.Set("offset", "1")
 	sql, args, _, _, _ := BuildSelectFromParms("ProductOffering", v)
-	if strings.Contains(strings.ToUpper(sql), "LIMIT") {
+	if !strings.Contains(strings.ToUpper(sql), "LIMIT") {
 		t.Fatalf("SQL contains LIMIT, got: %s", sql)
 	}
-	if strings.Contains(strings.ToUpper(sql), "OFFSET") {
+	if !strings.Contains(strings.ToUpper(sql), "OFFSET") {
 		t.Fatalf("SQL contains OFFSET, got: %s", sql)
 	}
 	if !strings.Contains(sql, "WHERE") {

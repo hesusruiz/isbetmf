@@ -50,7 +50,12 @@ type TMFRecord struct {
 const DeleteTMFTableSQL = `DROP TABLE IF EXISTS tmf_object;`
 const VacuumSQL = `VACUUM;`
 
-func NewDBService(configuration *config.Config) (*sqlx.DB, error) {
+// DBService is the database layer for TMF objects.
+type DBService struct {
+	db *sqlx.DB
+}
+
+func NewDBService(configuration *config.Config) (*DBService, error) {
 
 	// Build the connection string with the parameters we want to use.
 	// We specify the parameters even if they are the default ones, to make it explicit.
@@ -96,7 +101,7 @@ func NewDBService(configuration *config.Config) (*sqlx.DB, error) {
 		return nil, errl.Error(err)
 	}
 
-	return db, nil
+	return &DBService{db: db}, nil
 }
 
 // CreateTables creates the tables in the database if they do not exist.

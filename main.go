@@ -26,7 +26,7 @@ import (
 	fiberhandler "github.com/hesusruiz/isbetmf/tmfserver/handler/fiber"
 	repository "github.com/hesusruiz/isbetmf/tmfserver/repository"
 	service "github.com/hesusruiz/isbetmf/tmfserver/service"
-	"github.com/jmoiron/sqlx"
+
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -95,7 +95,7 @@ func main() {
 
 }
 
-func cleanup(db *sqlx.DB) {
+func cleanup(db *repository.DBService) {
 	// This deferred function will run!
 	fmt.Println("Running deferred cleanup functions...")
 
@@ -120,12 +120,12 @@ func runNormalProcess(configuration *config.Config) {
 	}
 
 	// Connect to the database and create tables if they do not exist
-	db, err := repository.NewDBService(configuration)
+	dbService, err := repository.NewDBService(configuration)
 	if err != nil {
 		slog.Error("failed to connect to database", slog.Any("error", err))
 		return
 	}
-	defer cleanup(db)
+	defer cleanup(dbService)
 
 	// Create the PDP (aka Policy Decision Point or rules engine)
 	rulesEngine, err := pdp.NewPDPService(&pdp.Config{
@@ -138,7 +138,7 @@ func runNormalProcess(configuration *config.Config) {
 	}
 
 	// Create the service, which will use the database and the rules engine
-	s, err := service.NewTMFService(configuration, db, rulesEngine)
+	s, err := service.NewTMFService(configuration, dbService, rulesEngine)
 	if err != nil {
 		slog.Error("failed to create service", slog.Any("error", err))
 		return
@@ -212,7 +212,7 @@ func runNormalProcess(configuration *config.Config) {
 	adminHandler.RegisterRoutes(webServer)
 
 	// Schedule periodic maintenance tasks
-	repository.ScheduleMaintenance(configuration, db, upg)
+	repository.ScheduleMaintenance(configuration, dbService, upg)
 
 	// Listen must be called before signaling we are ready
 	ln, err := upg.Listen("tcp", "0.0.0.0:9991")

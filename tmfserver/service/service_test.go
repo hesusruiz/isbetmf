@@ -1,7 +1,6 @@
 package service
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -12,28 +11,21 @@ import (
 	"github.com/hesusruiz/isbetmf/tmfserver/notifications"
 	"github.com/hesusruiz/isbetmf/tmfserver/repository"
 	"github.com/hesusruiz/isbetmf/types"
-	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 func newTestService(t *testing.T) *Service {
 	t.Helper()
 
-	// In-memory SQLite DB
-	sqldb, err := sql.Open("sqlite3", ":memory:")
+	conf := &config.Config{Dbname: ":memory:"}
+	dbLayer, err := repository.NewDBService(conf)
 	if err != nil {
-		t.Fatalf("sqlite open: %v", err)
-	}
-	db := sqlx.NewDb(sqldb, "sqlite3")
-
-	_, err = db.Exec(repository.CreateTMFTableSQL)
-	if err != nil {
-		t.Fatalf("create table: %v", err)
+		t.Fatalf("create test db: %v", err)
 	}
 
 	// Create service struct directly (no external verifier)
 	s := &Service{
-		db:                db,
+		storage:           dbLayer,
 		ServerOperatorDid: "VATES-G87936159",
 		LEARPower: types.OnePower{
 			Type:     "organization",
@@ -154,6 +146,9 @@ func TestCreateGenericObjectPublishesEvent(t *testing.T) {
 		"@type":   resourceName,
 		"version": "1.0",
 		"name":    "Test Product Offering",
+		"relatedParty": []map[string]any{
+			{"role": "Seller", "id": "did:elsi:VATES-11111111K"},
+		},
 	}
 	b, _ := json.Marshal(obj)
 	req := newReq("POST", "CREATE", "TMF620", resourceName, "", b, nil)
@@ -198,6 +193,9 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	createObj := map[string]any{
 		"@type": resourceName,
 		"name":  "Test Product",
+		"relatedParty": []map[string]any{
+			{"role": "Seller", "id": "did:elsi:VATES-11111111K"},
+		},
 	}
 	bCreate, _ := json.Marshal(createObj)
 	cReq := newReq("POST", "CREATE", "TMF620", resourceName, "", bCreate, nil)
