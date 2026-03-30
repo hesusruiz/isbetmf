@@ -6,6 +6,15 @@
         "mcp"
       ],
       "trust": true
+    },
+    "TMF620": {
+      "command": "swagger-mcp",
+      "args": [
+        "--baseUrl",
+        "https://tmf.sbx.evidenceledger.eu/",
+        "--specUrl",
+        "https://tmf.sbx.evidenceledger.eu/oapiv4/oapiv4/TMF620-productCatalogManagement.json"
+      ]      
     }
   }
 }
