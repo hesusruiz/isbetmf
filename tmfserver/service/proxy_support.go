@@ -391,7 +391,7 @@ func (svc *Service) getLocalOrRemoteObject(req *Request) (*repo.TMFRecord, error
 	if err := svc.CreateObject(remoteObj); err != nil {
 		slog.Error("failed to cache object", slog.Any("error", err))
 		// Return the stale object or nil
-		return obj, nil
+		return remoteObj, nil
 	}
 
 	slog.Info("Object retrieved from remote and cached successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
