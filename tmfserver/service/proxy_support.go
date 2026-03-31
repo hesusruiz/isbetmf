@@ -194,9 +194,10 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 
 	pageSize := 100
 	pageOffset := 0
+	slog.Info("listing remote objects", "resource", req.ResourceName, "limit", userLimit, "offset", userOffset)
 	for {
 
-		// Tell th eserver which page of objects we want
+		// Tell the server which page of objects we want
 		path := fmt.Sprintf("%slimit=%d&offset=%d", basePath, pageSize, pageOffset)
 
 		if !isHealthRequest {
@@ -208,6 +209,7 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 		if err != nil {
 			return nil, nil, ErrorResponsef(http.StatusInternalServerError, "upstream server failed with error: %w", err)
 		}
+		slog.Debug("received objects from remote", "num_objects", len(receivedObjects))
 
 		// We check each object to see if the user can access it.
 		// Additionally, we cache all the objects received independently of the user's access.
@@ -234,6 +236,7 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 			// Check if the user is authorized to access the object
 			authorized, err := svc.takeDecision(svc.ruleEngine, req, objectMap)
 			if !authorized {
+				slog.Debug("object not authorized", "id", objectMap.ID(), "error", err)
 				// Add diagnostic info if not authorized
 				invalidObjects++
 				diagnosticObjects = append(diagnosticObjects, repo.ValidationResult{

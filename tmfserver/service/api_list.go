@@ -10,7 +10,7 @@ import (
 // ListGenericObjects retrieves all TMF objects of a given type.
 func (svc *Service) ListGenericObjects(req *Request) *Response {
 	if !req.HealthRequest {
-		slog.Debug("ListGenericObjects called", slog.String("resourceName", req.ResourceName))
+		slog.Debug("ListGenericObjects called", slog.String("resourceName", req.ResourceName), slog.String("queryParams", req.QueryParams.Encode()))
 	}
 
 	// Parse pagination parameters
