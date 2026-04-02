@@ -242,10 +242,11 @@ func (svc *Service) hardcodedPolicies(req *Request, obj repo.TMFObjectMap) (deci
 			return true, errl.Errorf("caller %s is server operator %s and is a LEAR", caller.OrganizationIdentifier, svc.ServerOperatorDid)
 		}
 
-		// Reject if the caller does not have power to create products
-		if req.Action == CREATE && !caller.ProductCreatePower {
-			return false, errl.Errorf("caller %s is server operator but does not have power to create products", caller.OrganizationIdentifier)
-		}
+		// TODO: temporal fix because in ISBE the powers are malformed, and they will have to be fixed
+		// // Reject if the caller does not have power to create products
+		// if req.Action == CREATE && !caller.ProductCreatePower {
+		// 	return false, errl.Errorf("caller %s is server operator but does not have power to create products", caller.OrganizationIdentifier)
+		// }
 
 		// Reject if the caller does not have power to update products
 		if req.Action == UPDATE && !caller.ProductUpdatePower {
