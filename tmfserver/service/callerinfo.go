@@ -23,7 +23,7 @@ const VerifyTokenSignature = false
 //
 // The access token may not exist, but if it does then it must be valid.
 // For convenience of the policies, some calculated fields are created and returned in the 'user' object.
-func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[string]any, user *types.AuthUser, err error) {
+func (svc *Service) ProcessAccessToken(accessToken string) (user *types.AuthUser, err error) {
 
 	authUser := &types.AuthUser{}
 
@@ -32,12 +32,12 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 
 	// An empty token is not considered an error, and the caller should enforce its existence if needed
 	if len(accessToken) == 0 {
-		return nil, authUser, nil
+		return authUser, nil
 	}
 
 	// TODO: replace with a setting
 	// This is for testing purposes only. It allows to simulate a LEAR user without a real token.
-	if accessToken == "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX" {
+	if accessToken == svc.adminToken {
 
 		authUser.IsAuthenticated = true
 		authUser.IsLEAR = true
@@ -51,17 +51,17 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 		authUser.EmailAddress = svc.ServerEmailAddress
 		authUser.SerialNumber = "1234567Y"
 
-		tokenClaims = make(map[string]any)
-		tokenClaims["tokenType"] = ISBEAccessToken
-		tokenClaims["user_identifier"] = authUser.SerialNumber
-		tokenClaims["organization"] = authUser.Organization
-		tokenClaims["organization_identifier"] = authUser.OrganizationIdentifier
-		tokenClaims["name"] = authUser.CommonName
-		tokenClaims["country"] = authUser.Country
-		tokenClaims["email"] = authUser.EmailAddress
-		tokenClaims["serial_number"] = authUser.SerialNumber
+		authUser.TokenMap = make(map[string]any)
+		authUser.TokenMap["tokenType"] = ISBEAccessToken
+		authUser.TokenMap["user_identifier"] = authUser.SerialNumber
+		authUser.TokenMap["organization"] = authUser.Organization
+		authUser.TokenMap["organization_identifier"] = authUser.OrganizationIdentifier
+		authUser.TokenMap["name"] = authUser.CommonName
+		authUser.TokenMap["country"] = authUser.Country
+		authUser.TokenMap["email"] = authUser.EmailAddress
+		authUser.TokenMap["serial_number"] = authUser.SerialNumber
 
-		return tokenClaims, authUser, nil
+		return authUser, nil
 
 	}
 
@@ -73,26 +73,26 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 		verify = false
 	}
 
-	tokenClaims, authUser, err = svc.parseAccessToken(accessToken, verify)
+	authUser, err = svc.parseAccessToken(accessToken, verify)
 	if err != nil {
 		slog.Error("invalid access token", slogor.Err(err), "token", accessToken)
-		return nil, nil, errl.Errorf("invalid access token: %w, token: %s", err, accessToken)
+		return nil, errl.Errorf("invalid access token: %w, token: %s", err, accessToken)
 	}
 	authUser.IsAuthenticated = true
 
-	if tokenClaims["tokenType"] == DOMEAccessToken {
+	if authUser.TokenMap["tokenType"] == DOMEAccessToken {
 
 		// We are in the DOME system, so we need to extract the Verifiable Credential
 		// from the token
 
-		verifiableCredential := jpath.GetMap(tokenClaims, "vc")
+		verifiableCredential := jpath.GetMap(authUser.TokenMap, "vc")
 
 		if len(verifiableCredential) == 0 {
 			// There is not a Verifiable Credential inside the token
-			return nil, nil, errl.Errorf("access token without verifiable credential: %s", accessToken)
+			return nil, errl.Errorf("access token without verifiable credential: %s", accessToken)
 		}
 
-		// Parse the user powers for the ones we only care about
+		// Parse the user powers to look for the ones we only care about
 		authUserPowers := jpath.GetList(verifiableCredential, "credentialSubject.mandate.power")
 		for _, p := range authUserPowers {
 			var power types.OnePower
@@ -107,17 +107,18 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 				authUser.ProductCreatePower = true
 				authUser.ProductUpdatePower = true
 				authUser.ProductDeletePower = true
+			} else {
+				if power.Includes(svc.ProductCreatePower) {
+					authUser.ProductCreatePower = true
+				}
+				if power.Includes(svc.ProductUpdatePower) {
+					authUser.ProductUpdatePower = true
+				}
+				if power.Includes(svc.ProductDeletePower) {
+					authUser.ProductDeletePower = true
+				}
 			}
 
-			if power.Includes(svc.ProductCreatePower) {
-				authUser.ProductCreatePower = true
-			}
-			if power.Includes(svc.ProductUpdatePower) {
-				authUser.ProductUpdatePower = true
-			}
-			if power.Includes(svc.ProductDeletePower) {
-				authUser.ProductDeletePower = true
-			}
 		}
 
 		// If the user has an organization identifier, create a new organization object.
@@ -134,14 +135,14 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 				SerialNumber:           authUser.SerialNumber,
 			}
 
-			obj, _ := repository.TMFRecordFromOrganizationAndToken(org, tokenClaims)
+			storageObject, _ := repository.TMFRecordFromOrganizationAndToken(org, authUser.TokenMap)
 
-			if err := svc.CreateObject(obj); err != nil {
+			if err := svc.CreateObject(storageObject); err != nil {
 				if errors.Is(err, &ErrObjectExists{}) {
 					slog.Debug("organization already exists", "organizationIdentifier", authUser.OrganizationIdentifier)
 				} else {
 					err = errl.Errorf("error creating organization object %s: %w", authUser.OrganizationIdentifier, err)
-					return nil, nil, err
+					return nil, err
 				}
 			}
 
@@ -150,10 +151,10 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 			serviceName := jpath.GetString(verifiableCredential, "credentialSubject.mandate.mandatee.serviceName")
 			if len(serviceName) > 0 {
 				// This is a LEARCredentialMachine, just return
-				return tokenClaims, authUser, nil
+				return authUser, nil
 			}
 
-			// This must be a LEARCredentialEmployye, create a new user if not yet created
+			// This must be a LEARCredentialEmployee, create a new user if not yet created
 			individual, err := repository.TMFIndividualFromCredential(verifiableCredential, org)
 			if err != nil {
 				slog.Error("error parsing individual object", slogor.Err(err))
@@ -163,7 +164,7 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 						slog.Debug("individual already exists", "id", individual.ID)
 					} else {
 						err = errl.Errorf("error creating individual object %s: %w", individual.ID, err)
-						return nil, nil, err
+						return nil, err
 					}
 				}
 
@@ -171,20 +172,22 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 
 		}
 
-		return tokenClaims, authUser, nil
+		return authUser, nil
 
 	} else {
 
 		// We are in the ISBE system, so we need to extract the powers from the token
 
 		// Parse the user powers for the ones we only care about
-		authUserPowers := jpath.GetList(tokenClaims, "power")
+		authUserPowers := jpath.GetList(authUser.TokenMap, "power")
 		for _, p := range authUserPowers {
 			var power types.OnePower
 			if err := mapstructure.Decode(p, &power); err != nil {
 				slog.Error("error decoding power", slogor.Err(err))
 				continue
 			}
+
+			// TODO: check for specific ISBE Powers
 
 			if power.Includes(svc.LEARPower) {
 				authUser.IsLEAR = true
@@ -219,20 +222,20 @@ func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[stri
 				SerialNumber:           authUser.SerialNumber,
 			}
 
-			obj, _ := repository.TMFRecordFromOrganizationAndToken(org, tokenClaims)
+			obj, _ := repository.TMFRecordFromOrganizationAndToken(org, authUser.TokenMap)
 
 			if err := svc.CreateObject(obj); err != nil {
 				if errors.Is(err, &ErrObjectExists{}) {
 					slog.Debug("organization already exists", "organizationIdentifier", authUser.OrganizationIdentifier)
 				} else {
 					err = errl.Errorf("error creating organization object %s: %w", authUser.OrganizationIdentifier, err)
-					return nil, nil, err
+					return nil, err
 				}
 			}
 
 		}
 
-		return tokenClaims, authUser, nil
+		return authUser, nil
 	}
 
 }
@@ -246,7 +249,7 @@ const (
 
 // parseAccessToken parses a JWT string, extracts the mandator information, and returns an AuthUser.
 // It does NOT verify the JWT signature.
-func (svc *Service) parseAccessToken(tokenString string, verify bool) (tokenClaims map[string]any, u *types.AuthUser, err error) {
+func (svc *Service) parseAccessToken(accessToken string, verify bool) (u *types.AuthUser, err error) {
 
 	var token *jwt.Token
 	var theClaims = jwt.MapClaims{}
@@ -267,19 +270,19 @@ func (svc *Service) parseAccessToken(tokenString string, verify bool) (tokenClai
 		}
 
 		// Validate and verify the token
-		token, err = jwt.NewParser().ParseWithClaims(tokenString, theClaims, verifierPublicKeyFunc)
+		token, err = jwt.NewParser().ParseWithClaims(accessToken, theClaims, verifierPublicKeyFunc)
 		if err != nil {
 			slog.Error("Failed to parse JWT unverified", slog.Any("error", err))
-			return nil, nil, fmt.Errorf("failed to parse JWT: %w", err)
+			return nil, fmt.Errorf("failed to parse JWT: %w", err)
 		}
 
 	} else {
 
 		// Parse the token without signature verification
-		token, _, err = new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
+		token, _, err = new(jwt.Parser).ParseUnverified(accessToken, jwt.MapClaims{})
 		if err != nil {
 			slog.Error("Failed to parse JWT unverified", slog.Any("error", err))
-			return nil, nil, fmt.Errorf("failed to parse JWT: %w", err)
+			return nil, fmt.Errorf("failed to parse JWT: %w", err)
 		}
 
 	}
@@ -287,7 +290,7 @@ func (svc *Service) parseAccessToken(tokenString string, verify bool) (tokenClai
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		slog.Error("JWT claims are not of type MapClaims")
-		return nil, nil, errors.New("invalid JWT claims format")
+		return nil, errors.New("invalid JWT claims format")
 	}
 
 	// The actual claims depends on the caller: the standard DOME or the ISBE one, which does not send the "vc" claim.
@@ -300,7 +303,7 @@ func (svc *Service) parseAccessToken(tokenString string, verify bool) (tokenClai
 		power := jpath.GetList(claims, "power")
 		if len(power) == 0 {
 			slog.Debug("JWT payload does not contain 'vc' field or it's not a map")
-			return nil, nil, errors.New("missing 'vc' in JWT claims")
+			return nil, errors.New("missing 'vc' in JWT claims")
 		}
 		tokenType = ISBEAccessToken
 	}
@@ -310,32 +313,32 @@ func (svc *Service) parseAccessToken(tokenString string, verify bool) (tokenClai
 		credentialSubject, ok := vc["credentialSubject"].(map[string]any)
 		if !ok {
 			slog.Debug("JWT payload does not contain 'credentialSubject' field or it's not a map")
-			return nil, nil, errors.New("missing 'credentialSubject' in JWT claims")
+			return nil, errors.New("missing 'credentialSubject' in JWT claims")
 		}
 
 		mandate, ok := credentialSubject["mandate"].(map[string]any)
 		if !ok {
 			slog.Debug("JWT payload does not contain 'mandate' field or it's not a map")
-			return nil, nil, errors.New("missing 'mandate' in JWT claims")
+			return nil, errors.New("missing 'mandate' in JWT claims")
 		}
 
 		mandatorData, ok := mandate["mandator"].(map[string]any)
 		if !ok {
 			slog.Debug("JWT payload does not contain 'mandator' field or it's not a map")
-			return nil, nil, errors.New("missing 'mandator' in JWT claims")
+			return nil, errors.New("missing 'mandator' in JWT claims")
 		}
 
 		// Marshal and unmarshal to AuthUser struct for type safety and JSON tag mapping
 		mandatorJSON, err := json.Marshal(mandatorData)
 		if err != nil {
 			slog.Error("Failed to marshal mandator data", slog.Any("error", err))
-			return nil, nil, fmt.Errorf("failed to process mandator data: %w", err)
+			return nil, fmt.Errorf("failed to process mandator data: %w", err)
 		}
 
 		var authUser types.AuthUser
 		if err := json.Unmarshal(mandatorJSON, &authUser); err != nil {
 			slog.Error("Failed to unmarshal mandator data to AuthUser", slog.Any("error", err))
-			return nil, nil, fmt.Errorf("failed to process mandator data: %w", err)
+			return nil, fmt.Errorf("failed to process mandator data: %w", err)
 		}
 
 		slog.Debug("Successfully parsed AuthUser from JWT",
@@ -343,7 +346,10 @@ func (svc *Service) parseAccessToken(tokenString string, verify bool) (tokenClai
 			slog.String("country", authUser.Country))
 
 		claims["tokenType"] = DOMEAccessToken
-		return claims, &authUser, nil
+
+		authUser.AccessToken = accessToken
+		authUser.TokenMap = claims
+		return &authUser, nil
 
 	} else {
 
@@ -353,25 +359,25 @@ func (svc *Service) parseAccessToken(tokenString string, verify bool) (tokenClai
 		authUser.Organization, ok = claims["organization"].(string)
 		if !ok {
 			slog.Debug("JWT payload does not contain 'organization' field or it's not a string")
-			return nil, nil, errors.New("missing 'organization' in JWT claims")
+			return nil, errors.New("missing 'organization' in JWT claims")
 		}
 
 		authUser.OrganizationIdentifier, ok = claims["organization_identifier"].(string)
 		if !ok {
 			slog.Debug("JWT payload does not contain 'organization_identifier' field or it's not a string")
-			return nil, nil, errors.New("missing 'organization_identifier' in JWT claims")
+			return nil, errors.New("missing 'organization_identifier' in JWT claims")
 		}
 
 		authUser.CommonName, ok = claims["name"].(string)
 		if !ok {
 			slog.Debug("JWT payload does not contain 'name' field or it's not a string")
-			return nil, nil, errors.New("missing 'name' in JWT claims")
+			return nil, errors.New("missing 'name' in JWT claims")
 		}
 
 		authUser.SerialNumber, ok = claims["user_identifier"].(string)
 		if !ok {
 			slog.Debug("JWT payload does not contain 'user_identifier' field or it's not a string")
-			return nil, nil, errors.New("missing 'user_identifier' in JWT claims")
+			return nil, errors.New("missing 'user_identifier' in JWT claims")
 		}
 
 		// TODO: the token from ISBE should contain the country
@@ -384,11 +390,14 @@ func (svc *Service) parseAccessToken(tokenString string, verify bool) (tokenClai
 		authUser.EmailAddress, ok = claims["email"].(string)
 		if !ok {
 			slog.Debug("JWT payload does not contain 'email' field or it's not a string")
-			return nil, nil, errors.New("missing 'email' in JWT claims")
+			return nil, errors.New("missing 'email' in JWT claims")
 		}
 
 		claims["tokenType"] = ISBEAccessToken
-		return claims, &authUser, nil
+
+		authUser.AccessToken = accessToken
+		authUser.TokenMap = claims
+		return &authUser, nil
 
 	}
 

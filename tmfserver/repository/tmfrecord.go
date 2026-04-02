@@ -8,7 +8,7 @@ import (
 	"github.com/hesusruiz/isbetmf/internal/errl"
 )
 
-// NewTMFRecord creates a new TMFObject.
+// NewTMFRecord creates a new TMFObject in storage format
 func NewTMFRecord(id, objectType, version, apiVersion, lastUpdate string, content []byte) *TMFRecord {
 	now := time.Now()
 
@@ -41,12 +41,12 @@ func (o *TMFRecord) SetSellerID(sellerID string) {
 	o.Seller = sellerID
 }
 
-// GetCreatedAt returns the time.Time representation of the Unix timestamp of th einternal field CreatedAt
+// GetCreatedAt returns the time.Time representation of the Unix timestamp of the internal field CreatedAt
 func (o *TMFRecord) GetCreatedAt() time.Time {
 	return time.Unix(o.CreatedAt, 0)
 }
 
-// GetUpdatedAt returns the time.Time representation of the Unix timestamp of th einternal field UpdatedAt
+// GetUpdatedAt returns the time.Time representation of the Unix timestamp of the internal field UpdatedAt
 func (o *TMFRecord) GetUpdatedAt() time.Time {
 	return time.Unix(o.UpdatedAt, 0)
 }

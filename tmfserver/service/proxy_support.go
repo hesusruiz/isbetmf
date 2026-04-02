@@ -83,9 +83,11 @@ func (svc *Service) createLocalOrRemoteObject(req *Request, obj *repo.TMFRecord)
 
 }
 
-// updateLocalOrRemoteObject updates an existing object in the remote server and then in the local database, if the proxy is enabled.
+// updateRemoteOrLocalObject updates an existing object in the remote server and then in the local database,
+// if the proxy is enabled.
+// existingRecord is only used if the proxy is not enabled.
 // Otherwise, it just updates the object in the local database after merging with the RFC7396 patch.
-func (svc *Service) updateLocalOrRemoteObject(req *Request, existingRecord *repo.TMFRecord, patch repo.TMFObjectMap) *Response {
+func (svc *Service) updateRemoteOrLocalObject(req *Request, existingRecord *repo.TMFRecord, patch repo.TMFObjectMap) *Response {
 	var existingObjectMap repo.TMFObjectMap
 	var err error
 
@@ -122,6 +124,7 @@ func (svc *Service) updateLocalOrRemoteObject(req *Request, existingRecord *repo
 		existingObjectMap["lastUpdate"] = existingLastUpdate
 	}
 
+	// We will store the serialized object in the database
 	existingObjectContent, err := json.Marshal(existingObjectMap)
 	if err != nil {
 		return ErrorResponsef(http.StatusInternalServerError, "failed to marshal object content for update: %w", err)
@@ -156,7 +159,7 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 
 	// We forward the same access token that we received from the user
 	headers := map[string]string{
-		"Authorization": "Bearer " + req.AccessToken,
+		"Authorization": "Bearer " + req.AuthUser.AccessToken,
 	}
 
 	// Check if the user wants diagnostic information, which is specified in the query string as '?diagnostic=true'
@@ -177,12 +180,14 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 	// This is because the objects are not ordered in any particular way, so we cannot just request the objects we need.
 	// We request objects in pages of 100 objects at a time.
 
-	// Extract query parameter encoding and base path generation outside the loop
-	// to avoid repeatedly modifying and re-encoding req.QueryParams
+	// Delete the paging parameters as we will handle them ourselves
 	req.QueryParams.Del("offset")
 	req.QueryParams.Del("limit")
+
+	// Build the new parameters to send to the remote server
 	baseParams := req.QueryParams.Encode()
 
+	// Build the base path including parametersfor the request to the remote server
 	basePath := fmt.Sprintf("/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName)
 	if baseParams != "" {
 		basePath += "?" + baseParams + "&"
@@ -190,11 +195,14 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 		basePath += "?"
 	}
 
+	// Reduce logging for health requests, to avoid polluting the logs
 	isHealthRequest := req.HealthRequest
 
 	pageSize := 100
 	pageOffset := 0
-	slog.Info("listing remote objects", "resource", req.ResourceName, "limit", userLimit, "offset", userOffset)
+	if !isHealthRequest {
+		slog.Info("listing remote objects", "path", basePath, "limit", userLimit, "offset", userOffset)
+	}
 	for {
 
 		// Tell the server which page of objects we want
@@ -204,12 +212,14 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 			slog.Debug("sending request to remote", "path", path)
 		}
 
-		// Get the objects from the remote server
+		// Get one page of objects from the remote server
 		receivedObjects, err := svc.tmfClient.TMFGetList(path, headers)
 		if err != nil {
 			return nil, nil, ErrorResponsef(http.StatusInternalServerError, "upstream server failed with error: %w", err)
 		}
-		slog.Debug("received objects from remote", "num_objects", len(receivedObjects))
+		if !isHealthRequest {
+			slog.Debug("received objects from remote", "num_objects", len(receivedObjects))
+		}
 
 		// We check each object to see if the user can access it.
 		// Additionally, we cache all the objects received independently of the user's access.
@@ -300,7 +310,7 @@ func (svc *Service) listLocalObjects(req *Request, userLimit, userOffset int, fi
 	req.QueryParams.Set("offset", strconv.Itoa(userOffset))
 	req.QueryParams.Set("limit", strconv.Itoa(userLimit))
 
-	storageObjects, totalCount, err := svc.ListObjects(req, func(storageObject *repo.TMFRecord) bool {
+	storageObjects, err := svc.ListObjects(req, func(storageObject *repo.TMFRecord) bool {
 		// Convert to internal object representation
 		objMap, err := storageObject.ToTMFObjectMap()
 		if err != nil {
@@ -335,7 +345,7 @@ func (svc *Service) listLocalObjects(req *Request, userLimit, userOffset int, fi
 	}
 
 	responseHeaders := map[string]string{
-		"X-Total-Count": strconv.Itoa(totalCount),
+		"X-Total-Count": strconv.Itoa(len(responseObjects)),
 	}
 
 	if !req.HealthRequest {
@@ -407,7 +417,7 @@ func (svc *Service) getRemoteObject(req *Request) (*repo.TMFRecord, error) {
 
 	// Send the access token
 	headers := map[string]string{
-		"Authorization": "Bearer " + req.AccessToken,
+		"Authorization": "Bearer " + req.AuthUser.AccessToken,
 	}
 
 	// Build the path for the request according to TMForum specs

@@ -61,6 +61,9 @@ func NewTMFObjectMapFromBytes(resourceName string, data []byte) (TMFObjectMap, e
 
 }
 
+// NewTMFObjectMapFromUpstream creates a new TMFObjectMap from a map.
+// It is intended to be used with data received from a remote TMF server vs. the data from our local data base.
+// The type of the object must match with the resourceName passed by the caller.
 func NewTMFObjectMapFromUpstream(resourceName string, data map[string]any) (TMFObjectMap, ValidationResult) {
 	obj := TMFObjectMap(maps.Clone(data))
 	validations := obj.Validate(resourceName)

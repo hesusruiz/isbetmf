@@ -77,7 +77,7 @@ func main() {
 	if ourPid == 1 {
 		runAsInit = true
 	} else {
-		// For testing, 'init' must be passed as the first argument in the command line
+		// For testing the init functionality outside a container, 'init' must be passed as the first argument in the command line
 		if len(args) > 0 && args[0] == "init" {
 			runAsInit = true
 			// Remove 'init' from the arguments, to prepare for executing our child processes
@@ -120,7 +120,7 @@ func runNormalProcess(configuration *config.Config) {
 	}
 
 	// Connect to the database and create tables if they do not exist
-	dbService, err := repository.NewDBService(configuration)
+	dbService, err := repository.NewDBService(configuration.Dbname)
 	if err != nil {
 		slog.Error("failed to connect to database", slog.Any("error", err))
 		return
@@ -138,7 +138,7 @@ func runNormalProcess(configuration *config.Config) {
 	}
 
 	// Create the service, which will use the database and the rules engine
-	s, err := service.NewTMFService(configuration, dbService, rulesEngine)
+	tmfService, err := service.NewTMFService(configuration, dbService, rulesEngine)
 	if err != nil {
 		slog.Error("failed to create service", slog.Any("error", err))
 		return
@@ -204,11 +204,11 @@ func runNormalProcess(configuration *config.Config) {
 	webServer.Static("/oapiv4", "./www/oapiv4")
 
 	// Create handler and set the routes for the APIs
-	h := fiberhandler.NewHandler(s)
+	h := fiberhandler.NewHandler(tmfService)
 	h.RegisterRoutes(webServer)
 
 	// Create and register admin handler
-	adminHandler := admin.NewAdminHandler(s)
+	adminHandler := admin.NewAdminHandler(tmfService)
 	adminHandler.RegisterRoutes(webServer)
 
 	// Schedule periodic maintenance tasks

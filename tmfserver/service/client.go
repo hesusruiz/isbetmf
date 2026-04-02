@@ -58,7 +58,7 @@ func (c *TMFClient) TMFPost(req *Request, objMap repository.TMFObjectMap) (repos
 	path := fmt.Sprintf("/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName)
 
 	headers := map[string]string{
-		"Authorization": "Bearer " + req.AccessToken,
+		"Authorization": "Bearer " + req.AuthUser.AccessToken,
 		"Content-Type":  "application/json",
 	}
 
@@ -122,7 +122,7 @@ func (c *TMFClient) TMFPatch(req *Request, patchMap repository.TMFObjectMap) (re
 	path := fmt.Sprintf("/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, req.ID)
 
 	headers := map[string]string{
-		"Authorization": "Bearer " + req.AccessToken,
+		"Authorization": "Bearer " + req.AuthUser.AccessToken,
 		"Content-Type":  "application/json",
 	}
 
@@ -176,6 +176,8 @@ func (c *TMFClient) TMFPatch(req *Request, patchMap repository.TMFObjectMap) (re
 
 }
 
+// TMFGetList retrieves a list of TMF objects from the remote server.
+// It does not perform any validation of the objects.
 func (c *TMFClient) TMFGetList(path string, headers map[string]string) ([]repository.TMFObjectMap, error) {
 
 	resp, err := c.Get(path, headers)

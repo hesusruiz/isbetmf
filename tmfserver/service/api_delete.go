@@ -37,11 +37,9 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 	var err error
 	slog.Debug("DeleteGenericObject called", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
-	// ************************************************************************************************
-	// Authentication: we require the user to be authenticated
-	// ************************************************************************************************
-	if len(req.TokenMap) == 0 {
-		return ErrorResponsef(http.StatusUnauthorized, "user not authenticated")
+	// Authentication is required for delete operations
+	if errorResponse := svc.requiresAuthentication(req); errorResponse != nil {
+		return errorResponse
 	}
 
 	// ************************************************************************************************
@@ -92,7 +90,7 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 	if svc.proxyEnabled {
 		// Send the authentication header
 		headers := map[string]string{
-			"Authorization": "Bearer " + req.AccessToken,
+			"Authorization": "Bearer " + req.AuthUser.AccessToken,
 		}
 		path := fmt.Sprintf("/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, req.ID)
 		resp, err := svc.tmfClient.Delete(path, headers)

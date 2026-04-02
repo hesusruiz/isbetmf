@@ -11,7 +11,7 @@ func TestProcessAccessToken(t *testing.T) {
 
 	t.Run("UsingTestAccessToken", func(t *testing.T) {
 		// testAccessToken is defined in callerinfo.go
-		claims, user, err := s.ProcessAccessToken(testAccessToken)
+		user, err := s.ProcessAccessToken(testAccessToken)
 
 		// The current implementation of ProcessAccessToken expects a 'vc' claim.
 		// The testAccessToken provided does not have it, so it returns an error.
@@ -25,9 +25,6 @@ func TestProcessAccessToken(t *testing.T) {
 		}
 
 		// If the implementation is updated to support the token format, these assertions will run.
-		if claims == nil {
-			t.Error("Expected claims to be returned")
-		}
 		if user == nil {
 			t.Fatal("Expected user to be returned")
 		}

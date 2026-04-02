@@ -53,7 +53,7 @@ func (svc *Service) takeDecision(
 	// The user policies will determine the final decision.
 	req.AuthUser.IsOwner = decision
 
-	if err := svc.userPolicies(ruleEngine, req, req.TokenMap, objectMap); err != nil {
+	if err := svc.userPolicies(ruleEngine, req, req.AuthUser.TokenMap, objectMap); err != nil {
 		return false, errl.Errorf("user policies in PDP engine: %w", err)
 	}
 

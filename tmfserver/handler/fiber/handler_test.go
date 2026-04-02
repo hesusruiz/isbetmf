@@ -9,6 +9,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	svc "github.com/hesusruiz/isbetmf/tmfserver/service"
+	"github.com/hesusruiz/isbetmf/types"
 )
 
 // ServiceInterface defines the methods used by the handler
@@ -34,7 +35,20 @@ func (h *testHandler) ListGenericObjects(c *fiber.Ctx) error {
 		Action:       "LIST",
 		ResourceName: c.Params("resourceName"),
 		QueryParams:  queryParams,
-		AccessToken:  jwtToken,
+		AuthUser: types.AuthUser{
+			IsAuthenticated:        true,
+			IsLEAR:                 true,
+			ProductCreatePower:     true,
+			ProductUpdatePower:     true,
+			ProductDeletePower:     true,
+			OrganizationIdentifier: "1234567890",
+			Organization:           "Test Organization",
+			CommonName:             "Test User",
+			Country:                "US",
+			EmailAddress:           "[EMAIL_ADDRESS]",
+			SerialNumber:           "1234567890",
+			AccessToken:            jwtToken,
+		},
 	}
 
 	resp := h.service.ListGenericObjects(req)

@@ -72,6 +72,9 @@ type Config struct {
 	// TODO: this is temporary for testing
 	FakeClaims bool
 
+	// The admin token used to authenticate the superadmin
+	AdminToken string
+
 	// Enable synchronization with the remote server in background
 	BackgroudSync bool
 
@@ -124,6 +127,13 @@ func LoadConfig(
 		envir = strings.ToLower(en)
 	}
 	environment := Environment(envir)
+
+	// Get the admin token from the environment variable ISBETMF_ADMIN_TOKEN
+	adminToken := os.Getenv("ISBETMF_ADMIN_TOKEN")
+	if adminToken == "" {
+		// For testing, use the testing token
+		adminToken = "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX"
+	}
 
 	// Configure the slog logger
 	var logLevel slog.Level

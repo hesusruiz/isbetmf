@@ -46,7 +46,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	}
 
 	// Object Update (Local or Remote)
-	response := svc.updateLocalOrRemoteObject(req, existingRecord, incomingObjectMap)
+	response := svc.updateRemoteOrLocalObject(req, existingRecord, incomingObjectMap)
 
 	// Notification
 	if response.StatusCode == http.StatusOK {

@@ -198,7 +198,7 @@ type ObjectFilter func(obj *TMFRecord) bool
 // ListObjects retrieves TMF objects of a given type, returning only the latest version for each unique ID.
 // It supports pagination, filtering, and sorting according to TMF630 guidelines.
 // filter is a callback function that is called for each object. If it returns false, the object is excluded from the result.
-func (repo *DBService) ListObjects(healthRequest bool, resourceName string, queryParams url.Values, filter ObjectFilter) ([]TMFRecord, int, error) {
+func (repo *DBService) ListObjects(healthRequest bool, resourceName string, queryParams url.Values, filter ObjectFilter) ([]TMFRecord, error) {
 	if !healthRequest {
 		slog.Debug("dbLayer: listObjects", "type", resourceName, "queryParams", queryParams)
 	}
@@ -206,20 +206,19 @@ func (repo *DBService) ListObjects(healthRequest bool, resourceName string, quer
 	// Parse the parameters according to TM Forum specs and build the SELECT
 	baseQuery, args, limit, offset, err := BuildSelectFromParms(resourceName, queryParams)
 	if err != nil {
-		return nil, 0, errl.Errorf("failed to build select query: %w", err)
+		return nil, errl.Errorf("failed to build select query: %w", err)
 	}
 	if !healthRequest {
 		fmt.Printf("SQL: %s\nARGS: %v\n", baseQuery, args)
 	}
 
 	var objs []TMFRecord
-	var totalCount int
 	var offsetCounter int
 
 	// Run the SQL
 	rows, err := repo.db.Query(baseQuery, args...)
 	if err != nil {
-		return nil, 0, errl.Errorf("performing query %s with args %v: %w", baseQuery, args, err)
+		return nil, errl.Errorf("performing query %s with args %v: %w", baseQuery, args, err)
 	}
 	defer rows.Close()
 
@@ -229,7 +228,7 @@ func (repo *DBService) ListObjects(healthRequest bool, resourceName string, quer
 		if err := rows.Scan(&obj.ID, &obj.Type, &obj.Version, &obj.APIVersion,
 			&obj.Seller, &obj.Buyer, &obj.LastUpdate, &obj.Content, &obj.CreatedAt, &obj.UpdatedAt); err != nil {
 
-			return nil, 0, errl.Errorf("iterating over rows in query %s with args %v: %w", baseQuery, args, err)
+			return nil, errl.Errorf("iterating over rows in query %s with args %v: %w", baseQuery, args, err)
 
 		}
 
@@ -254,10 +253,10 @@ func (repo *DBService) ListObjects(healthRequest bool, resourceName string, quer
 
 	}
 	if err = rows.Err(); err != nil {
-		return nil, 0, errl.Errorf("performing query %s with args %v: %w", baseQuery, args, err)
+		return nil, errl.Errorf("performing query %s with args %v: %w", baseQuery, args, err)
 	}
 
-	return objs, totalCount, err
+	return objs, err
 }
 
 // BuildSelectFromParms creates a SELECT statement based on the query values.

@@ -17,8 +17,7 @@ import (
 func newTestService(t *testing.T) *Service {
 	t.Helper()
 
-	conf := &config.Config{Dbname: ":memory:"}
-	dbLayer, err := repository.NewDBService(conf)
+	dbLayer, err := repository.NewDBService(":memory:")
 	if err != nil {
 		t.Fatalf("create test db: %v", err)
 	}
@@ -64,8 +63,7 @@ func newTestService(t *testing.T) *Service {
 func newReq(method, action, api, resource, id string, body []byte, qp url.Values) *Request {
 	return &Request{
 		Method:       method,
-		AccessToken:  FakeATold,
-		Action:       HttpActions[action],
+		Action:       HttpAction(action),
 		APIfamily:    api,
 		APIVersion:   "v4",
 		ResourceName: resource,
@@ -79,7 +77,6 @@ func newReq(method, action, api, resource, id string, body []byte, qp url.Values
 			ProductUpdatePower:     true,
 			ProductDeletePower:     true,
 		},
-		TokenMap: map[string]any{"sub": "test"},
 	}
 }
 
@@ -153,7 +150,7 @@ func TestCreateGenericObjectPublishesEvent(t *testing.T) {
 	b, _ := json.Marshal(obj)
 	req := newReq("POST", "CREATE", "TMF620", resourceName, "", b, nil)
 
-	tokenMap, authUser, err := s.ProcessAccessToken(req.AccessToken)
+	authUser, err := s.ProcessAccessToken("abc123")
 	if err != nil {
 		t.Fatalf("invalid access token: %v", err)
 	}
@@ -162,7 +159,6 @@ func TestCreateGenericObjectPublishesEvent(t *testing.T) {
 	authUser.ProductCreatePower = true
 
 	req.AuthUser = *authUser
-	req.TokenMap = tokenMap
 
 	resp := s.CreateGenericObject(req)
 	if resp.StatusCode != http.StatusCreated {
@@ -188,17 +184,20 @@ func TestCreateGenericObjectPublishesEvent(t *testing.T) {
 func TestCRUDAndListGenericObject(t *testing.T) {
 	s := newTestService(t)
 
+	apiFamily := "productCatalogManagement"
+
 	// Create
 	resourceName := "productOffering"
 	createObj := map[string]any{
 		"@type": resourceName,
 		"name":  "Test Product",
 		"relatedParty": []map[string]any{
-			{"role": "Seller", "id": "did:elsi:VATES-11111111K"},
+			{"role": "Seller", "name": "did:elsi:VATES-11111111K"},
+			{"role": "SellerOperator", "name": "did:elsi:VATES-G87936159"},
 		},
 	}
 	bCreate, _ := json.Marshal(createObj)
-	cReq := newReq("POST", "CREATE", "TMF620", resourceName, "", bCreate, nil)
+	cReq := newReq("POST", "CREATE", apiFamily, resourceName, "", bCreate, nil)
 	cResp := s.CreateGenericObject(cReq)
 	if cResp.StatusCode != http.StatusCreated {
 		t.Fatalf("create expected 201, got %d", cResp.StatusCode)
@@ -210,7 +209,7 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	}
 
 	// Get
-	gReq := newReq("GET", "READ", "TMF620", resourceName, id, nil, nil)
+	gReq := newReq("GET", "READ", apiFamily, resourceName, id, nil, nil)
 	gResp := s.GetGenericObject(gReq)
 	if gResp.StatusCode != http.StatusOK {
 		t.Fatalf("get expected 200, got %d", gResp.StatusCode)
@@ -218,12 +217,13 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 
 	// Update (must include version greater than existing)
 	upd := map[string]any{
-		"@type":   resourceName,
-		"id":      id,
-		"version": "1.1",
+		"@type":       resourceName,
+		"id":          id,
+		"version":     "1.1",
+		"description": "Updated description",
 	}
 	bUpd, _ := json.Marshal(upd)
-	uReq := newReq("PATCH", "UPDATE", "TMF620", resourceName, id, bUpd, nil)
+	uReq := newReq("PATCH", "UPDATE", apiFamily, resourceName, id, bUpd, nil)
 	uResp := s.UpdateGenericObject(uReq)
 	if uResp.StatusCode != http.StatusOK {
 		t.Fatalf("update expected 200, got %d", uResp.StatusCode)
@@ -232,9 +232,12 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	if updated["version"].(string) != "1.1" {
 		t.Fatalf("expected version 1.1, got %v", updated["version"])
 	}
+	if updated["description"].(string) != "Updated description" {
+		t.Fatalf("expected description Updated description, got %v", updated["description"])
+	}
 
 	// List (all)
-	lReq := newReq("GET", "LIST", "TMF620", resourceName, "", nil, url.Values{})
+	lReq := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{})
 	lResp := s.ListGenericObjects(lReq)
 	if lResp.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200, got %d", lResp.StatusCode)
@@ -242,9 +245,12 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	if lResp.Headers["X-Total-Count"] == "" {
 		t.Fatalf("missing X-Total-Count header")
 	}
+	if lResp.Headers["X-Total-Count"] != "1" {
+		t.Fatalf("expected X-Total-Count=1, got %s", lResp.Headers["X-Total-Count"])
+	}
 
 	// List with fields=none (should reduce fields per item)
-	lReqQP := newReq("GET", "LIST", "TMF620", resourceName, "", nil, url.Values{"fields": []string{"none"}})
+	lReqQP := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{"fields": []string{"none"}})
 	lResp2 := s.ListGenericObjects(lReqQP)
 	if lResp2.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200, got %d", lResp2.StatusCode)
@@ -260,14 +266,14 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	}
 
 	// Delete
-	dReq := newReq("DELETE", "DELETE", "TMF620", resourceName, id, nil, nil)
+	dReq := newReq("DELETE", "DELETE", apiFamily, resourceName, id, nil, nil)
 	dResp := s.DeleteGenericObject(dReq)
 	if dResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete expected 204, got %d", dResp.StatusCode)
 	}
 
 	// Get after delete -> 404
-	gReq = newReq("GET", "READ", "TMF620", resourceName, id, nil, nil)
+	gReq = newReq("GET", "READ", apiFamily, resourceName, id, nil, nil)
 	gResp2 := s.GetGenericObject(gReq)
 	if gResp2.StatusCode != http.StatusNotFound {
 		t.Fatalf("get after delete expected 404, got %d", gResp2.StatusCode)
@@ -278,9 +284,10 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 func TestEmptyList(t *testing.T) {
 	s := newTestService(t)
 	resourceName := "TestResource"
+	apiFamily := "productCatalogManagement"
 
 	// List objects for a resource that doesn't exist (should return empty list)
-	lReq := newReq("GET", "LIST", "TMF620", resourceName, "", nil, url.Values{})
+	lReq := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{})
 	lResp := s.ListGenericObjects(lReq)
 
 	// Should return 200 OK

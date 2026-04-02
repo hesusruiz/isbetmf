@@ -33,8 +33,6 @@ type Request struct {
 	QueryParams   url.Values
 	Body          []byte
 	AuthUser      types.AuthUser
-	AccessToken   string
-	TokenMap      map[string]any
 	HealthRequest bool
 }
 
@@ -80,6 +78,9 @@ type Service struct {
 
 	// The environment where we are running
 	environment config.Environment
+
+	// The admin token used to authenticate the superadmin
+	adminToken string
 
 	// Pluggable storage backend
 	storage TMFStorage
@@ -136,6 +137,7 @@ func NewTMFService(cnf *config.Config, storage TMFStorage, ruleEngine *pdp.PDP) 
 	svc := &Service{}
 
 	svc.environment = cnf.Environment
+	svc.adminToken = cnf.AdminToken
 	svc.storage = storage
 	svc.ruleEngine = ruleEngine
 	svc.verifierServer = cnf.VerifierServer

@@ -14,5 +14,5 @@ type TMFStorage interface {
 	UpdateObject(obj *repo.TMFRecord) error
 	UpsertObject(obj *repo.TMFRecord) error
 	DeleteObject(id, resourceName string) error
-	ListObjects(healthRequest bool, resourceName string, queryParams url.Values, filter repo.ObjectFilter) ([]repo.TMFRecord, int, error)
+	ListObjects(healthRequest bool, resourceName string, queryParams url.Values, filter repo.ObjectFilter) ([]repo.TMFRecord, error)
 }

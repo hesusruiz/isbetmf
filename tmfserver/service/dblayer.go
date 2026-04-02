@@ -47,7 +47,7 @@ func (svc *Service) DeleteObject(id, objectType string) error {
 }
 
 // ListObjects retrieves TMF objects of a given type, returning only the latest version for each unique ID.
-func (svc *Service) ListObjects(req *Request, filter repo.ObjectFilter) ([]repo.TMFRecord, int, error) {
+func (svc *Service) ListObjects(req *Request, filter repo.ObjectFilter) ([]repo.TMFRecord, error) {
 	if !req.HealthRequest {
 		slog.Debug("dbLayer: listObjects", "type", req.ResourceName, "queryParams", req.QueryParams)
 	}

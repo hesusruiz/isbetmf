@@ -14,6 +14,8 @@ type AuthUser struct {
 	ProductCreatePower     bool
 	ProductUpdatePower     bool
 	ProductDeletePower     bool
+	AccessToken            string
+	TokenMap               map[string]any
 }
 
 func (u *AuthUser) ToMap() map[string]any {

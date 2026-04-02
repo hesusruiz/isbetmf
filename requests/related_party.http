@@ -1,3 +1,26 @@
+POST https://tmf.sbx.evidenceledger.eu/tmf-api/productCatalogManagement/v4/productOffering HTTP/1.1
+content-type: application/json
+Authorization: Bearer eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX
+
+{
+    "@schemaLocation": "https://raw.githubusercontent.com/DOME-Marketplace/tmf-api/refs/heads/main/DOME/ExternallyBilled.schema.json",
+    "name": "Jesus01",
+    "productSpecification": {
+        "id": "urn:ngsi-ld:product-specification:8e867c80-2a58-49c7-9502-30f8373802ad",
+        "href": "urn:ngsi-ld:product-specification:8e867c80-2a58-49c7-9502-30f8373802ad"
+    }
+}
+
+###
+
+GET https://tmf.sbx.evidenceledger.eu/tmf-api/productCatalogManagement/v4/productOffering?name=Jesus01
+
+###
+
+DELETE https://tmf.sbx.evidenceledger.eu/tmf-api/productCatalogManagement/v4/productOffering/urn:ngsi-ld:product-offering:041d7d9b-fa75-4c1a-a7ed-1f0e11bc3468
+Authorization: Bearer eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX
+
+###
 POST https://tmf.sbx.evidenceledger.eu/tmf-api/productCatalogManagement/v4/productSpecification HTTP/1.1
 content-type: application/json
 Authorization: Bearer eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX
@@ -68,14 +91,3 @@ DELETE https://tmf.sbx.evidenceledger.eu/tmf-api/productCatalogManagement/v4/pro
 Authorization: Bearer eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX
 
 ###
-POST https://tmf.dome-marketplace-sbx.org/tmf-api/productCatalogManagement/v4/productOffering HTTP/1.1
-content-type: application/json
-Authorization: Bearer eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX
-
-{
-    "name": "Jesus01",
-    "productSpecification": {
-        "id": "urn:ngsi-ld:product-specification:8e867c80-2a58-49c7-9502-30f8373802ad",
-        "href": "urn:ngsi-ld:product-specification:8e867c80-2a58-49c7-9502-30f8373802ad"
-    }
-}
