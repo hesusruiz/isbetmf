@@ -1,6 +1,7 @@
 package errl
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -188,4 +189,34 @@ func (m *ValidationMessages) String() string {
 		ss.WriteString("\n")
 	}
 	return ss.String()
+}
+
+// JsonUnmarshalError extracts the error text from a json.Unmarshal error
+// and returns a string with the error message and the offset.
+func JsonUnmarshalError(data []byte, err error) error {
+
+	if syntaxErr, ok := err.(*json.SyntaxError); ok {
+		offset := syntaxErr.Offset
+		if offset >= int64(len(data)) {
+			return Error2(err)
+		}
+		start := offset - 20
+		if start < 0 {
+			return Errorf2("%s<--[offset:%d] %s", data[:offset], offset, err)
+		}
+		return Errorf2("... %s<--[offset:%d] %s", data[start:offset], offset, err)
+	} else if typeErr, ok := err.(*json.UnmarshalTypeError); ok {
+		offset := typeErr.Offset
+		if offset >= int64(len(data)) {
+			return Error2(err)
+		}
+		start := offset - 20
+		if start < 0 {
+			return Errorf2("%s<--[offset:%d] %s", data[:offset], offset, err)
+		}
+		return Errorf2("... %s<--[offset:%d] %s", data[start:offset], offset, err)
+	} else {
+		return Error2(err)
+	}
+
 }

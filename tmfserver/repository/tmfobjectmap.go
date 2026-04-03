@@ -10,6 +10,7 @@ import (
 
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	"github.com/hesusruiz/isbetmf/internal/jpath"
+	"github.com/hesusruiz/isbetmf/internal/jsone"
 	"github.com/hesusruiz/isbetmf/types"
 	"golang.org/x/exp/slog"
 )
@@ -26,9 +27,9 @@ type TMFObjectMap map[string]any
 // and does not perform any validations, so any JSON object will be accepted.
 func NewTMFObjectMap(data []byte) (TMFObjectMap, error) {
 	var obj TMFObjectMap
-	err := json.Unmarshal(data, &obj)
+	err := jsone.Unmarshal(data, &obj)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal TMF object: %w", err)
+		return nil, errl.Errorf("failed to unmarshal TMF object: %w", err)
 	}
 	return obj, nil
 }
@@ -39,9 +40,9 @@ func NewTMFObjectMap(data []byte) (TMFObjectMap, error) {
 // If the `@type` field is not present, it is added to the object.
 func NewTMFObjectMapFromBytes(resourceName string, data []byte) (TMFObjectMap, error) {
 	var obj TMFObjectMap
-	err := json.Unmarshal(data, &obj)
+	err := jsone.Unmarshal(data, &obj)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal TMF object: %w", errl.Error(err))
+		return nil, errl.Errorf("failed to unmarshal TMF object: %w", err)
 	}
 
 	// Check that the object matches the resourceName
