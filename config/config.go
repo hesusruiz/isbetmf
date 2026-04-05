@@ -196,6 +196,7 @@ func LoadConfig(
 
 	conf.Debug = debug
 	conf.LogHandler = sqlog
+	conf.AdminToken = adminToken
 
 	// Check for overrides with environment variables
 
