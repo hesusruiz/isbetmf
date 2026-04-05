@@ -22,26 +22,26 @@ var isbedevConfig = &Config{
 	ServerOperatorCountry:                "ES",
 
 	LEARPower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "Onboarding",
 		Action:   []string{"execute"},
 	},
 	ProductCreatePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "ProductOffering",
 		Action:   []string{"Create"},
 	},
 	ProductUpdatePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "ProductOffering",
 		Action:   []string{"Update"},
 	},
 	ProductDeletePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "ProductOffering",
 		Action:   []string{"Delete"},
 	},
@@ -49,7 +49,7 @@ var isbedevConfig = &Config{
 	PolicyFileName: "auth_policies.star",
 
 	// TODO: the IdP must be set to the Keycloak instance which generates the access tokens
-	VerifierServer: "https://verifier.dome-marketplace.eu",
+	VerifierServer: "https://idp.dev.cloud-w.envs.redisbe.com/auth/realms/dev-isbe",
 
 	Dbname:      "data/isbetmf.db",
 	ClonePeriod: DefaultClonePeriod,
@@ -57,6 +57,7 @@ var isbedevConfig = &Config{
 		OfferingLaunchOnlyByAdmin: true,
 		GenerateIDOnCreate:        true,
 		AllowIDInBody:             true,
+		VerifyJWTSignature:        true,
 	},
 }
 
@@ -71,26 +72,26 @@ var isbepreConfig = &Config{
 	ServerOperatorCountry:                "ES",
 
 	LEARPower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "Onboarding",
 		Action:   []string{"execute"},
 	},
 	ProductCreatePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "ProductOffering",
 		Action:   []string{"Create"},
 	},
 	ProductUpdatePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "ProductOffering",
 		Action:   []string{"Update"},
 	},
 	ProductDeletePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "ProductOffering",
 		Action:   []string{"Delete"},
 	},
@@ -98,7 +99,7 @@ var isbepreConfig = &Config{
 	PolicyFileName: "auth_policies.star",
 
 	// TODO: the IdP must be set to the Keycloak instance which generates the access tokens
-	VerifierServer: "https://verifier.dome-marketplace.eu",
+	VerifierServer: "https://idp.pre.portal.redisbe.com/auth/realms/pre-isbe",
 
 	Dbname:      "data/isbetmf.db",
 	ClonePeriod: DefaultClonePeriod,
@@ -106,6 +107,57 @@ var isbepreConfig = &Config{
 		OfferingLaunchOnlyByAdmin: true,
 		GenerateIDOnCreate:        true,
 		AllowIDInBody:             true,
+		VerifyJWTSignature:        true,
+	},
+}
+
+var isbeproConfig = &Config{
+	Environment:  ISBE_PRO,
+	ProxyEnabled: false,
+
+	// The operator is Alastria
+	ServerOperatorOrganizationIdentifier: "VATES-G87936159",
+	ServerOperatorDid:                    "did:elsi:VATES-G87936159",
+	ServerOperatorName:                   "Alastria",
+	ServerOperatorCountry:                "ES",
+
+	LEARPower: types.OnePower{
+		Type:     "organization",
+		Domain:   "ISBE",
+		Function: "Onboarding",
+		Action:   []string{"execute"},
+	},
+	ProductCreatePower: types.OnePower{
+		Type:     "organization",
+		Domain:   "ISBE",
+		Function: "ProductOffering",
+		Action:   []string{"Create"},
+	},
+	ProductUpdatePower: types.OnePower{
+		Type:     "organization",
+		Domain:   "ISBE",
+		Function: "ProductOffering",
+		Action:   []string{"Update"},
+	},
+	ProductDeletePower: types.OnePower{
+		Type:     "organization",
+		Domain:   "ISBE",
+		Function: "ProductOffering",
+		Action:   []string{"Delete"},
+	},
+
+	PolicyFileName: "auth_policies.star",
+
+	// TODO: the IdP must be set to the Keycloak instance which generates the access tokens
+	VerifierServer: "https://idp.portal.redisbe.com/auth/realms/pro-isbe",
+
+	Dbname:      "data/isbetmf.db",
+	ClonePeriod: DefaultClonePeriod,
+	Features: Features{
+		OfferingLaunchOnlyByAdmin: true,
+		GenerateIDOnCreate:        true,
+		AllowIDInBody:             true,
+		VerifyJWTSignature:        true,
 	},
 }
 

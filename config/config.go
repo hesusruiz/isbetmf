@@ -21,6 +21,7 @@ const (
 	DOME_LCL Environment = "domelcl"
 	ISBE_PRE Environment = "isbepre"
 	ISBE_DEV Environment = "isbedev"
+	ISBE_PRO Environment = "isbepro"
 )
 
 const DefaultClonePeriod = 10 * time.Minute
@@ -101,6 +102,7 @@ type Features struct {
 	OfferingLaunchOnlyByAdmin bool
 	GenerateIDOnCreate        bool
 	AllowIDInBody             bool
+	VerifyJWTSignature        bool
 }
 
 // LoadConfig initializes and returns a Config struct based on the provided parameters.

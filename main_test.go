@@ -48,6 +48,7 @@ type ProductSpecification struct {
 	Version         string `json:"version,omitempty"`
 }
 
+// Create and start the web server only once even if the tests can run in parallel
 func init() {
 
 	// Set the nocolor option for logs

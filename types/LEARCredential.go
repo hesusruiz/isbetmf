@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/json"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -81,7 +82,7 @@ func (p *OnePower) SameAs(other *OnePower) bool {
 //   - p.function equals other.function (case-insensitive)
 //   - every action in other power is present in the actions of p
 //
-// The method performs early returns and returns false on the first mismatch. It treats p.Tmf_action as a superset:
+// The method performs early returns and returns false on the first mismatch. It treats p.Action as a superset:
 // extra actions present in p but not in other do not prevent inclusion. Note that the implementation assumes both
 // p and other are non-nil; calling Includes with a nil receiver or nil other will result in a runtime panic.
 func (p *OnePower) Includes(other OnePower) bool {
@@ -91,6 +92,7 @@ func (p *OnePower) Includes(other OnePower) bool {
 		return false
 	}
 
+	// Type, Domain and Function must be the same
 	if !strings.EqualFold(p.Type, other.Type) {
 		return false
 	}
@@ -99,6 +101,12 @@ func (p *OnePower) Includes(other OnePower) bool {
 	}
 	if !strings.EqualFold(p.Function, other.Function) {
 		return false
+	}
+
+	// Now we check the Action array.
+	// If p.Action has an asteric '*', this includes any action, so we return true
+	if slices.Contains(p.Action, "*") {
+		return true
 	}
 
 	// Check that each element of other.action is included in p.action

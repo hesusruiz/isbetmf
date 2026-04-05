@@ -36,12 +36,6 @@ func (svc *Service) takeDecision(
 	objectMap repo.TMFObjectMap,
 ) (authorized bool, err error) {
 
-	// Check if the caller is authenticated and is the server operator.
-	// If so, we grant access immediately.
-	if req.AuthUser.IsAuthenticated && req.AuthUser.OrganizationIdentifier == svc.ServerOperatorDid {
-		return true, nil
-	}
-
 	// Evaluate the hardcoded policies, if they fail return immediately.
 	// Otherwise, continue to see if the user policies allow access
 	decision, reason := svc.hardcodedPolicies(req, objectMap)
@@ -103,6 +97,24 @@ func (svc *Service) hardcodedPolicies(req *Request, obj repo.TMFObjectMap) (deci
 	}
 	if (objBuyer == "" && objBuyerOperator != "") || (objBuyer != "" && objBuyerOperator == "") {
 		return false, errl.Errorf("objBuyer and objBuyerOperator must both be set or both be empty, got objBuyer='%s', objBuyerOperator='%s'", objBuyer, objBuyerOperator)
+	}
+
+	// Check if the caller is authenticated and is the server operator.
+	// If so, we grant access immediately.
+
+	if req.AuthUser.IsAuthenticated {
+		if repo.SameOrganizations(req.AuthUser.OrganizationIdentifier, svc.ServerOperatorDid) {
+			return true, nil
+		}
+
+		// Check if the caller  is one of the trusted parties.
+		// If so, we grant access immediately.
+		for _, trustedParty := range svc.AdditionalTrustedparties {
+			if repo.SameOrganizations(req.AuthUser.OrganizationIdentifier, trustedParty.Did) {
+				return true, nil
+			}
+		}
+
 	}
 
 	// Method GET includes actions READ and LIST

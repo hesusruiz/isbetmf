@@ -8,11 +8,260 @@ import (
 	"time"
 
 	"github.com/hesusruiz/isbetmf/config"
+	pdp "github.com/hesusruiz/isbetmf/pdp"
 	"github.com/hesusruiz/isbetmf/tmfserver/notifications"
 	"github.com/hesusruiz/isbetmf/tmfserver/repository"
 	"github.com/hesusruiz/isbetmf/types"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// TestISBECRUDAndListGenericObject simulates a Handler to invoke the create service
+func TestISBECRUDAndListGenericObject(t *testing.T) {
+	s := newISBEDEVTestService(t)
+
+	apiFamily := "productCatalogManagement"
+	resourceName := "productOffering"
+
+	s.Features.VerifyJWTSignature = true
+
+	// Authenticate
+
+	authUser, err := s.ProcessAccessToken(isbeAdminAccessToken)
+	if err != nil {
+		t.Fatalf("failed to process access token: %v", err)
+	}
+
+	// Create
+	createObj := map[string]any{
+		"@type": resourceName,
+		"name":  "Test Product",
+		"relatedParty": []map[string]any{
+			{"role": "Seller", "name": "did:elsi:VATES-11111111K"},
+			{"role": "SellerOperator", "name": "did:elsi:VATES-G87936159"},
+		},
+	}
+	bCreate, _ := json.Marshal(createObj)
+
+	cReq := &Request{
+		Method:       "POST",
+		Action:       HttpActions["POST"],
+		APIfamily:    apiFamily,
+		APIVersion:   "v4",
+		ResourceName: resourceName,
+		ID:           "",
+		Body:         bCreate,
+		QueryParams:  nil,
+		AuthUser:     *authUser,
+	}
+
+	cResp := s.CreateGenericObject(cReq)
+	if cResp.StatusCode != http.StatusCreated {
+		t.Fatalf("create expected 201, got %d", cResp.StatusCode)
+	}
+	bodyMap := cResp.Body.(repository.TMFObjectMap)
+	id, _ := bodyMap["id"].(string)
+	if id == "" {
+		t.Fatalf("no id returned")
+	}
+
+	// Get
+
+	gReq := &Request{
+		Method:       "GET",
+		Action:       HttpActions["GET"],
+		APIfamily:    apiFamily,
+		APIVersion:   "v4",
+		ResourceName: resourceName,
+		ID:           id,
+		Body:         nil,
+		QueryParams:  nil,
+		AuthUser:     *authUser,
+	}
+
+	gResp := s.GetGenericObject(gReq)
+	if gResp.StatusCode != http.StatusOK {
+		t.Fatalf("get expected 200, got %d", gResp.StatusCode)
+	}
+
+	// Update (must include version greater than existing)
+	upd := map[string]any{
+		"@type":       resourceName,
+		"id":          id,
+		"version":     "1.1",
+		"description": "Updated description",
+	}
+	bUpd, _ := json.Marshal(upd)
+	uReq := newReq("PATCH", "UPDATE", apiFamily, resourceName, id, bUpd, nil)
+	uResp := s.UpdateGenericObject(uReq)
+	if uResp.StatusCode != http.StatusOK {
+		t.Fatalf("update expected 200, got %d", uResp.StatusCode)
+	}
+	updated := uResp.Body.(repository.TMFObjectMap)
+	if updated["version"].(string) != "1.1" {
+		t.Fatalf("expected version 1.1, got %v", updated["version"])
+	}
+	if updated["description"].(string) != "Updated description" {
+		t.Fatalf("expected description Updated description, got %v", updated["description"])
+	}
+
+	// List (all)
+	lReq := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{})
+	lResp := s.ListGenericObjects(lReq)
+	if lResp.StatusCode != http.StatusOK {
+		t.Fatalf("list expected 200, got %d", lResp.StatusCode)
+	}
+	if lResp.Headers["X-Total-Count"] == "" {
+		t.Fatalf("missing X-Total-Count header")
+	}
+	if lResp.Headers["X-Total-Count"] != "1" {
+		t.Fatalf("expected X-Total-Count=1, got %s", lResp.Headers["X-Total-Count"])
+	}
+
+	// List with fields=none (should reduce fields per item)
+	lReqQP := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{"fields": []string{"none"}})
+	lResp2 := s.ListGenericObjects(lReqQP)
+	if lResp2.StatusCode != http.StatusOK {
+		t.Fatalf("list expected 200, got %d", lResp2.StatusCode)
+	}
+	items, ok := lResp2.Body.([]repository.TMFObjectMap)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected list of items, got %T", lResp2.Body)
+	}
+	// Expect minimal keys present
+	item := items[0]
+	if item["id"] == nil || item["href"] == nil || item["version"] == nil || item["lastUpdate"] == nil || item["@type"] == nil {
+		t.Fatalf("fields=none did not include minimal fields")
+	}
+
+	// Delete
+	dReq := newReq("DELETE", "DELETE", apiFamily, resourceName, id, nil, nil)
+	dResp := s.DeleteGenericObject(dReq)
+	if dResp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete expected 204, got %d", dResp.StatusCode)
+	}
+
+	// Get after delete -> 404
+	gReq = newReq("GET", "READ", apiFamily, resourceName, id, nil, nil)
+	gResp2 := s.GetGenericObject(gReq)
+	if gResp2.StatusCode != http.StatusNotFound {
+		t.Fatalf("get after delete expected 404, got %d", gResp2.StatusCode)
+	}
+}
+
+func TestBadISBECreate(t *testing.T) {
+	s := newISBEDEVTestService(t)
+
+	// Change the server admin
+	s.ServerOperatorDid = "VATES-9999999K"
+
+	apiFamily := "productCatalogManagement"
+	resourceName := "productOffering"
+
+	s.Features.VerifyJWTSignature = true
+
+	// Authenticate
+
+	authUser, err := s.ProcessAccessToken(isbeAdminAccessToken)
+	if err != nil {
+		t.Fatalf("failed to process access token: %v", err)
+	}
+
+	// Create
+	createObj := map[string]any{
+		"@type": resourceName,
+		"name":  "Test Product",
+		"relatedParty": []map[string]any{
+			{"role": "Seller", "name": "did:elsi:VATES-11111111K"},
+			{"role": "SellerOperator", "name": "did:elsi:VATES-222222K"},
+		},
+	}
+	bCreate, _ := json.Marshal(createObj)
+
+	cReq := &Request{
+		Method:       "POST",
+		Action:       HttpActions["POST"],
+		APIfamily:    apiFamily,
+		APIVersion:   "v4",
+		ResourceName: resourceName,
+		ID:           "",
+		Body:         bCreate,
+		QueryParams:  nil,
+		AuthUser:     *authUser,
+	}
+
+	cResp := s.CreateGenericObject(cReq)
+	if cResp.StatusCode != http.StatusCreated {
+		t.Fatalf("create expected 201, got %d", cResp.StatusCode)
+	}
+	bodyMap := cResp.Body.(repository.TMFObjectMap)
+	id, _ := bodyMap["id"].(string)
+	if id == "" {
+		t.Fatalf("no id returned")
+	}
+
+}
+
+// newISBEDEVTestService creates a new service for testing with ISBE DEV configuration
+func newISBEDEVTestService(t *testing.T) *Service {
+	t.Helper()
+	configuration, err := config.LoadConfig("isbedev", true)
+	if err != nil {
+		t.Fatalf("failed to load configuration: %v", err)
+	}
+
+	dbLayer, err := repository.NewDBService(":memory:")
+	if err != nil {
+		t.Fatalf("create test db: %v", err)
+	}
+
+	configuration.PolicyFileName = "../../auth_policies.star"
+	rulesEngine, err := pdp.NewPDPService(&pdp.Config{
+		PolicyFileName: configuration.PolicyFileName,
+		Debug:          configuration.Debug,
+	})
+	if err != nil {
+		t.Fatalf("create test rules engine: %v", err)
+	}
+
+	// Create the service, which will use the database and the rules engine
+	tmfService, err := NewTMFService(configuration, dbLayer, rulesEngine)
+	if err != nil {
+		t.Fatalf("create test service: %v", err)
+	}
+
+	return tmfService
+}
+
+// newISBEDEVTestService creates a new service for testing with ISBE DEV configuration
+func newDOMEDEVTestService(t *testing.T) *Service {
+	t.Helper()
+	configuration, err := config.LoadConfig("domedev", true)
+	if err != nil {
+		t.Fatalf("failed to load configuration: %v", err)
+	}
+
+	dbLayer, err := repository.NewDBService(":memory:")
+	if err != nil {
+		t.Fatalf("create test db: %v", err)
+	}
+
+	configuration.PolicyFileName = "../../auth_policies.star"
+	rulesEngine, err := pdp.NewPDPService(&pdp.Config{
+		PolicyFileName: configuration.PolicyFileName,
+		Debug:          configuration.Debug,
+	})
+	if err != nil {
+		t.Fatalf("create test rules engine: %v", err)
+	}
+
+	// Create the service, which will use the database and the rules engine
+	tmfService, err := NewTMFService(configuration, dbLayer, rulesEngine)
+	if err != nil {
+		t.Fatalf("create test service: %v", err)
+	}
+
+	return tmfService
+}
 
 func newTestService(t *testing.T) *Service {
 	t.Helper()

@@ -73,13 +73,21 @@ type Response struct {
 	Body       any
 }
 
+type ServerOperatorInfo struct {
+	OrganizationIdentifier string
+	Did                    string
+	Name                   string
+	Country                string
+	EmailAddress           string
+}
+
 // Service is the service for the API.
 type Service struct {
 
 	// The environment where we are running
 	environment config.Environment
 
-	// The admin token used to authenticate the superadmin
+	// The admin token used to authenticate the superadmin. Handle as a secret.
 	adminToken string
 
 	// Pluggable storage backend
@@ -88,11 +96,11 @@ type Service struct {
 	// The rules engine implemented using Starlark
 	ruleEngine *pdp.PDP
 
-	// The Verifier server which signs the Access Tokens,
+	// The url of theVerifier server which signs the Access Tokens,
 	// and the PDP retrieves the JWKS from it to verify the signatures.
 	verifierServer string
 
-	// The OpenID configuration of the Verifier Server
+	// The OpenID configuration to use the Verifier Server
 	oid *OpenIDConfig
 
 	// Notifications manager
@@ -104,10 +112,12 @@ type Service struct {
 	// Fressness for local objects when proxy enabled
 	fressness time.Duration
 
-	// Flag to enable/disable proxy functionality
+	// Flag to enable/disable proxy functionality.
+	// When not enabled, the service is a standard TMF Server, local only.
+	// When enabled, the service is a proxy to a remote TMF Server.
 	proxyEnabled bool
 
-	// The paging service to help process remote TMForum objects
+	// The paging service to help process remote TMForum objects when retrieving large quantities.
 	paging *ClientWithPaging
 
 	// Information about us (the server operator)
@@ -116,6 +126,8 @@ type Service struct {
 	ServerOperatorName                   string
 	ServerOperatorCountry                string
 	ServerEmailAddress                   string
+
+	AdditionalTrustedparties []ServerOperatorInfo
 
 	// The domain of the remote TMForum API server when we act as proxy
 	RemoteTMFServer string
@@ -198,8 +210,7 @@ func NewTMFService(cnf *config.Config, storage TMFStorage, ruleEngine *pdp.PDP) 
 	// Create the paging service
 	pagingConfig := DefaultPagingConfig()
 	pagingConfig.PageSize = 10
-	paging := NewClientWithPaging(pagingConfig)
-	svc.paging = paging
+	svc.paging = NewClientWithPaging(pagingConfig)
 
 	// Initialize notifications with in-memory store and HTTP delivery
 	store := notifications.NewMemoryStore()
