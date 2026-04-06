@@ -146,9 +146,10 @@ func runNormalProcess(configuration *config.Config) {
 
 	// Create Fiber web server with custom configuration
 	webServer := fiber.New(fiber.Config{
-		AppName:      "TMForum API Server",
-		ServerHeader: "TMForum",
-		ErrorHandler: func(c *fiber.Ctx, err error) error {
+		AppName:        "TMForum API Server",
+		ServerHeader:   "TMForum",
+		ReadBufferSize: 16 * 1024, // 16 KB — allows large Authorization headers (e.g. JWTs with many claims)
+		ErrorHandler:   func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
 				code = e.Code
