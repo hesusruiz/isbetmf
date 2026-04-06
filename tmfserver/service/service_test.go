@@ -1,38 +1,280 @@
 package service
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/url"
 	"testing"
 	"time"
 
+	"github.com/hesusruiz/isbetmf/config"
+	pdp "github.com/hesusruiz/isbetmf/pdp"
 	"github.com/hesusruiz/isbetmf/tmfserver/notifications"
 	"github.com/hesusruiz/isbetmf/tmfserver/repository"
 	"github.com/hesusruiz/isbetmf/types"
-	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// TestISBECRUDAndListGenericObject simulates a Handler to invoke the create service
+func TestISBECRUDAndListGenericObject(t *testing.T) {
+	s := newISBEDEVTestService(t)
+
+	apiFamily := "productCatalogManagement"
+	resourceName := "productOffering"
+
+	s.Features.VerifyJWTSignature = true
+
+	// Authenticate
+
+	authUser, err := s.ProcessAccessToken(isbeAdminAccessToken)
+	if err != nil {
+		t.Fatalf("failed to process access token: %v", err)
+	}
+
+	// Create
+	createObj := map[string]any{
+		"@type": resourceName,
+		"name":  "Test Product",
+		"relatedParty": []map[string]any{
+			{"role": "Seller", "name": "did:elsi:VATES-11111111K"},
+			{"role": "SellerOperator", "name": "did:elsi:VATES-G87936159"},
+		},
+	}
+	bCreate, _ := json.Marshal(createObj)
+
+	cReq := &Request{
+		Method:       "POST",
+		Action:       HttpActions["POST"],
+		APIfamily:    apiFamily,
+		APIVersion:   "v4",
+		ResourceName: resourceName,
+		ID:           "",
+		Body:         bCreate,
+		QueryParams:  nil,
+		AuthUser:     *authUser,
+	}
+
+	cResp := s.CreateGenericObject(cReq)
+	if cResp.StatusCode != http.StatusCreated {
+		t.Fatalf("create expected 201, got %d", cResp.StatusCode)
+	}
+	bodyMap := cResp.Body.(repository.TMFObjectMap)
+	id, _ := bodyMap["id"].(string)
+	if id == "" {
+		t.Fatalf("no id returned")
+	}
+
+	// Get
+
+	gReq := &Request{
+		Method:       "GET",
+		Action:       HttpActions["GET"],
+		APIfamily:    apiFamily,
+		APIVersion:   "v4",
+		ResourceName: resourceName,
+		ID:           id,
+		Body:         nil,
+		QueryParams:  nil,
+		AuthUser:     *authUser,
+	}
+
+	gResp := s.GetGenericObject(gReq)
+	if gResp.StatusCode != http.StatusOK {
+		t.Fatalf("get expected 200, got %d", gResp.StatusCode)
+	}
+
+	// Update (must include version greater than existing)
+	upd := map[string]any{
+		"@type":       resourceName,
+		"id":          id,
+		"version":     "1.1",
+		"description": "Updated description",
+	}
+	bUpd, _ := json.Marshal(upd)
+	uReq := newReq("PATCH", "UPDATE", apiFamily, resourceName, id, bUpd, nil)
+	uResp := s.UpdateGenericObject(uReq)
+	if uResp.StatusCode != http.StatusOK {
+		t.Fatalf("update expected 200, got %d", uResp.StatusCode)
+	}
+	updated := uResp.Body.(repository.TMFObjectMap)
+	if updated["version"].(string) != "1.1" {
+		t.Fatalf("expected version 1.1, got %v", updated["version"])
+	}
+	if updated["description"].(string) != "Updated description" {
+		t.Fatalf("expected description Updated description, got %v", updated["description"])
+	}
+
+	// List (all)
+	lReq := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{})
+	lResp := s.ListGenericObjects(lReq)
+	if lResp.StatusCode != http.StatusOK {
+		t.Fatalf("list expected 200, got %d", lResp.StatusCode)
+	}
+	if lResp.Headers["X-Total-Count"] == "" {
+		t.Fatalf("missing X-Total-Count header")
+	}
+	if lResp.Headers["X-Total-Count"] != "1" {
+		t.Fatalf("expected X-Total-Count=1, got %s", lResp.Headers["X-Total-Count"])
+	}
+
+	// List with fields=none (should reduce fields per item)
+	lReqQP := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{"fields": []string{"none"}})
+	lResp2 := s.ListGenericObjects(lReqQP)
+	if lResp2.StatusCode != http.StatusOK {
+		t.Fatalf("list expected 200, got %d", lResp2.StatusCode)
+	}
+	items, ok := lResp2.Body.([]repository.TMFObjectMap)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected list of items, got %T", lResp2.Body)
+	}
+	// Expect minimal keys present
+	item := items[0]
+	if item["id"] == nil || item["href"] == nil || item["version"] == nil || item["lastUpdate"] == nil || item["@type"] == nil {
+		t.Fatalf("fields=none did not include minimal fields")
+	}
+
+	// Delete
+	dReq := newReq("DELETE", "DELETE", apiFamily, resourceName, id, nil, nil)
+	dResp := s.DeleteGenericObject(dReq)
+	if dResp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete expected 204, got %d", dResp.StatusCode)
+	}
+
+	// Get after delete -> 404
+	gReq = newReq("GET", "READ", apiFamily, resourceName, id, nil, nil)
+	gResp2 := s.GetGenericObject(gReq)
+	if gResp2.StatusCode != http.StatusNotFound {
+		t.Fatalf("get after delete expected 404, got %d", gResp2.StatusCode)
+	}
+}
+
+func TestBadISBECreate(t *testing.T) {
+	s := newISBEDEVTestService(t)
+
+	// Change the server admin
+	s.ServerOperatorDid = "VATES-9999999K"
+
+	apiFamily := "productCatalogManagement"
+	resourceName := "productOffering"
+
+	s.Features.VerifyJWTSignature = true
+
+	// Authenticate
+
+	authUser, err := s.ProcessAccessToken(isbeAdminAccessToken)
+	if err != nil {
+		t.Fatalf("failed to process access token: %v", err)
+	}
+
+	// Create
+	createObj := map[string]any{
+		"@type": resourceName,
+		"name":  "Test Product",
+		"relatedParty": []map[string]any{
+			{"role": "Seller", "name": "did:elsi:VATES-11111111K"},
+			{"role": "SellerOperator", "name": "did:elsi:VATES-222222K"},
+		},
+	}
+	bCreate, _ := json.Marshal(createObj)
+
+	cReq := &Request{
+		Method:       "POST",
+		Action:       HttpActions["POST"],
+		APIfamily:    apiFamily,
+		APIVersion:   "v4",
+		ResourceName: resourceName,
+		ID:           "",
+		Body:         bCreate,
+		QueryParams:  nil,
+		AuthUser:     *authUser,
+	}
+
+	cResp := s.CreateGenericObject(cReq)
+	if cResp.StatusCode != http.StatusCreated {
+		t.Fatalf("create expected 201, got %d", cResp.StatusCode)
+	}
+	bodyMap := cResp.Body.(repository.TMFObjectMap)
+	id, _ := bodyMap["id"].(string)
+	if id == "" {
+		t.Fatalf("no id returned")
+	}
+
+}
+
+// newISBEDEVTestService creates a new service for testing with ISBE DEV configuration
+func newISBEDEVTestService(t *testing.T) *Service {
+	t.Helper()
+	configuration, err := config.LoadConfig("isbedev", true)
+	if err != nil {
+		t.Fatalf("failed to load configuration: %v", err)
+	}
+
+	dbLayer, err := repository.NewDBService(":memory:")
+	if err != nil {
+		t.Fatalf("create test db: %v", err)
+	}
+
+	configuration.PolicyFileName = "../../auth_policies.star"
+	rulesEngine, err := pdp.NewPDPService(&pdp.Config{
+		PolicyFileName: configuration.PolicyFileName,
+		Debug:          configuration.Debug,
+	})
+	if err != nil {
+		t.Fatalf("create test rules engine: %v", err)
+	}
+
+	// Create the service, which will use the database and the rules engine
+	tmfService, err := NewTMFService(configuration, dbLayer, rulesEngine)
+	if err != nil {
+		t.Fatalf("create test service: %v", err)
+	}
+
+	return tmfService
+}
+
+// newISBEDEVTestService creates a new service for testing with ISBE DEV configuration
+func newDOMEDEVTestService(t *testing.T) *Service {
+	t.Helper()
+	configuration, err := config.LoadConfig("domedev", true)
+	if err != nil {
+		t.Fatalf("failed to load configuration: %v", err)
+	}
+
+	dbLayer, err := repository.NewDBService(":memory:")
+	if err != nil {
+		t.Fatalf("create test db: %v", err)
+	}
+
+	configuration.PolicyFileName = "../../auth_policies.star"
+	rulesEngine, err := pdp.NewPDPService(&pdp.Config{
+		PolicyFileName: configuration.PolicyFileName,
+		Debug:          configuration.Debug,
+	})
+	if err != nil {
+		t.Fatalf("create test rules engine: %v", err)
+	}
+
+	// Create the service, which will use the database and the rules engine
+	tmfService, err := NewTMFService(configuration, dbLayer, rulesEngine)
+	if err != nil {
+		t.Fatalf("create test service: %v", err)
+	}
+
+	return tmfService
+}
 
 func newTestService(t *testing.T) *Service {
 	t.Helper()
 
-	// In-memory SQLite DB
-	sqldb, err := sql.Open("sqlite3", ":memory:")
+	dbLayer, err := repository.NewDBService(":memory:")
 	if err != nil {
-		t.Fatalf("sqlite open: %v", err)
-	}
-	db := sqlx.NewDb(sqldb, "sqlite3")
-
-	_, err = db.Exec(repository.CreateTMFTableSQL)
-	if err != nil {
-		t.Fatalf("create table: %v", err)
+		t.Fatalf("create test db: %v", err)
 	}
 
 	// Create service struct directly (no external verifier)
 	s := &Service{
-		db: db,
+		storage:           dbLayer,
+		ServerOperatorDid: "VATES-G87936159",
 		LEARPower: types.OnePower{
 			Type:     "organization",
 			Domain:   "ISBE",
@@ -57,25 +299,34 @@ func newTestService(t *testing.T) *Service {
 			Function: "ProductOffering",
 			Action:   []string{"Delete"},
 		},
+		Features: config.Features{
+			GenerateIDOnCreate: true,
+		},
 	}
 	// Wire notifications manager to a fake delivery by default
 	s.notif = notifications.NewManager(notifications.NewMemoryStore(), &fakeDelivery{})
 	return s
 }
 
-// newReq creates a fresh Request without AccessToken to ensure AllowFakeClaims path is used
+// newReq creates a fresh Request with a default authenticated user
 func newReq(method, action, api, resource, id string, body []byte, qp url.Values) *Request {
 	return &Request{
 		Method:       method,
-		AccessToken:  FakeATold,
-		Action:       HttpActions[method],
+		Action:       HttpAction(action),
 		APIfamily:    api,
+		APIVersion:   "v4",
 		ResourceName: resource,
 		ID:           id,
 		Body:         body,
 		QueryParams:  qp,
+		AuthUser: types.AuthUser{
+			IsAuthenticated:        true,
+			OrganizationIdentifier: "VATES-11111111K",
+			ProductCreatePower:     true,
+			ProductUpdatePower:     true,
+			ProductDeletePower:     true,
+		},
 	}
-
 }
 
 // fakeDelivery records delivered payloads for assertions
@@ -141,17 +392,22 @@ func TestCreateGenericObjectPublishesEvent(t *testing.T) {
 		"@type":   resourceName,
 		"version": "1.0",
 		"name":    "Test Product Offering",
+		"relatedParty": []map[string]any{
+			{"role": "Seller", "id": "did:elsi:VATES-11111111K"},
+		},
 	}
 	b, _ := json.Marshal(obj)
 	req := newReq("POST", "CREATE", "TMF620", resourceName, "", b, nil)
 
-	tokenMap, authUser, err := s.ProcessAccessToken(req.AccessToken)
+	authUser, err := s.ProcessAccessToken("abc123")
 	if err != nil {
 		t.Fatalf("invalid access token: %v", err)
 	}
 
+	// Grant power manually for the test
+	authUser.ProductCreatePower = true
+
 	req.AuthUser = *authUser
-	req.TokenMap = tokenMap
 
 	resp := s.CreateGenericObject(req)
 	if resp.StatusCode != http.StatusCreated {
@@ -177,25 +433,32 @@ func TestCreateGenericObjectPublishesEvent(t *testing.T) {
 func TestCRUDAndListGenericObject(t *testing.T) {
 	s := newTestService(t)
 
+	apiFamily := "productCatalogManagement"
+
 	// Create
 	resourceName := "productOffering"
 	createObj := map[string]any{
 		"@type": resourceName,
+		"name":  "Test Product",
+		"relatedParty": []map[string]any{
+			{"role": "Seller", "name": "did:elsi:VATES-11111111K"},
+			{"role": "SellerOperator", "name": "did:elsi:VATES-G87936159"},
+		},
 	}
 	bCreate, _ := json.Marshal(createObj)
-	cReq := newReq("POST", "CREATE", "TMF620", resourceName, "", bCreate, nil)
+	cReq := newReq("POST", "CREATE", apiFamily, resourceName, "", bCreate, nil)
 	cResp := s.CreateGenericObject(cReq)
 	if cResp.StatusCode != http.StatusCreated {
 		t.Fatalf("create expected 201, got %d", cResp.StatusCode)
 	}
-	bodyMap := cResp.Body.(map[string]any)
+	bodyMap := cResp.Body.(repository.TMFObjectMap)
 	id, _ := bodyMap["id"].(string)
 	if id == "" {
 		t.Fatalf("no id returned")
 	}
 
 	// Get
-	gReq := newReq("GET", "READ", "TMF620", resourceName, id, nil, nil)
+	gReq := newReq("GET", "READ", apiFamily, resourceName, id, nil, nil)
 	gResp := s.GetGenericObject(gReq)
 	if gResp.StatusCode != http.StatusOK {
 		t.Fatalf("get expected 200, got %d", gResp.StatusCode)
@@ -203,23 +466,27 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 
 	// Update (must include version greater than existing)
 	upd := map[string]any{
-		"@type":   resourceName,
-		"id":      id,
-		"version": "1.1",
+		"@type":       resourceName,
+		"id":          id,
+		"version":     "1.1",
+		"description": "Updated description",
 	}
 	bUpd, _ := json.Marshal(upd)
-	uReq := newReq("PATCH", "UPDATE", "TMF620", resourceName, id, bUpd, nil)
+	uReq := newReq("PATCH", "UPDATE", apiFamily, resourceName, id, bUpd, nil)
 	uResp := s.UpdateGenericObject(uReq)
 	if uResp.StatusCode != http.StatusOK {
 		t.Fatalf("update expected 200, got %d", uResp.StatusCode)
 	}
-	updated := uResp.Body.(map[string]any)
+	updated := uResp.Body.(repository.TMFObjectMap)
 	if updated["version"].(string) != "1.1" {
 		t.Fatalf("expected version 1.1, got %v", updated["version"])
 	}
+	if updated["description"].(string) != "Updated description" {
+		t.Fatalf("expected description Updated description, got %v", updated["description"])
+	}
 
 	// List (all)
-	lReq := newReq("GET", "LIST", "TMF620", resourceName, "", nil, url.Values{})
+	lReq := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{})
 	lResp := s.ListGenericObjects(lReq)
 	if lResp.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200, got %d", lResp.StatusCode)
@@ -227,16 +494,19 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	if lResp.Headers["X-Total-Count"] == "" {
 		t.Fatalf("missing X-Total-Count header")
 	}
+	if lResp.Headers["X-Total-Count"] != "1" {
+		t.Fatalf("expected X-Total-Count=1, got %s", lResp.Headers["X-Total-Count"])
+	}
 
 	// List with fields=none (should reduce fields per item)
-	lReqQP := newReq("GET", "LIST", "TMF620", resourceName, "", nil, url.Values{"fields": []string{"none"}})
+	lReqQP := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{"fields": []string{"none"}})
 	lResp2 := s.ListGenericObjects(lReqQP)
 	if lResp2.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200, got %d", lResp2.StatusCode)
 	}
-	items, ok := lResp2.Body.([]map[string]any)
+	items, ok := lResp2.Body.([]repository.TMFObjectMap)
 	if !ok || len(items) == 0 {
-		t.Fatalf("expected list of items")
+		t.Fatalf("expected list of items, got %T", lResp2.Body)
 	}
 	// Expect minimal keys present
 	item := items[0]
@@ -245,14 +515,14 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	}
 
 	// Delete
-	dReq := newReq("DELETE", "DELETE", "TMF620", resourceName, id, nil, nil)
+	dReq := newReq("DELETE", "DELETE", apiFamily, resourceName, id, nil, nil)
 	dResp := s.DeleteGenericObject(dReq)
 	if dResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete expected 204, got %d", dResp.StatusCode)
 	}
 
 	// Get after delete -> 404
-	gReq = newReq("GET", "READ", "TMF620", resourceName, id, nil, nil)
+	gReq = newReq("GET", "READ", apiFamily, resourceName, id, nil, nil)
 	gResp2 := s.GetGenericObject(gReq)
 	if gResp2.StatusCode != http.StatusNotFound {
 		t.Fatalf("get after delete expected 404, got %d", gResp2.StatusCode)
@@ -263,9 +533,10 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 func TestEmptyList(t *testing.T) {
 	s := newTestService(t)
 	resourceName := "TestResource"
+	apiFamily := "productCatalogManagement"
 
 	// List objects for a resource that doesn't exist (should return empty list)
-	lReq := newReq("GET", "LIST", "TMF620", resourceName, "", nil, url.Values{})
+	lReq := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{})
 	lResp := s.ListGenericObjects(lReq)
 
 	// Should return 200 OK
@@ -283,9 +554,9 @@ func TestEmptyList(t *testing.T) {
 		t.Fatalf("empty list body should not be nil")
 	}
 
-	items, ok := lResp.Body.([]map[string]any)
+	items, ok := lResp.Body.([]repository.TMFObjectMap)
 	if !ok {
-		t.Fatalf("empty list body should be []map[string]any, got %T", lResp.Body)
+		t.Fatalf("empty list body should be []repository.TMFObjectMap, got %T", lResp.Body)
 	}
 
 	if len(items) != 0 {

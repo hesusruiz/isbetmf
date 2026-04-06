@@ -7,7 +7,6 @@ import (
 	"github.com/cloudflare/tableflip"
 	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/sqlitesync"
-	"github.com/jmoiron/sqlx"
 )
 
 // ScheduleMaintenance schedules periodic database maintenance tasks like VACUUM or backups.
@@ -15,10 +14,10 @@ import (
 // Additionally, it schedules a restart every day at 3 o'clock.
 // The restart uses the https://github.com/cloudflare/tableflip graceful restart to keep client connections
 // alive during the restart.
-func ScheduleMaintenance(configuration *config.Config, db *sqlx.DB, upg *tableflip.Upgrader) {
+func ScheduleMaintenance(configuration *config.Config, repo *DBService, upg *tableflip.Upgrader) {
 
 	// Perform an initial maintenance
-	PerformMaintenance(db, configuration.Dbname)
+	PerformMaintenance(repo, configuration.Dbname)
 
 	// interval := 2 * time.Hour
 	interval := time.Hour
@@ -38,7 +37,7 @@ func ScheduleMaintenance(configuration *config.Config, db *sqlx.DB, upg *tablefl
 
 		for {
 			time.Sleep(time.Until(nextRun))
-			PerformMaintenance(db, configuration.Dbname)
+			PerformMaintenance(repo, configuration.Dbname)
 
 			// If its 3 o'clock, restart the program
 			if time.Now().Hour() == 3 {
@@ -54,12 +53,12 @@ func ScheduleMaintenance(configuration *config.Config, db *sqlx.DB, upg *tablefl
 }
 
 // PerformMaintenance performs the actual database maintenance tasks (VACUUM and Backup).
-func PerformMaintenance(db *sqlx.DB, dbPath string) {
+func PerformMaintenance(repo *DBService, dbPath string) {
 	slog.Info("Executing scheduled database maintenance...")
 
 	// Perform a checkpoint to ensure the WAL file is truncated
 	start := time.Now()
-	if err := forceWalTruncate(db); err != nil {
+	if err := forceWalTruncate(repo); err != nil {
 		slog.Error("failed to truncate WAL file", "error", err, "elapsed", time.Since(start))
 	} else {
 		slog.Info("WAL file truncated successfully", "elapsed", time.Since(start))
@@ -67,7 +66,7 @@ func PerformMaintenance(db *sqlx.DB, dbPath string) {
 
 	// Perform VACUUM
 	start = time.Now()
-	if _, err := db.Exec(VacuumSQL); err != nil {
+	if _, err := repo.db.Exec(VacuumSQL); err != nil {
 		slog.Error("failed to vacuum database", "error", err, "elapsed", time.Since(start))
 	} else {
 		slog.Info("Database vacuumed successfully", "elapsed", time.Since(start))
@@ -82,9 +81,9 @@ func PerformMaintenance(db *sqlx.DB, dbPath string) {
 	}
 }
 
-func forceWalTruncate(db *sqlx.DB) error {
+func forceWalTruncate(repo *DBService) error {
 	// TRUNCATE ensures the checkpoint runs to completion, deleting the WAL file.
 	// This call can block briefly if a write is in progress.
-	_, err := db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+	_, err := repo.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 	return err
 }

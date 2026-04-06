@@ -3,12 +3,11 @@ package repository
 import (
 	"log/slog"
 
-	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	"github.com/jmoiron/sqlx"
 )
 
-// CreateTMFTableSQL is the table 'tmf_object', the one holding all objects of all types
+// CreateTMFTableSQL is the SQL statement to create the table 'tmf_object', holding all objects of all types
 const CreateTMFTableSQL = `CREATE TABLE IF NOT EXISTS tmf_object (
 	"id" TEXT NOT NULL,
 	"type" TEXT NOT NULL,
@@ -26,8 +25,7 @@ const CreateTMFTableSQL = `CREATE TABLE IF NOT EXISTS tmf_object (
 	PRIMARY KEY ("id", "type", "version")
 );`
 
-// TMFRecord represents a generic TMForum object.
-// It is used to store and retrieve objects from the database.
+// TMFRecord represents the storage format of a generic TMForum object, associated to a record in the database.
 type TMFRecord struct {
 	ID             string           `db:"id"`
 	Type           string           `db:"type"`
@@ -46,17 +44,25 @@ type TMFRecord struct {
 	Validations    ValidationResult `db:"-"`
 }
 
-// Used for migrations and to keep the database file compact
+// DeleteTMFTableSQL is the SQL statement to delete the table 'tmf_object'
 const DeleteTMFTableSQL = `DROP TABLE IF EXISTS tmf_object;`
+
+// VacuumSQL is the SQL statement to vacuum the database
 const VacuumSQL = `VACUUM;`
 
-func NewDBService(configuration *config.Config) (*sqlx.DB, error) {
+// DBService is the database layer for TMF objects.
+type DBService struct {
+	db *sqlx.DB
+}
+
+// NewDBService creates a new database service.
+func NewDBService(dbName string) (*DBService, error) {
 
 	// Build the connection string with the parameters we want to use.
 	// We specify the parameters even if they are the default ones, to make it explicit.
 
 	// _journal_mode=WAL Enables Write-Ahead Logging for high concurrency (many readers, one writer).
-	dbName := "file:" + configuration.Dbname + "?_journal_mode=WAL"
+	dbName = "file:" + dbName + "?_journal_mode=WAL"
 
 	// _cache_size=-100000 Sets the cache size to 100000 kilobytes (100MB) instead of the default 2MB,
 	// which is a good balance between performance and memory usage.
@@ -96,7 +102,7 @@ func NewDBService(configuration *config.Config) (*sqlx.DB, error) {
 		return nil, errl.Error(err)
 	}
 
-	return db, nil
+	return &DBService{db: db}, nil
 }
 
 // CreateTables creates the tables in the database if they do not exist.

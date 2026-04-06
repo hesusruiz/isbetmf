@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/hesusruiz/isbetmf/tmfserver/service"
+	"github.com/hesusruiz/isbetmf/tmfserver/repository"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -34,7 +34,7 @@ WHERE json_tree.fullkey = '$.organizationIdentification[0].identificationId'
 
 	// Test 1:
 	input := "organizationIdentification[0].identificationId"
-	sql, _, err = service.GenerateRecursiveJSONQuery("tmf_object", input, vals)
+	sql, _, err = repository.GenerateRecursiveJSONQuery("tmf_object", input, vals)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -44,7 +44,7 @@ WHERE json_tree.fullkey = '$.organizationIdentification[0].identificationId'
 
 	// Test 2: Full wildcard search
 	input = "organizationIdentification[*].identificationId"
-	sql, _, err = service.GenerateRecursiveJSONQuery("tmf_object", input, vals)
+	sql, _, err = repository.GenerateRecursiveJSONQuery("tmf_object", input, vals)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -55,7 +55,7 @@ WHERE json_tree.fullkey = '$.organizationIdentification[0].identificationId'
 	// Test 3: Specific index search
 	fmt.Printf("\n")
 	input = "organizationIdentification.identificationId"
-	sql, _, err = service.GenerateRecursiveJSONQuery("tmf_object", input, vals)
+	sql, _, err = repository.GenerateRecursiveJSONQuery("tmf_object", input, vals)
 	if err != nil {
 		log.Fatal(err)
 	}

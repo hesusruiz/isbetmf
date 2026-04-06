@@ -13,10 +13,9 @@ import (
 
 // CreateHubSubscription creates a new notification subscription (hub) for an API family.
 func (svc *Service) CreateHubSubscription(req *Request) *Response {
-	// Authenticate like write operations
-	_, _, err := svc.ProcessAccessToken(req.AccessToken)
-	if err != nil {
-		return ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", err)
+	// Authentication is required for create operations
+	if errorResponse := svc.requiresAuthentication(req); errorResponse != nil {
+		return errorResponse
 	}
 
 	// Parse incoming body
@@ -61,7 +60,7 @@ func (svc *Service) CreateHubSubscription(req *Request) *Response {
 		Query:      query,
 	}
 
-	_, err = svc.notif.CreateSubscription(req.APIfamily, sub)
+	_, err := svc.notif.CreateSubscription(req.APIfamily, sub)
 	if err != nil {
 		return ErrorResponsef(http.StatusInternalServerError, "failed to create subscription: %w", err)
 	}
@@ -83,9 +82,8 @@ func (svc *Service) CreateHubSubscription(req *Request) *Response {
 // DeleteHubSubscription deletes a subscription by id for an API family.
 func (svc *Service) DeleteHubSubscription(req *Request) *Response {
 	// Authenticate like write operations
-	_, _, err := svc.ProcessAccessToken(req.AccessToken)
-	if err != nil {
-		return ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", err)
+	if errorResponse := svc.requiresAuthentication(req); errorResponse != nil {
+		return errorResponse
 	}
 
 	if req.ID == "" {

@@ -36,12 +36,6 @@ func (svc *Service) takeDecision(
 	objectMap repo.TMFObjectMap,
 ) (authorized bool, err error) {
 
-	// Check if the caller is authenticated and is the server operator.
-	// If so, we grant access immediately.
-	if req.AuthUser.IsAuthenticated && req.AuthUser.OrganizationIdentifier == svc.ServerOperatorDid {
-		return true, nil
-	}
-
 	// Evaluate the hardcoded policies, if they fail return immediately.
 	// Otherwise, continue to see if the user policies allow access
 	decision, reason := svc.hardcodedPolicies(req, objectMap)
@@ -53,7 +47,7 @@ func (svc *Service) takeDecision(
 	// The user policies will determine the final decision.
 	req.AuthUser.IsOwner = decision
 
-	if err := svc.userPolicies(ruleEngine, req, req.TokenMap, objectMap); err != nil {
+	if err := svc.userPolicies(ruleEngine, req, req.AuthUser.TokenMap, objectMap); err != nil {
 		return false, errl.Errorf("user policies in PDP engine: %w", err)
 	}
 
@@ -103,6 +97,24 @@ func (svc *Service) hardcodedPolicies(req *Request, obj repo.TMFObjectMap) (deci
 	}
 	if (objBuyer == "" && objBuyerOperator != "") || (objBuyer != "" && objBuyerOperator == "") {
 		return false, errl.Errorf("objBuyer and objBuyerOperator must both be set or both be empty, got objBuyer='%s', objBuyerOperator='%s'", objBuyer, objBuyerOperator)
+	}
+
+	// Check if the caller is authenticated and is the server operator.
+	// If so, we grant access immediately.
+
+	if req.AuthUser.IsAuthenticated {
+		if repo.SameOrganizations(req.AuthUser.OrganizationIdentifier, svc.ServerOperatorDid) {
+			return true, nil
+		}
+
+		// Check if the caller  is one of the trusted parties.
+		// If so, we grant access immediately.
+		for _, trustedParty := range svc.AdditionalTrustedparties {
+			if repo.SameOrganizations(req.AuthUser.OrganizationIdentifier, trustedParty.Did) {
+				return true, nil
+			}
+		}
+
 	}
 
 	// Method GET includes actions READ and LIST
@@ -242,10 +254,11 @@ func (svc *Service) hardcodedPolicies(req *Request, obj repo.TMFObjectMap) (deci
 			return true, errl.Errorf("caller %s is server operator %s and is a LEAR", caller.OrganizationIdentifier, svc.ServerOperatorDid)
 		}
 
-		// Reject if the caller does not have power to create products
-		if req.Action == CREATE && !caller.ProductCreatePower {
-			return false, errl.Errorf("caller %s is server operator but does not have power to create products", caller.OrganizationIdentifier)
-		}
+		// TODO: temporal fix because in ISBE the powers are malformed, and they will have to be fixed
+		// // Reject if the caller does not have power to create products
+		// if req.Action == CREATE && !caller.ProductCreatePower {
+		// 	return false, errl.Errorf("caller %s is server operator but does not have power to create products", caller.OrganizationIdentifier)
+		// }
 
 		// Reject if the caller does not have power to update products
 		if req.Action == UPDATE && !caller.ProductUpdatePower {

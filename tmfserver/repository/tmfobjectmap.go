@@ -10,6 +10,7 @@ import (
 
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	"github.com/hesusruiz/isbetmf/internal/jpath"
+	"github.com/hesusruiz/isbetmf/internal/jsone"
 	"github.com/hesusruiz/isbetmf/types"
 	"golang.org/x/exp/slog"
 )
@@ -26,9 +27,9 @@ type TMFObjectMap map[string]any
 // and does not perform any validations, so any JSON object will be accepted.
 func NewTMFObjectMap(data []byte) (TMFObjectMap, error) {
 	var obj TMFObjectMap
-	err := json.Unmarshal(data, &obj)
+	err := jsone.Unmarshal(data, &obj)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal TMF object: %w", err)
+		return nil, errl.Errorf("failed to unmarshal TMF object: %w", err)
 	}
 	return obj, nil
 }
@@ -39,9 +40,9 @@ func NewTMFObjectMap(data []byte) (TMFObjectMap, error) {
 // If the `@type` field is not present, it is added to the object.
 func NewTMFObjectMapFromBytes(resourceName string, data []byte) (TMFObjectMap, error) {
 	var obj TMFObjectMap
-	err := json.Unmarshal(data, &obj)
+	err := jsone.Unmarshal(data, &obj)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal TMF object: %w", errl.Error(err))
+		return nil, errl.Errorf("failed to unmarshal TMF object: %w", err)
 	}
 
 	// Check that the object matches the resourceName
@@ -61,6 +62,9 @@ func NewTMFObjectMapFromBytes(resourceName string, data []byte) (TMFObjectMap, e
 
 }
 
+// NewTMFObjectMapFromUpstream creates a new TMFObjectMap from a map.
+// It is intended to be used with data received from a remote TMF server vs. the data from our local data base.
+// The type of the object must match with the resourceName passed by the caller.
 func NewTMFObjectMapFromUpstream(resourceName string, data map[string]any) (TMFObjectMap, ValidationResult) {
 	obj := TMFObjectMap(maps.Clone(data))
 	validations := obj.Validate(resourceName)
@@ -117,7 +121,7 @@ func (obj TMFObjectMap) ValidateCreate(resourceName string) ValidationResult {
 // validateRequiredFields checks if all required fields are present and optionally fixes them
 func (obj TMFObjectMap) validateRequiredFieldsCreate(resourceName string, result *ValidationResult) {
 
-	// Special processiong for the object type: check that the object matches the resourceName and fix the object if needed.
+	// Special processing for the object type: check that the object matches the resourceName and fix the object if needed.
 	objType := obj.Type()
 	if objType != "" {
 		// If the object type is specified, it must match the resourceName passed by the caller
@@ -396,7 +400,7 @@ func (obj TMFObjectMap) ToTMFRecord(resourceName string) *TMFRecord {
 	// TODO: support for v5 API
 	apiVersion := "v4"
 	lastUpdate := obj.LastUpdate()
-	content, _ := obj.ToJSON()
+	content := obj.ToJSONSimple()
 
 	seller, _, _ := obj.GetSellerInfo("v4")
 	buyer, _, _ := obj.GetBuyerInfo("v4")
@@ -421,6 +425,13 @@ func (obj TMFObjectMap) ToTMFRecord(resourceName string) *TMFRecord {
 // ToJSON converts the TMFObject to JSON bytes
 func (obj TMFObjectMap) ToJSON() ([]byte, error) {
 	return json.Marshal(obj)
+}
+
+// ToJSONSimple converts the TMFObject to JSON bytes without error checking
+// This is used when we know the object is valid
+func (obj TMFObjectMap) ToJSONSimple() []byte {
+	data, _ := obj.ToJSON()
+	return data
 }
 
 // ToMap converts the TMFObject to a regular map[string]any

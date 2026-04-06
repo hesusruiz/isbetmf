@@ -22,26 +22,26 @@ var isbedevConfig = &Config{
 	ServerOperatorCountry:                "ES",
 
 	LEARPower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "Onboarding",
 		Action:   []string{"execute"},
 	},
 	ProductCreatePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "ProductOffering",
 		Action:   []string{"Create"},
 	},
 	ProductUpdatePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "ProductOffering",
 		Action:   []string{"Update"},
 	},
 	ProductDeletePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "ProductOffering",
 		Action:   []string{"Delete"},
 	},
@@ -49,12 +49,15 @@ var isbedevConfig = &Config{
 	PolicyFileName: "auth_policies.star",
 
 	// TODO: the IdP must be set to the Keycloak instance which generates the access tokens
-	VerifierServer: "https://verifier.dome-marketplace.eu",
+	VerifierServer: "https://idp.dev.cloud-w.envs.redisbe.com/auth/realms/dev-isbe",
 
 	Dbname:      "data/isbetmf.db",
 	ClonePeriod: DefaultClonePeriod,
 	Features: Features{
 		OfferingLaunchOnlyByAdmin: true,
+		GenerateIDOnCreate:        true,
+		AllowIDInBody:             true,
+		VerifyJWTSignature:        true,
 	},
 }
 
@@ -69,26 +72,26 @@ var isbepreConfig = &Config{
 	ServerOperatorCountry:                "ES",
 
 	LEARPower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "Onboarding",
 		Action:   []string{"execute"},
 	},
 	ProductCreatePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "ProductOffering",
 		Action:   []string{"Create"},
 	},
 	ProductUpdatePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "ProductOffering",
 		Action:   []string{"Update"},
 	},
 	ProductDeletePower: types.OnePower{
-		Type:     "domain",
-		Domain:   "DOME",
+		Type:     "organization",
+		Domain:   "ISBE",
 		Function: "ProductOffering",
 		Action:   []string{"Delete"},
 	},
@@ -96,12 +99,65 @@ var isbepreConfig = &Config{
 	PolicyFileName: "auth_policies.star",
 
 	// TODO: the IdP must be set to the Keycloak instance which generates the access tokens
-	VerifierServer: "https://verifier.dome-marketplace.eu",
+	VerifierServer: "https://idp.pre.portal.redisbe.com/auth/realms/pre-isbe",
 
 	Dbname:      "data/isbetmf.db",
 	ClonePeriod: DefaultClonePeriod,
 	Features: Features{
 		OfferingLaunchOnlyByAdmin: true,
+		GenerateIDOnCreate:        true,
+		AllowIDInBody:             true,
+		VerifyJWTSignature:        true,
+	},
+}
+
+var isbeproConfig = &Config{
+	Environment:  ISBE_PRO,
+	ProxyEnabled: false,
+
+	// The operator is Alastria
+	ServerOperatorOrganizationIdentifier: "VATES-G87936159",
+	ServerOperatorDid:                    "did:elsi:VATES-G87936159",
+	ServerOperatorName:                   "Alastria",
+	ServerOperatorCountry:                "ES",
+
+	LEARPower: types.OnePower{
+		Type:     "organization",
+		Domain:   "ISBE",
+		Function: "Onboarding",
+		Action:   []string{"execute"},
+	},
+	ProductCreatePower: types.OnePower{
+		Type:     "organization",
+		Domain:   "ISBE",
+		Function: "ProductOffering",
+		Action:   []string{"Create"},
+	},
+	ProductUpdatePower: types.OnePower{
+		Type:     "organization",
+		Domain:   "ISBE",
+		Function: "ProductOffering",
+		Action:   []string{"Update"},
+	},
+	ProductDeletePower: types.OnePower{
+		Type:     "organization",
+		Domain:   "ISBE",
+		Function: "ProductOffering",
+		Action:   []string{"Delete"},
+	},
+
+	PolicyFileName: "auth_policies.star",
+
+	// TODO: the IdP must be set to the Keycloak instance which generates the access tokens
+	VerifierServer: "https://idp.portal.redisbe.com/auth/realms/pro-isbe",
+
+	Dbname:      "data/isbetmf.db",
+	ClonePeriod: DefaultClonePeriod,
+	Features: Features{
+		OfferingLaunchOnlyByAdmin: true,
+		GenerateIDOnCreate:        true,
+		AllowIDInBody:             true,
+		VerifyJWTSignature:        true,
 	},
 }
 
@@ -149,6 +205,11 @@ var domedevConfig = &Config{
 	VerifierServer:  "https://verifier.dome-marketplace-sbx.org",
 	Dbname:          "data/tmf.dome.sbx.db",
 	ClonePeriod:     DefaultClonePeriod,
+	Features: Features{
+		OfferingLaunchOnlyByAdmin: false,
+		GenerateIDOnCreate:        false,
+		AllowIDInBody:             false,
+	},
 }
 
 var domepreConfig = &Config{
@@ -185,6 +246,11 @@ var domepreConfig = &Config{
 	VerifierServer:  "https://verifier.dome-marketplace-dev2.org",
 	Dbname:          "data/tmf.dome.dev2.db",
 	ClonePeriod:     DefaultClonePeriod,
+	Features: Features{
+		OfferingLaunchOnlyByAdmin: false,
+		GenerateIDOnCreate:        false,
+		AllowIDInBody:             false,
+	},
 }
 
 var domeproConfig = &Config{
@@ -221,6 +287,11 @@ var domeproConfig = &Config{
 	VerifierServer:  "https://verifier.dome-marketplace.eu",
 	Dbname:          "data/tmf.dome.pro.db",
 	ClonePeriod:     DefaultClonePeriod,
+	Features: Features{
+		OfferingLaunchOnlyByAdmin: false,
+		GenerateIDOnCreate:        false,
+		AllowIDInBody:             false,
+	},
 }
 
 // ******************************************************************
@@ -261,4 +332,9 @@ var lclConfig = &Config{
 	VerifierServer:  "https://verifier.dome-marketplace-lcl.org",
 	Dbname:          "data/tmf.dome.lcl.db",
 	ClonePeriod:     DefaultClonePeriod,
+	Features: Features{
+		OfferingLaunchOnlyByAdmin: false,
+		GenerateIDOnCreate:        false,
+		AllowIDInBody:             false,
+	},
 }

@@ -26,7 +26,7 @@ import (
 	fiberhandler "github.com/hesusruiz/isbetmf/tmfserver/handler/fiber"
 	repository "github.com/hesusruiz/isbetmf/tmfserver/repository"
 	service "github.com/hesusruiz/isbetmf/tmfserver/service"
-	"github.com/jmoiron/sqlx"
+
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -77,7 +77,7 @@ func main() {
 	if ourPid == 1 {
 		runAsInit = true
 	} else {
-		// For testing, 'init' must be passed as the first argument in the command line
+		// For testing the init functionality outside a container, 'init' must be passed as the first argument in the command line
 		if len(args) > 0 && args[0] == "init" {
 			runAsInit = true
 			// Remove 'init' from the arguments, to prepare for executing our child processes
@@ -95,7 +95,7 @@ func main() {
 
 }
 
-func cleanup(db *sqlx.DB) {
+func cleanup(db *repository.DBService) {
 	// This deferred function will run!
 	fmt.Println("Running deferred cleanup functions...")
 
@@ -120,12 +120,12 @@ func runNormalProcess(configuration *config.Config) {
 	}
 
 	// Connect to the database and create tables if they do not exist
-	db, err := repository.NewDBService(configuration)
+	dbService, err := repository.NewDBService(configuration.Dbname)
 	if err != nil {
 		slog.Error("failed to connect to database", slog.Any("error", err))
 		return
 	}
-	defer cleanup(db)
+	defer cleanup(dbService)
 
 	// Create the PDP (aka Policy Decision Point or rules engine)
 	rulesEngine, err := pdp.NewPDPService(&pdp.Config{
@@ -138,7 +138,7 @@ func runNormalProcess(configuration *config.Config) {
 	}
 
 	// Create the service, which will use the database and the rules engine
-	s, err := service.NewTMFService(configuration, db, rulesEngine)
+	tmfService, err := service.NewTMFService(configuration, dbService, rulesEngine)
 	if err != nil {
 		slog.Error("failed to create service", slog.Any("error", err))
 		return
@@ -146,9 +146,10 @@ func runNormalProcess(configuration *config.Config) {
 
 	// Create Fiber web server with custom configuration
 	webServer := fiber.New(fiber.Config{
-		AppName:      "TMForum API Server",
-		ServerHeader: "TMForum",
-		ErrorHandler: func(c *fiber.Ctx, err error) error {
+		AppName:        "TMForum API Server",
+		ServerHeader:   "TMForum",
+		ReadBufferSize: 16 * 1024, // 16 KB — allows large Authorization headers (e.g. JWTs with many claims)
+		ErrorHandler:   func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
 				code = e.Code
@@ -204,15 +205,15 @@ func runNormalProcess(configuration *config.Config) {
 	webServer.Static("/oapiv4", "./www/oapiv4")
 
 	// Create handler and set the routes for the APIs
-	h := fiberhandler.NewHandler(s)
+	h := fiberhandler.NewHandler(tmfService)
 	h.RegisterRoutes(webServer)
 
 	// Create and register admin handler
-	adminHandler := admin.NewAdminHandler(s)
+	adminHandler := admin.NewAdminHandler(tmfService)
 	adminHandler.RegisterRoutes(webServer)
 
 	// Schedule periodic maintenance tasks
-	repository.ScheduleMaintenance(configuration, db, upg)
+	repository.ScheduleMaintenance(configuration, dbService, upg)
 
 	// Listen must be called before signaling we are ready
 	ln, err := upg.Listen("tcp", "0.0.0.0:9991")

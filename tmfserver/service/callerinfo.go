@@ -10,229 +10,109 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	"github.com/hesusruiz/isbetmf/internal/jpath"
-	"github.com/hesusruiz/isbetmf/tmfserver/repository"
 	"github.com/hesusruiz/isbetmf/types"
 	"gitlab.com/greyxor/slogor"
 )
 
 const AllowFakeClaims = true
-const VerifyTokenSignature = false
 
 // ProcessAccessToken verifies the Access Token received from the caller and
 // creates a map ready to be passed to the rules engine.
 //
 // The access token may not exist, but if it does then it must be valid.
 // For convenience of the policies, some calculated fields are created and returned in the 'user' object.
-func (svc *Service) ProcessAccessToken(accessToken string) (tokenClaims map[string]any, user *types.AuthUser, err error) {
+func (svc *Service) ProcessAccessToken(accessToken string) (user *types.AuthUser, err error) {
 
 	authUser := &types.AuthUser{}
 
-	// This is to support testing
-	verify := true
-
 	// An empty token is not considered an error, and the caller should enforce its existence if needed
 	if len(accessToken) == 0 {
-		return nil, authUser, nil
+		return authUser, nil
 	}
 
 	// TODO: replace with a setting
 	// This is for testing purposes only. It allows to simulate a LEAR user without a real token.
-	if accessToken == "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX" {
+	if accessToken == svc.adminToken {
 
-		authUser.IsAuthenticated = true
-		authUser.IsLEAR = true
-		authUser.ProductCreatePower = true
-		authUser.ProductUpdatePower = true
-		authUser.ProductDeletePower = true
-		authUser.OrganizationIdentifier = svc.ServerOperatorOrganizationIdentifier
-		authUser.Organization = svc.ServerOperatorName
 		authUser.CommonName = svc.ServerOperatorName
 		authUser.Country = svc.ServerOperatorCountry
 		authUser.EmailAddress = svc.ServerEmailAddress
+		authUser.Organization = svc.ServerOperatorName
+		authUser.OrganizationIdentifier = svc.ServerOperatorOrganizationIdentifier
 		authUser.SerialNumber = "1234567Y"
 
-		tokenClaims = make(map[string]any)
-		tokenClaims["tokenType"] = ISBEAccessToken
-		tokenClaims["user_identifier"] = authUser.SerialNumber
-		tokenClaims["organization"] = authUser.Organization
-		tokenClaims["organization_identifier"] = authUser.OrganizationIdentifier
-		tokenClaims["name"] = authUser.CommonName
-		tokenClaims["country"] = authUser.Country
-		tokenClaims["email"] = authUser.EmailAddress
-		tokenClaims["serial_number"] = authUser.SerialNumber
+		authUser.IsAuthenticated = true
+		authUser.IsLEAR = true
+		authUser.IsOwner = true
+		authUser.ProductCreatePower = true
+		authUser.ProductUpdatePower = true
+		authUser.ProductDeletePower = true
 
-		return tokenClaims, authUser, nil
+		authUser.TokenMap = make(map[string]any)
+		authUser.TokenMap["tokenType"] = ISBEAccessToken
+		authUser.TokenMap["user_identifier"] = authUser.SerialNumber
+		authUser.TokenMap["organization"] = authUser.Organization
+		authUser.TokenMap["organization_identifier"] = authUser.OrganizationIdentifier
+		authUser.TokenMap["name"] = authUser.CommonName
+		authUser.TokenMap["country"] = authUser.Country
+		authUser.TokenMap["email"] = authUser.EmailAddress
+		authUser.TokenMap["serial_number"] = authUser.SerialNumber
+
+		return authUser, nil
 
 	}
 
 	// It is an error to send an invaild token with the request, so we have to verify it.
 	// We verify the token and extract the claims, a verification error stops processing.
 
-	// For testing
-	if !VerifyTokenSignature {
-		verify = false
-	}
+	var token *jwt.Token
+	var theClaims = jwt.MapClaims{}
 
-	tokenClaims, authUser, err = svc.parseAccessToken(accessToken, verify)
-	if err != nil {
-		slog.Error("invalid access token", slogor.Err(err), "token", accessToken)
-		return nil, nil, errl.Errorf("invalid access token: %w, token: %s", err, accessToken)
-	}
-	authUser.IsAuthenticated = true
+	if svc.Features.VerifyJWTSignature {
 
-	if tokenClaims["tokenType"] == DOMEAccessToken {
-
-		// We are in the DOME system, so we need to extract the Verifiable Credential
-		// from the token
-
-		verifiableCredential := jpath.GetMap(tokenClaims, "vc")
-
-		if len(verifiableCredential) == 0 {
-			// There is not a Verifiable Credential inside the token
-			return nil, nil, errl.Errorf("access token without verifiable credential: %s", accessToken)
-		}
-
-		// Parse the user powers for the ones we only care about
-		authUserPowers := jpath.GetList(verifiableCredential, "credentialSubject.mandate.power")
-		for _, p := range authUserPowers {
-			var power types.OnePower
-			if err := mapstructure.Decode(p, &power); err != nil {
-				slog.Error("error decoding power", slogor.Err(err))
-				continue
+		// This is called by the JWT signature verifier to retrieve the verification key
+		verifierPublicKeyFunc := func(tok *jwt.Token) (any, error) {
+			if svc.oid == nil {
+				return nil, errl.Errorf("openid support not initialized")
 			}
-
-			if power.Includes(svc.LEARPower) {
-				authUser.IsLEAR = true
-				// A LEAR can create, update and delete product offerings
-				authUser.ProductCreatePower = true
-				authUser.ProductUpdatePower = true
-				authUser.ProductDeletePower = true
-			}
-
-			if power.Includes(svc.ProductCreatePower) {
-				authUser.ProductCreatePower = true
-			}
-			if power.Includes(svc.ProductUpdatePower) {
-				authUser.ProductUpdatePower = true
-			}
-			if power.Includes(svc.ProductDeletePower) {
-				authUser.ProductDeletePower = true
-			}
-		}
-
-		// If the user has an organization identifier, create a new organization object.
-		// If it is already created, we just receive an error which we ignore
-		// This is needed to be able to create a new organization object in the DOME Marketplace.
-		if len(authUser.OrganizationIdentifier) > 0 {
-
-			org := &repository.Organization{
-				CommonName:             authUser.CommonName,
-				Country:                authUser.Country,
-				EmailAddress:           authUser.EmailAddress,
-				Organization:           authUser.Organization,
-				OrganizationIdentifier: authUser.OrganizationIdentifier,
-				SerialNumber:           authUser.SerialNumber,
-			}
-
-			obj, _ := repository.TMFRecordFromOrganizationAndToken(org, tokenClaims)
-
-			if err := svc.createObject(obj); err != nil {
-				if errors.Is(err, &ErrObjectExists{}) {
-					slog.Debug("organization already exists", "organizationIdentifier", authUser.OrganizationIdentifier)
-				} else {
-					err = errl.Errorf("error creating organization object %s: %w", authUser.OrganizationIdentifier, err)
-					return nil, nil, err
-				}
-			}
-
-			// Check if this is not a LEARCredentialMachine
-			// We identify this by looking at the Mandatee and if there is a field called "serviceName"
-			serviceName := jpath.GetString(verifiableCredential, "credentialSubject.mandate.mandatee.serviceName")
-			if len(serviceName) > 0 {
-				// This is a LEARCredentialMachine, just return
-				return tokenClaims, authUser, nil
-			}
-
-			// This must be a LEARCredentialEmployye, create a new user if not yet created
-			individual, err := repository.TMFIndividualFromCredential(verifiableCredential, org)
+			keyID := tok.Header["kid"].(string)
+			vk, err := svc.oid.VerificationJWKKey(keyID)
 			if err != nil {
-				slog.Error("error parsing individual object", slogor.Err(err))
-			} else {
-				if err := svc.createObject(individual); err != nil {
-					if errors.Is(err, &ErrObjectExists{}) {
-						slog.Debug("individual already exists", "id", individual.ID)
-					} else {
-						err = errl.Errorf("error creating individual object %s: %w", individual.ID, err)
-						return nil, nil, err
-					}
-				}
-
+				return nil, errl.Error(err)
 			}
-
+			slog.Debug("publicKeyFunc", "key", vk)
+			return vk.Key, nil
 		}
 
-		return tokenClaims, authUser, nil
+		// Validate and verify the token
+		token, err = jwt.NewParser().ParseWithClaims(accessToken, theClaims, verifierPublicKeyFunc)
+		if err != nil {
+			slog.Error("invalid access token", slogor.Err(err), "token", accessToken)
+			return nil, errl.Errorf("invalid access token: %w, token: %s", err, accessToken)
+		}
 
 	} else {
 
-		// We are in the ISBE system, so we need to extract the powers from the token
-
-		// Parse the user powers for the ones we only care about
-		authUserPowers := jpath.GetList(tokenClaims, "power")
-		for _, p := range authUserPowers {
-			var power types.OnePower
-			if err := mapstructure.Decode(p, &power); err != nil {
-				slog.Error("error decoding power", slogor.Err(err))
-				continue
-			}
-
-			if power.Includes(svc.LEARPower) {
-				authUser.IsLEAR = true
-				// A LEAR can create, update and delete product offerings
-				authUser.ProductCreatePower = true
-				authUser.ProductUpdatePower = true
-				authUser.ProductDeletePower = true
-			}
-
-			if power.Includes(svc.ProductCreatePower) {
-				authUser.ProductCreatePower = true
-			}
-			if power.Includes(svc.ProductUpdatePower) {
-				authUser.ProductUpdatePower = true
-			}
-			if power.Includes(svc.ProductDeletePower) {
-				authUser.ProductDeletePower = true
-			}
+		// Parse the token without signature verification
+		token, _, err = new(jwt.Parser).ParseUnverified(accessToken, jwt.MapClaims{})
+		if err != nil {
+			slog.Error("invalid access token", slogor.Err(err), "token", accessToken)
+			return nil, errl.Errorf("invalid access token: %w, token: %s", err, accessToken)
 		}
 
-		// If the user has an organization identifier, create a new organization object.
-		// If it is already created, we just receive an error which we ignore
-		// This is needed to be able to create a new organization object in the DOME Marketplace.
-		if len(authUser.OrganizationIdentifier) > 0 {
+	}
 
-			org := &repository.Organization{
-				CommonName:             authUser.CommonName,
-				Country:                authUser.Country,
-				EmailAddress:           authUser.EmailAddress,
-				Organization:           authUser.Organization,
-				OrganizationIdentifier: authUser.OrganizationIdentifier,
-				SerialNumber:           authUser.SerialNumber,
-			}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		slog.Error("JWT claims are not of type MapClaims")
+		return nil, errors.New("invalid JWT claims format")
+	}
 
-			obj, _ := repository.TMFRecordFromOrganizationAndToken(org, tokenClaims)
-
-			if err := svc.createObject(obj); err != nil {
-				if errors.Is(err, &ErrObjectExists{}) {
-					slog.Debug("organization already exists", "organizationIdentifier", authUser.OrganizationIdentifier)
-				} else {
-					err = errl.Errorf("error creating organization object %s: %w", authUser.OrganizationIdentifier, err)
-					return nil, nil, err
-				}
-			}
-
-		}
-
-		return tokenClaims, authUser, nil
+	// The actual claims depends on the caller: the standard DOME or the ISBE one, which does not send the "vc" claim.
+	if svc.IsDOME() {
+		return svc.processDOMEAccessToken(claims, accessToken)
+	} else {
+		return svc.processISBEAccessToken(claims, accessToken)
 	}
 
 }
@@ -244,152 +124,149 @@ const (
 	ISBEAccessToken accessTokenType = "ISBE"
 )
 
-// parseAccessToken parses a JWT string, extracts the mandator information, and returns an AuthUser.
-// It does NOT verify the JWT signature.
-func (svc *Service) parseAccessToken(tokenString string, verify bool) (tokenClaims map[string]any, u *types.AuthUser, err error) {
+func (svc *Service) processDOMEAccessToken(claims jwt.MapClaims, accessToken string) (user *types.AuthUser, err error) {
 
-	var token *jwt.Token
-	var theClaims = jwt.MapClaims{}
+	authUser := &types.AuthUser{}
+	authUser.IsAuthenticated = true
 
-	if verify {
+	// Extract the Verifiable Credential from the claims
+	verifiableCredential := jpath.GetMap(claims, "vc")
+	if len(verifiableCredential) == 0 {
+		// There is not a Verifiable Credential inside the token
+		return nil, errl.Errorf("access token without verifiable credential: %s", accessToken)
+	}
 
-		// This is called by the JWT signature verifier to retrieve the verification key
-		verifierPublicKeyFunc := func(*jwt.Token) (any, error) {
-			if svc.oid == nil {
-				return nil, errl.Errorf("openid support not initialized")
+	credentialSubject := jpath.GetMap(verifiableCredential, "credentialSubject")
+	if len(credentialSubject) == 0 {
+		slog.Debug("JWT payload does not contain 'credentialSubject' field or it's not a map")
+		return nil, errors.New("missing 'credentialSubject' in JWT claims")
+	}
+
+	mandate := jpath.GetMap(credentialSubject, "mandate")
+	if len(mandate) == 0 {
+		slog.Debug("JWT payload does not contain 'mandate' field or it's not a map")
+		return nil, errors.New("missing 'mandate' in JWT claims")
+	}
+
+	mandatorData := jpath.GetMap(mandate, "mandator")
+	if len(mandatorData) == 0 {
+		slog.Debug("JWT payload does not contain 'mandator' field or it's not a map")
+		return nil, errors.New("missing 'mandator' in JWT claims")
+	}
+
+	// Marshal and unmarshal to AuthUser struct for type safety and JSON tag mapping
+	mandatorJSON, err := json.Marshal(mandatorData)
+	if err != nil {
+		slog.Error("Failed to marshal mandator data", slog.Any("error", err))
+		return nil, fmt.Errorf("failed to process mandator data: %w", err)
+	}
+
+	if err := json.Unmarshal(mandatorJSON, authUser); err != nil {
+		slog.Error("Failed to unmarshal mandator data to AuthUser", slog.Any("error", err))
+		return nil, fmt.Errorf("failed to process mandator data: %w", err)
+	}
+
+	slog.Debug("Successfully parsed AuthUser from JWT",
+		slog.String("organizationIdentifier", authUser.OrganizationIdentifier),
+		slog.String("country", authUser.Country))
+
+	claims["tokenType"] = DOMEAccessToken
+
+	authUser.AccessToken = accessToken
+	authUser.TokenMap = claims
+
+	// Parse the user powers to look for the ones we only care about
+	authUserPowers := jpath.GetList(verifiableCredential, "credentialSubject.mandate.power")
+
+	return svc.procesPowers(authUserPowers, authUser), nil
+
+}
+
+func (svc *Service) processISBEAccessToken(claims jwt.MapClaims, accessToken string) (user *types.AuthUser, err error) {
+	authUser := &types.AuthUser{}
+	authUser.IsAuthenticated = true
+
+	// Get the organization data
+
+	authUser.Organization = jpath.GetString(claims, "organization")
+	if len(authUser.Organization) == 0 {
+		slog.Debug("JWT payload does not contain 'organization' field or it's not a string")
+		return nil, errl.Errorf("missing 'organization' in JWT claims")
+	}
+
+	authUser.OrganizationIdentifier = jpath.GetString(claims, "organization_identifier")
+	if len(authUser.OrganizationIdentifier) == 0 {
+		slog.Debug("JWT payload does not contain 'organization_identifier' field or it's not a string")
+		return nil, errl.Errorf("missing 'organization_identifier' in JWT claims")
+	}
+
+	authUser.CommonName = jpath.GetString(claims, "name")
+	if len(authUser.CommonName) == 0 {
+		slog.Debug("JWT payload does not contain 'name' field or it's not a string")
+		return nil, errl.Errorf("missing 'name' in JWT claims")
+	}
+
+	authUser.SerialNumber = jpath.GetString(claims, "user_identifier")
+	if len(authUser.SerialNumber) == 0 {
+		slog.Debug("JWT payload does not contain 'user_identifier' field or it's not a string")
+		return nil, errl.Errorf("missing 'user_identifier' in JWT claims")
+	}
+
+	// TODO: the token from ISBE should contain the country
+	authUser.Country = jpath.GetString(claims, "country")
+	if len(authUser.Country) == 0 {
+		slog.Debug("JWT payload does not contain 'country' field or it's not a string")
+		authUser.Country = "ES"
+	}
+
+	authUser.EmailAddress = jpath.GetString(claims, "email")
+	if len(authUser.EmailAddress) == 0 {
+		slog.Debug("JWT payload does not contain 'email' field or it's not a string")
+		return nil, errl.Errorf("missing 'email' in JWT claims")
+	}
+
+	claims["tokenType"] = ISBEAccessToken
+
+	authUser.AccessToken = accessToken
+	authUser.TokenMap = claims
+
+	authUserPowers := jpath.GetList(claims, "power")
+	if len(authUserPowers) == 0 {
+		return nil, errl.Errorf("missing 'power' in JWT claims")
+	}
+
+	return svc.procesPowers(authUserPowers, authUser), nil
+}
+
+func (svc *Service) procesPowers(authUserPowers []any, authUser *types.AuthUser) *types.AuthUser {
+
+	// Parse the user powers for the ones we only care about
+	for _, p := range authUserPowers {
+		var userPower types.OnePower
+		if err := mapstructure.Decode(p, &userPower); err != nil {
+			slog.Error("error decoding power", slogor.Err(err))
+			continue
+		}
+
+		if userPower.Includes(svc.LEARPower) {
+			authUser.IsLEAR = true
+			// A LEAR can create, update and delete product offerings
+			authUser.ProductCreatePower = true
+			authUser.ProductUpdatePower = true
+			authUser.ProductDeletePower = true
+		} else {
+			if userPower.Includes(svc.ProductCreatePower) {
+				authUser.ProductCreatePower = true
 			}
-			vk, err := svc.oid.VerificationJWK()
-			if err != nil {
-				return nil, errl.Error(err)
+			if userPower.Includes(svc.ProductUpdatePower) {
+				authUser.ProductUpdatePower = true
 			}
-			slog.Debug("publicKeyFunc", "key", vk)
-			return vk.Key, nil
-		}
-
-		// Validate and verify the token
-		token, err = jwt.NewParser().ParseWithClaims(tokenString, theClaims, verifierPublicKeyFunc)
-		if err != nil {
-			slog.Error("Failed to parse JWT unverified", slog.Any("error", err))
-			return nil, nil, fmt.Errorf("failed to parse JWT: %w", err)
-		}
-
-	} else {
-
-		// Parse the token without signature verification
-		token, _, err = new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
-		if err != nil {
-			slog.Error("Failed to parse JWT unverified", slog.Any("error", err))
-			return nil, nil, fmt.Errorf("failed to parse JWT: %w", err)
+			if userPower.Includes(svc.ProductDeletePower) {
+				authUser.ProductDeletePower = true
+			}
 		}
 
 	}
 
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		slog.Error("JWT claims are not of type MapClaims")
-		return nil, nil, errors.New("invalid JWT claims format")
-	}
-
-	// The actual claims depends on the caller: the standard DOME or the ISBE one, which does not send the "vc" claim.
-
-	tokenType := DOMEAccessToken
-
-	// Extract mandator object from vc.credentialSubject.mandate.mandator
-	vc, ok := claims["vc"].(map[string]any)
-	if !ok {
-		power := jpath.GetList(claims, "power")
-		if len(power) == 0 {
-			slog.Debug("JWT payload does not contain 'vc' field or it's not a map")
-			return nil, nil, errors.New("missing 'vc' in JWT claims")
-		}
-		tokenType = ISBEAccessToken
-	}
-
-	if tokenType == DOMEAccessToken {
-
-		credentialSubject, ok := vc["credentialSubject"].(map[string]any)
-		if !ok {
-			slog.Debug("JWT payload does not contain 'credentialSubject' field or it's not a map")
-			return nil, nil, errors.New("missing 'credentialSubject' in JWT claims")
-		}
-
-		mandate, ok := credentialSubject["mandate"].(map[string]any)
-		if !ok {
-			slog.Debug("JWT payload does not contain 'mandate' field or it's not a map")
-			return nil, nil, errors.New("missing 'mandate' in JWT claims")
-		}
-
-		mandatorData, ok := mandate["mandator"].(map[string]any)
-		if !ok {
-			slog.Debug("JWT payload does not contain 'mandator' field or it's not a map")
-			return nil, nil, errors.New("missing 'mandator' in JWT claims")
-		}
-
-		// Marshal and unmarshal to AuthUser struct for type safety and JSON tag mapping
-		mandatorJSON, err := json.Marshal(mandatorData)
-		if err != nil {
-			slog.Error("Failed to marshal mandator data", slog.Any("error", err))
-			return nil, nil, fmt.Errorf("failed to process mandator data: %w", err)
-		}
-
-		var authUser types.AuthUser
-		if err := json.Unmarshal(mandatorJSON, &authUser); err != nil {
-			slog.Error("Failed to unmarshal mandator data to AuthUser", slog.Any("error", err))
-			return nil, nil, fmt.Errorf("failed to process mandator data: %w", err)
-		}
-
-		slog.Debug("Successfully parsed AuthUser from JWT",
-			slog.String("organizationIdentifier", authUser.OrganizationIdentifier),
-			slog.String("country", authUser.Country))
-
-		claims["tokenType"] = DOMEAccessToken
-		return claims, &authUser, nil
-
-	} else {
-
-		var authUser types.AuthUser
-		var ok bool
-
-		authUser.Organization, ok = claims["organization"].(string)
-		if !ok {
-			slog.Debug("JWT payload does not contain 'organization' field or it's not a string")
-			return nil, nil, errors.New("missing 'organization' in JWT claims")
-		}
-
-		authUser.OrganizationIdentifier, ok = claims["organization_identifier"].(string)
-		if !ok {
-			slog.Debug("JWT payload does not contain 'organization_identifier' field or it's not a string")
-			return nil, nil, errors.New("missing 'organization_identifier' in JWT claims")
-		}
-
-		authUser.CommonName, ok = claims["name"].(string)
-		if !ok {
-			slog.Debug("JWT payload does not contain 'name' field or it's not a string")
-			return nil, nil, errors.New("missing 'name' in JWT claims")
-		}
-
-		authUser.SerialNumber, ok = claims["user_identifier"].(string)
-		if !ok {
-			slog.Debug("JWT payload does not contain 'user_identifier' field or it's not a string")
-			return nil, nil, errors.New("missing 'user_identifier' in JWT claims")
-		}
-
-		// TODO: the token from ISBE should contain the country
-		authUser.Country, ok = claims["country"].(string)
-		if !ok {
-			slog.Debug("JWT payload does not contain 'country' field or it's not a string")
-			authUser.Country = "ES"
-		}
-
-		authUser.EmailAddress, ok = claims["email"].(string)
-		if !ok {
-			slog.Debug("JWT payload does not contain 'email' field or it's not a string")
-			return nil, nil, errors.New("missing 'email' in JWT claims")
-		}
-
-		claims["tokenType"] = ISBEAccessToken
-		return claims, &authUser, nil
-
-	}
-
+	return authUser
 }
