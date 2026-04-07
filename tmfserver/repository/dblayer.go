@@ -408,14 +408,6 @@ func BuildSelectFromParms(resourceName string, queryValues url.Values) (query st
 	// We need to GROUP by id, so we can SELECT the record with the latest version from each group
 	buf.Render(" GROUP BY id")
 
-	// Limit and offset
-	if limit > 0 {
-		buf.Render(" LIMIT ", limit)
-	}
-	if offset > 0 {
-		buf.Render(" OFFSET ", offset)
-	}
-
 	// Build the query, with the statement and the arguments to be used
 	sql := buf.String()
 
