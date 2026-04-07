@@ -32,11 +32,13 @@ import (
 
 func main() {
 	var debugFlag bool
+	var init bool
 	var environment string
 	var restartHour, restartMinute int
 
 	// Parse command-line flags
 	flag.BoolVar(&debugFlag, "d", true, "Enable debug logging")
+	flag.BoolVar(&init, "init", false, "Run as init process")
 	flag.StringVar(&environment, "run", "isbedev", "Environment where run: isbedev, isbepre, domesbx, domedev2, domepro, lcl")
 	flag.IntVar(&restartHour, "rh", 3, "Restart program every day at this hour")
 	flag.IntVar(&restartMinute, "rm", 0, "Restart program every day at this minute")
@@ -73,17 +75,7 @@ func main() {
 	// The initial section is for when we are the init process in a container
 	// Detect if we are running as PID=1 (most probably as init process in a container),
 	// and act accordingly.
-	runAsInit := false
-	if ourPid == 1 {
-		runAsInit = true
-	} else {
-		// For testing the init functionality outside a container, 'init' must be passed as the first argument in the command line
-		if len(args) > 0 && args[0] == "init" {
-			runAsInit = true
-			// Remove 'init' from the arguments, to prepare for executing our child processes
-			args = args[1:]
-		}
-	}
+	runAsInit := init || ourPid == 1
 
 	if runAsInit {
 		slog.Info("We are the INIT process!", "PID", ourPid, "executable", ourExecPath, "args", args)
@@ -149,7 +141,7 @@ func runNormalProcess(configuration *config.Config) {
 		AppName:        "TMForum API Server",
 		ServerHeader:   "TMForum",
 		ReadBufferSize: 16 * 1024, // 16 KB — allows large Authorization headers (e.g. JWTs with many claims)
-		ErrorHandler:   func(c *fiber.Ctx, err error) error {
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
 				code = e.Code
@@ -292,8 +284,14 @@ func runNormalProcess(configuration *config.Config) {
 //   - args: Command-line arguments to pass to the child process.
 func runAsInitProcess(ourExecPath string, args []string) {
 
-	// Pass to child all arguments following the "init" entry (first argument after program name)
-	cmd := exec.Command(ourExecPath, args...)
+	// Pass to child all arguments except the "-init" flag, so the child runs as a normal process.
+	childArgs := make([]string, 0, len(args))
+	for _, a := range args {
+		if a != "-init" && a != "--init" {
+			childArgs = append(childArgs, a)
+		}
+	}
+	cmd := exec.Command(ourExecPath, childArgs...)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
