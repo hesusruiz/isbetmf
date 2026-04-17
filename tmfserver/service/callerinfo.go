@@ -14,8 +14,6 @@ import (
 	"gitlab.com/greyxor/slogor"
 )
 
-const AllowFakeClaims = true
-
 // ProcessAccessToken verifies the Access Token received from the caller and
 // creates a map ready to be passed to the rules engine.
 //

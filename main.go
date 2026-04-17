@@ -141,6 +141,8 @@ func runNormalProcess(configuration *config.Config) {
 		AppName:        "TMForum API Server",
 		ServerHeader:   "TMForum",
 		ReadBufferSize: 16 * 1024, // 16 KB — allows large Authorization headers (e.g. JWTs with many claims)
+		ReadTimeout:    30 * time.Second,
+		WriteTimeout:   30 * time.Second,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {

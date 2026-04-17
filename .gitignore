@@ -35,6 +35,7 @@ isbetmf.db*
 data/
 .sqlite*
 logs.*.sqlite
+ignored/
 
 # The pid files
 *.pid

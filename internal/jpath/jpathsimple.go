@@ -207,6 +207,35 @@ func GetListStrict(data any, path string) ([]any, error) {
 	return nil, typeMismatch("[]any", n)
 }
 
+// GetListOrObject returns a []any for a field that may be either a JSON array
+// or a single JSON object. This handles spec ambiguities such as the TMF632
+// `attachment` field, which is defined as a single object in the JSON Schema
+// but is commonly sent as an array in official documentation examples.
+//
+// If the field is already a []any it is returned as-is.
+// If the field is a map[string]any it is wrapped in a single-element slice.
+// If the field is absent or has any other type, the supplied defaults are
+// returned (or an empty slice when no defaults are given).
+func GetListOrObject(data any, path string, defaults ...[]any) []any {
+	n, err := Get(data, path)
+	if err != nil {
+		for _, def := range defaults {
+			return def
+		}
+		return make([]any, 0)
+	}
+	switch v := n.(type) {
+	case []any:
+		return v
+	case map[string]any:
+		return []any{v}
+	}
+	for _, def := range defaults {
+		return def
+	}
+	return make([]any, 0)
+}
+
 // GetListString is for the very common case of a list of strings
 func GetListString(data any, path string, defaults ...[]string) []string {
 	value, err := GetListStrict(data, path)

@@ -265,6 +265,8 @@ func (repo *DBService) ListObjects(healthRequest bool, resourceName string, quer
 func BuildSelectFromParms(resourceName string, queryValues url.Values) (query string, arguments []any, qlimit int, qoffset int, theerr error) {
 
 	// Default values if the user did not specify them. -1 is equivalent to no values provided.
+	// Offset and limit will not be included in the SQL query, but will be used to limit the number of objects returned,
+	// upper in the call hierarchy.
 	var limit = -1
 	var offset = -1
 
