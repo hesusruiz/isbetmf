@@ -54,16 +54,7 @@ func (e *ErrObjectNotFound) Is(target error) bool {
 	}
 }
 
-// ErrObjectConflict is returned when trying to update an object with a version that is not the latest.
-type ErrObjectConflict struct {
-	ID      string
-	Type    string
-	Version string
-}
 
-func (e *ErrObjectConflict) Error() string {
-	return fmt.Sprintf("conflict updating object with id %s and type %s. Version %s is not the latest", e.ID, e.Type, e.Version)
-}
 
 // Close closes the database connection.
 func (repo *DBService) Close() error {
@@ -100,13 +91,13 @@ func (repo *DBService) CreateObject(obj *TMFRecord) error {
 	return err
 }
 
-// GetObject retrieves a TMF object by its ID and type, returning the latest version.
+// GetObject retrieves a TMF object by its ID and type.
 // If the object is not found anywhere, it returns a nil object and no error.
 func (repo *DBService) GetObject(id, objectType string) (*TMFRecord, error) {
 	slog.Debug("dbLayer: getObject", slog.String("id", id), slog.String("type", objectType))
 
 	var obj TMFRecord
-	err := repo.db.Get(&obj, "SELECT * FROM tmf_object WHERE id = ? AND type = ? ORDER BY version DESC LIMIT 1", id, objectType)
+	err := repo.db.Get(&obj, "SELECT * FROM tmf_object WHERE id = ? AND type = ?", id, objectType)
 	if err == sql.ErrNoRows {
 		slog.Info("DBLayer: Object not found", slog.String("id", id), slog.String("type", objectType))
 		return nil, nil // Object not found
@@ -116,26 +107,29 @@ func (repo *DBService) GetObject(id, objectType string) (*TMFRecord, error) {
 	return &obj, err
 }
 
-// UpdateObject updates an existing TMF object. Reports an error if the object is not found.
+// UpdateObject updates an existing TMF object row.
+//
+// Returns:
+//   - ErrObjectNotFound  – no row exists for the given (id, type).
 func (repo *DBService) UpdateObject(obj *TMFRecord) error {
 	slog.Debug("dbLayer: UpdateObject", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
 
 	// Make sure timestamps are correct
 	obj.UpdatedAt = time.Now().Unix()
 
-	// Execute the SQL, updating only the allowed fields. E.g. seller and buyer can not be updated.
+	// Update the row for this object, storing the latest version and content.
+	// Note: seller and buyer are intentionally excluded from the SET clause – they cannot
+	// be changed after the object is created.
 	res, err := repo.db.NamedExec(`UPDATE tmf_object
-		SET version = :version, last_update = :last_update, content = :content, updated_at = :updated_at
-		WHERE id = :id AND type = :type`,
+		SET   version     = :version,
+		      last_update = :last_update,
+		      content     = :content,
+		      updated_at  = :updated_at
+		WHERE id      = :id
+		  AND type    = :type`,
 		obj,
 	)
 	if err != nil {
-		var sqliteErr sqlite3.Error
-		if errors.As(err, &sqliteErr) {
-			if sqliteErr.Code == sqlite3.ErrConstraint && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
-				return &ErrObjectExists{ID: obj.ID, Type: obj.Type}
-			}
-		}
 		return errl.Errorf("failed to update object id=%s type=%s: %w", obj.ID, obj.Type, err)
 	}
 
@@ -152,33 +146,40 @@ func (repo *DBService) UpdateObject(obj *TMFRecord) error {
 }
 
 // UpsertObject creates or updates a TMF object.
+//
+// Semantics:
+//   - If no row exists for the given (id, type): the object is inserted.
+//   - If the same (id, type) already exists: the row is updated in-place
+//     (version, content, last_update, updated_at). Seller and buyer are NOT changed.
 func (repo *DBService) UpsertObject(obj *TMFRecord) error {
-	slog.Debug("dbLayer: upsertObject", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
+	slog.Debug("dbLayer: UpsertObject", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
 
-	// Make sure timestamps are correct
+	// Set timestamps. For the insert path both are set; for the in-place update path
+	// (ON CONFLICT) created_at is intentionally absent from the DO UPDATE SET clause
+	// so the original creation time is preserved.
 	now := time.Now()
 	obj.CreatedAt = now.Unix()
 	obj.UpdatedAt = now.Unix()
 
-	// Execute the SQL
-	_, err := repo.db.NamedExec(`INSERT INTO tmf_object 
+	// Insert a new row (new object), or update the matching row in-place
+	// when the exact same (id, type) already exists.
+	// seller and buyer are excluded from DO UPDATE SET — they are immutable after creation.
+	_, err := repo.db.NamedExec(`INSERT INTO tmf_object
 		(id, type, version, api_version, seller, buyer, last_update, content, created_at, updated_at)
 		VALUES (:id, :type, :version, :api_version, :seller, :buyer, :last_update, :content, :created_at, :updated_at)
-		ON CONFLICT DO
-		UPDATE SET version = :version, seller = :seller, buyer = :buyer, last_update = :last_update, content = :content, updated_at = :updated_at`,
+		ON CONFLICT(id, type) DO UPDATE SET
+			version     = excluded.version,
+			last_update = excluded.last_update,
+			content     = excluded.content,
+			updated_at  = excluded.updated_at`,
 		obj,
 	)
 	if err != nil {
-		var sqliteErr sqlite3.Error
-		if errors.As(err, &sqliteErr) {
-			if sqliteErr.Code == sqlite3.ErrConstraint && sqliteErr.ExtendedCode == sqlite3.ErrConstraintPrimaryKey {
-				return &ErrObjectExists{ID: obj.ID, Type: obj.Type}
-			}
-		}
-		err = errl.Errorf("failed to upsert object id=%s type=%s: %w", obj.ID, obj.Type, err)
+		return errl.Errorf("failed to upsert object id=%s type=%s: %w", obj.ID, obj.Type, err)
 	}
-	return err
+	return nil
 }
+
 
 // DeleteObject deletes a TMF object by its ID and type.
 func (repo *DBService) DeleteObject(id, resourceName string) error {
@@ -265,6 +266,8 @@ func (repo *DBService) ListObjects(healthRequest bool, resourceName string, quer
 func BuildSelectFromParms(resourceName string, queryValues url.Values) (query string, arguments []any, qlimit int, qoffset int, theerr error) {
 
 	// Default values if the user did not specify them. -1 is equivalent to no values provided.
+	// Offset and limit will not be included in the SQL query, but will be used to limit the number of objects returned,
+	// upper in the call hierarchy.
 	var limit = -1
 	var offset = -1
 
@@ -273,7 +276,7 @@ func BuildSelectFromParms(resourceName string, queryValues url.Values) (query st
 
 	// The main select
 	buf.Render(
-		`SELECT id, type, max(version) AS version, api_version, seller, buyer, last_update, content, created_at, updated_at FROM tmf_object`,
+		`SELECT id, type, version, api_version, seller, buyer, last_update, content, created_at, updated_at FROM tmf_object`,
 	)
 
 	// WHERE: normally we expect the resource name of object to be specified, but we support a query for all object types
@@ -405,8 +408,7 @@ func BuildSelectFromParms(resourceName string, queryValues url.Values) (query st
 		}
 	}
 
-	// We need to GROUP by id, so we can SELECT the record with the latest version from each group
-	buf.Render(" GROUP BY id")
+
 
 	// Build the query, with the statement and the arguments to be used
 	sql := buf.String()

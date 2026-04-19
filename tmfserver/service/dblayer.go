@@ -10,7 +10,6 @@ import (
 // Type aliases for errors so other service files can still use them directly
 type ErrObjectExists = repo.ErrObjectExists
 type ErrObjectNotFound = repo.ErrObjectNotFound
-type ErrObjectConflict = repo.ErrObjectConflict
 
 // CreateObject creates a new TMF object. Returns &ErrObjectExists if the object already existed.
 func (svc *Service) CreateObject(obj *repo.TMFRecord) error {

@@ -22,7 +22,7 @@ const CreateTMFTableSQL = `CREATE TABLE IF NOT EXISTS tmf_object (
 	"random" INTEGER DEFAULT 0,
 	"created_at" INTEGER,
 	"updated_at" INTEGER,
-	PRIMARY KEY ("id", "type", "version")
+	PRIMARY KEY ("id", "type")
 );`
 
 // TMFRecord represents the storage format of a generic TMForum object, associated to a record in the database.

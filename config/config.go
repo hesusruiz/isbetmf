@@ -18,7 +18,7 @@ const (
 	DOME_PRO Environment = "domepro"
 	DOME_PRE Environment = "domepre"
 	DOME_DEV Environment = "domedev"
-	DOME_LCL Environment = "domelcl"
+	LOCAL    Environment = "local"
 	ISBE_PRE Environment = "isbepre"
 	ISBE_DEV Environment = "isbedev"
 	ISBE_PRO Environment = "isbepro"
@@ -180,9 +180,9 @@ func LoadConfig(
 	case DOME_DEV:
 		conf = domedevConfig
 		slog.Info("Using the DOME SBX environment")
-	case DOME_LCL:
+	case LOCAL:
 		conf = lclConfig
-		slog.Info("Using the LCL environment")
+		slog.Info("Using the LOCAL environment")
 	case ISBE_PRE:
 		conf = isbepreConfig
 		slog.Info("Using the ISBE PRE environment")
@@ -190,8 +190,8 @@ func LoadConfig(
 		conf = isbedevConfig
 		slog.Info("Using the ISBE DEV environment")
 	default:
-		conf = isbedevConfig
-		slog.Info("Using the default (ISBE DEV) environment")
+		conf = lclConfig
+		slog.Info("Using the default environment", "environment", environment)
 	}
 
 	conf.Debug = debug
@@ -221,12 +221,18 @@ func LoadConfig(
 	}
 	slog.Info("Proxy", slog.Bool("enabled", conf.ProxyEnabled))
 
+	// Adjust the config according to the proxy status
+	if !conf.ProxyEnabled {
+		// If there is no proxy, we need to generate the IDs on create
+		conf.Features.GenerateIDOnCreate = true
+	}
+
 	return conf, nil
 
 }
 
 func (c *Config) IsDOME() bool {
-	return c.Environment == DOME_PRO || c.Environment == DOME_PRE || c.Environment == DOME_DEV || c.Environment == DOME_LCL
+	return c.Environment == DOME_PRO || c.Environment == DOME_PRE || c.Environment == DOME_DEV || c.Environment == LOCAL
 }
 
 func (c *Config) IsISBE() bool {
