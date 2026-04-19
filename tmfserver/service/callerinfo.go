@@ -73,7 +73,10 @@ func (svc *Service) ProcessAccessToken(accessToken string) (user *types.AuthUser
 			if svc.oid == nil {
 				return nil, errl.Errorf("openid support not initialized")
 			}
-			keyID := tok.Header["kid"].(string)
+			keyID, ok := tok.Header["kid"].(string)
+			if !ok {
+				return nil, errl.Errorf("invalid access token: kid not found in header")
+			}
 			vk, err := svc.oid.VerificationJWKKey(keyID)
 			if err != nil {
 				return nil, errl.Error(err)

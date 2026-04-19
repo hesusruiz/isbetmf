@@ -15,6 +15,8 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
+
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -606,7 +608,8 @@ func FiberRequestLogger(c *fiber.Ctx) error {
 
 	// Log entry, except the /health request, to keep logs clean
 	if _, found := noLoggingFor[c.Path()]; !found {
-		slog.Debug("=> "+c.Method()+" "+c.Path(), slog.String("ip", c.IP()), slog.String("request_id", c.Get("X-Request-Id")))
+		reqId, _ := c.Locals(requestid.ConfigDefault.ContextKey).(string)
+		slog.Debug("=> "+c.Method()+" "+c.Path(), slog.String("ip", c.IP()), slog.String("request_id", reqId))
 	}
 
 	// Go to next middleware

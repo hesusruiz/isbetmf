@@ -1,3 +1,10 @@
+// Package fiber implements the Fiber web server handlers for the TMF API.
+// It is a very thin layer on top of the service package, which is the real implementation of the TM Forum APIs.
+// In this way, we can easily switch to another web framework by just implementing a new handler package,
+// or even supporting more than one web framework at the same time.
+
+// This also allows to have a different transport mechanism (like grpc), or request mechanism (like JSON-RPC),
+// without changing the service implementation.
 package fiber
 
 import (
@@ -18,17 +25,51 @@ type Handler struct {
 	service *svc.Service
 }
 
+// NewHandler creates a new handler.
+func NewHandler(app *fiber.App, s *svc.Service) *Handler {
+
+	h := &Handler{service: s}
+
+	h.registerRoutes(app)
+
+	return h
+
+}
+
+// registerRoutes registers the routes for the TMF API.
+func (h *Handler) registerRoutes(app *fiber.App) {
+
+	// Mock listener for local testing (accepts any listener path)
+	app.Post("/listener/*", h.MockListener)
+
+	// Health check
+	app.Get("/health", h.Health)
+
+	// Group routes for TMF API (both V4 and V5)
+	tmfApi := app.Group("/tmf-api/:apiFamily/:apiVersion")
+
+	// Notifications Hub routes
+	tmfApi.Post("/hub", h.CreateHubSubscription)
+	tmfApi.Delete("/hub/:id", h.DeleteHubSubscription)
+
+	// Generalized routes for TMF API resources
+	// Collection operations (List and Create)
+	tmfApi.Get("/:resourceName", h.ListGenericObjects)
+	tmfApi.Post("/:resourceName", h.CreateGenericObject)
+
+	// Individual resource operations (Get, Update, Delete)
+	tmfApi.Get("/:resourceName/:id", h.GetGenericObject)
+	tmfApi.Patch("/:resourceName/:id", h.UpdateGenericObject)
+	tmfApi.Delete("/:resourceName/:id", h.DeleteGenericObject)
+
+}
+
 // ExtractJWTToken extracts the JWT token from the Authorization header.
 // It handles both "Bearer <token>" and raw token formats.
 // If the token is not found, it returns an empty string.
 func ExtractJWTToken(authHeader string) string {
 	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 	return tokenString
-}
-
-// NewHandler creates a new handler.
-func NewHandler(s *svc.Service) *Handler {
-	return &Handler{service: s}
 }
 
 // Health is a simple hello world handler.

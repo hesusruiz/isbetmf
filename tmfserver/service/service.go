@@ -153,7 +153,6 @@ func NewTMFService(cnf *config.Config, storage TMFStorage, ruleEngine *pdp.PDP) 
 	svc.storage = storage
 	svc.ruleEngine = ruleEngine
 	svc.verifierServer = cnf.VerifierServer
-	svc.proxyEnabled = cnf.ProxyEnabled
 	svc.Features = cnf.Features
 
 	// Information about us (the server operator)
@@ -167,16 +166,26 @@ func NewTMFService(cnf *config.Config, storage TMFStorage, ruleEngine *pdp.PDP) 
 	svc.ProductUpdatePower = cnf.ProductUpdatePower
 	svc.ProductDeletePower = cnf.ProductDeletePower
 
-	svc.RemoteTMFServer = strings.TrimRight(cnf.RemoteTMFServer, "/")
+	// The remote TMF server when we act as a proxy to it
+	if cnf.ProxyEnabled {
+		cnf.RemoteTMFServer = strings.TrimRight(cnf.RemoteTMFServer, "/")
+		if cnf.RemoteTMFServer == "" {
+			return nil, errl.Errorf("remote TMF server not set")
+		}
+		svc.RemoteTMFServer = cnf.RemoteTMFServer
+		svc.proxyEnabled = cnf.ProxyEnabled
 
-	if svc.proxyEnabled {
 		tmfClientConfig := &TMFClientConfig{
 			BaseURL: svc.RemoteTMFServer,
 			Timeout: 120,
 		}
 
 		svc.tmfClient = NewClient(tmfClientConfig)
-		svc.fressness = 10 * time.Minute
+
+		svc.fressness = cnf.ClonePeriod
+		if svc.fressness == 0 {
+			svc.fressness = config.DefaultClonePeriod
+		}
 	}
 
 	// Create the server operator identity, in case it is not yet in the database
@@ -221,7 +230,7 @@ func NewTMFService(cnf *config.Config, storage TMFStorage, ruleEngine *pdp.PDP) 
 }
 
 func (s *Service) IsDOME() bool {
-	return s.environment == config.DOME_PRO || s.environment == config.DOME_PRE || s.environment == config.DOME_DEV || s.environment == config.DOME_LCL
+	return s.environment == config.DOME_PRO || s.environment == config.DOME_PRE || s.environment == config.DOME_DEV || s.environment == config.LOCAL
 }
 
 func (s *Service) IsISBE() bool {

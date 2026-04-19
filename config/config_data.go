@@ -299,8 +299,8 @@ var domeproConfig = &Config{
 // ******************************************************************
 
 var lclConfig = &Config{
-	Environment:  DOME_LCL,
-	ProxyEnabled: true,
+	Environment:  LOCAL,
+	ProxyEnabled: false,
 
 	LEARPower: types.OnePower{
 		Type:     "domain",
@@ -327,11 +327,10 @@ var lclConfig = &Config{
 		Action:   []string{"Delete"},
 	},
 
-	PolicyFileName:  "auth_policies.star",
-	RemoteTMFServer: "https://tmf.dome-marketplace-lcl.org",
-	VerifierServer:  "https://verifier.dome-marketplace-lcl.org",
-	Dbname:          "data/tmf.dome.lcl.db",
-	ClonePeriod:     DefaultClonePeriod,
+	PolicyFileName: "auth_policies.star",
+	VerifierServer: "https://verifier.dome-marketplace-sbx.org",
+	Dbname:         "data/tmf.lcl.db",
+	ClonePeriod:    DefaultClonePeriod,
 	Features: Features{
 		OfferingLaunchOnlyByAdmin: false,
 		GenerateIDOnCreate:        false,

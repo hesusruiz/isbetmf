@@ -18,7 +18,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/hesusruiz/isbetmf/config"
-	"github.com/hesusruiz/isbetmf/internal/admin"
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	"github.com/hesusruiz/isbetmf/internal/sqlogger"
 	_ "github.com/hesusruiz/isbetmf/migrations"
@@ -36,10 +35,12 @@ func main() {
 	var environment string
 	var restartHour, restartMinute int
 
+	envHelp := fmt.Sprintf("Environment where run: %s, %s, %s, %s, %s, %s, %s", config.ISBE_DEV, config.ISBE_PRE, config.ISBE_PRO, config.DOME_DEV, config.DOME_PRE, config.DOME_PRO, config.LOCAL)
+
 	// Parse command-line flags
 	flag.BoolVar(&debugFlag, "d", true, "Enable debug logging")
 	flag.BoolVar(&init, "init", false, "Run as init process")
-	flag.StringVar(&environment, "run", "isbedev", "Environment where run: isbedev, isbepre, domesbx, domedev2, domepro, lcl")
+	flag.StringVar(&environment, "run", string(config.LOCAL), envHelp)
 	flag.IntVar(&restartHour, "rh", 3, "Restart program every day at this hour")
 	flag.IntVar(&restartMinute, "rm", 0, "Restart program every day at this minute")
 	flag.Parse()
@@ -140,6 +141,7 @@ func runNormalProcess(configuration *config.Config) {
 	webServer := fiber.New(fiber.Config{
 		AppName:        "TMForum API Server",
 		ServerHeader:   "TMForum",
+		ProxyHeader:    "X-Forwarded-For",
 		ReadBufferSize: 16 * 1024, // 16 KB — allows large Authorization headers (e.g. JWTs with many claims)
 		ReadTimeout:    30 * time.Second,
 		WriteTimeout:   30 * time.Second,
@@ -192,24 +194,20 @@ func runNormalProcess(configuration *config.Config) {
 	// 5. Logger middleware - log requests and replies
 	webServer.Use(sqlogger.FiberRequestLogger)
 
-	// TODO: Implement request timeout
-
 	// Serve the OpenAPI UI. We support V4 and V5
 	webServer.Static("/oapiv5", "./www/oapiv5")
 	webServer.Static("/oapiv4", "./www/oapiv4")
 
 	// Create handler and set the routes for the APIs
-	h := fiberhandler.NewHandler(tmfService)
-	h.RegisterRoutes(webServer)
+	fiberhandler.NewHandler(webServer, tmfService)
 
 	// Create and register admin handler
-	adminHandler := admin.NewAdminHandler(tmfService)
-	adminHandler.RegisterRoutes(webServer)
+	fiberhandler.NewAdminHandler(webServer, tmfService)
 
 	// Schedule periodic maintenance tasks
 	repository.ScheduleMaintenance(configuration, dbService, upg)
 
-	// Listen must be called before signaling we are ready
+	// For tableflip to work, Listen must be called before signaling we are ready
 	ln, err := upg.Listen("tcp", "0.0.0.0:9991")
 	if err != nil {
 		slog.Error("failed to listen on port 9991, exiting", slog.Any("error", err))
@@ -219,7 +217,7 @@ func runNormalProcess(configuration *config.Config) {
 
 	// Start the server in a separate goroutine
 	go func() {
-		slog.Info("TMF API server starting", slog.String("port", ":9991"))
+		slog.Info("TMF API server starting: http://localhost:9991/oapiv4/index.html")
 		err := webServer.Listener(ln)
 		if err != nil {
 			slog.Error("Error starting TMF API server", "error", errl.Error(err))
@@ -227,9 +225,11 @@ func runNormalProcess(configuration *config.Config) {
 		}
 	}()
 
+	// Capture the termination signals to be able to perform a clean shutdown
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
+	// Start the signal handler in a separate goroutine
 	go func() {
 		for sig := range sigs {
 			// Process each type of signal

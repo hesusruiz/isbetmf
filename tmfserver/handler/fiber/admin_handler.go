@@ -1,4 +1,4 @@
-package admin
+package fiber
 
 import (
 	"embed"
@@ -19,20 +19,25 @@ type AdminHandler struct {
 	htmlRenderer *html.Renderer
 }
 
-func NewAdminHandler(s *service.Service) *AdminHandler {
+func NewAdminHandler(app *fiber.App, s *service.Service) *AdminHandler {
 
 	htmlRenderer, err := html.NewRenderer(true, &templatesFS, "templates", "internal/admin/templates", ".html")
 	if err != nil {
 		panic(fmt.Errorf("failed to create admin templates renderer: %w", err))
 	}
 
-	return &AdminHandler{
+	h := &AdminHandler{
 		service:      s,
 		htmlRenderer: htmlRenderer,
 	}
+
+	h.registerRoutes(app)
+
+	return h
+
 }
 
-func (h *AdminHandler) RegisterRoutes(app *fiber.App) {
+func (h *AdminHandler) registerRoutes(app *fiber.App) {
 	admin := app.Group("/admin")
 
 	admin.Get("/", h.Dashboard)
@@ -53,7 +58,7 @@ func (h *AdminHandler) ListObjects(c *fiber.Ctx) error {
 	case "agreement":
 		apiFamily = "agreementManagement"
 	case "individual", "organization":
-		apiFamily = "partyManagement"
+		apiFamily = "party"
 	}
 
 	req := &service.Request{
@@ -97,7 +102,7 @@ func (h *AdminHandler) ViewObject(c *fiber.Ctx) error {
 	case "agreement":
 		apiFamily = "agreementManagement"
 	case "individual", "organization":
-		apiFamily = "partyManagement"
+		apiFamily = "party"
 	}
 
 	req := &service.Request{
@@ -130,6 +135,5 @@ func (h *AdminHandler) ViewObject(c *fiber.Ctx) error {
 
 func (h *AdminHandler) render(c *fiber.Ctx, name string, data map[string]any) error {
 	c.Set("Content-Type", "text/html")
-	// return h.tmpl.ExecuteTemplate(c, name, data)
 	return h.htmlRenderer.RenderFiber(c, name, data)
 }

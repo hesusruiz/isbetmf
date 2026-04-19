@@ -814,6 +814,10 @@ func setSellerInfoV4(tmfObjectMap map[string]any, serverOperatorDid string, orga
 		organizationIdentifier = "did:elsi:" + organizationIdentifier
 	}
 
+	if !strings.HasPrefix(serverOperatorDid, "did:elsi:") {
+		serverOperatorDid = "did:elsi:" + serverOperatorDid
+	}
+
 	// Look for the "Seller", "SellerOperator", "Buyer" and "BuyerOperator" roles
 	relatedParties := jpath.GetList(tmfObjectMap, "relatedParty")
 
