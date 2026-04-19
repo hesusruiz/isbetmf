@@ -189,6 +189,9 @@ func LoadConfig(
 	case ISBE_DEV:
 		conf = isbedevConfig
 		slog.Info("Using the ISBE DEV environment")
+	case ISBE_PRO:
+		conf = isbeproConfig
+		slog.Info("Using the ISBE PRO environment")
 	default:
 		conf = lclConfig
 		slog.Info("Using the default environment", "environment", environment)
