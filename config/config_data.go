@@ -57,7 +57,7 @@ var isbedevConfig = &Config{
 		OfferingLaunchOnlyByAdmin: true,
 		GenerateIDOnCreate:        true,
 		AllowIDInBody:             true,
-		VerifyJWTSignature:        false,
+		VerifyJWTSignature:        true,
 	},
 }
 
@@ -107,7 +107,7 @@ var isbepreConfig = &Config{
 		OfferingLaunchOnlyByAdmin: true,
 		GenerateIDOnCreate:        true,
 		AllowIDInBody:             true,
-		VerifyJWTSignature:        false,
+		VerifyJWTSignature:        true,
 	},
 }
 
@@ -157,7 +157,7 @@ var isbeproConfig = &Config{
 		OfferingLaunchOnlyByAdmin: true,
 		GenerateIDOnCreate:        true,
 		AllowIDInBody:             true,
-		VerifyJWTSignature:        false,
+		VerifyJWTSignature:        true,
 	},
 }
 
