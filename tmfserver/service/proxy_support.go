@@ -110,14 +110,23 @@ func (svc *Service) updateRemoteOrLocalObject(req *Request, existingRecord *repo
 		svc.mergeRFC7396(existingObjectMap, patch)
 	}
 
+	objectID := req.ID
+
+	// For organization resources in local database, the objectID is the organization identifier.
+	// TODO: this logic is only for ISBE
+	if req.ResourceName == "organization" {
+		if strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:") && !strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:did:elsi:") {
+			objectID = "urn:ngsi-ld:organization:did:elsi:" + strings.TrimPrefix(req.ID, "urn:ngsi-ld:organization:")
+		}
+	}
+
 	// Prepare the object for the database
-	id := existingObjectMap.ID()
 	existingVersion := existingObjectMap.Version()
 	existingLastUpdate := existingObjectMap.LastUpdate()
 
 	// It is an error if the remote server does not return a 'lastUpdate', but we fix it and log a warning
 	if existingLastUpdate == "" {
-		slog.Warn("remote server did not return lastUpdate, fixing it", slog.String("id", id))
+		slog.Warn("remote server did not return lastUpdate, fixing it", slog.String("id", objectID))
 
 		now := time.Now()
 		existingLastUpdate = now.Format(time.RFC3339Nano)
@@ -131,7 +140,7 @@ func (svc *Service) updateRemoteOrLocalObject(req *Request, existingRecord *repo
 	}
 
 	existingObject := &repo.TMFRecord{
-		ID:         id,
+		ID:         objectID,
 		Type:       req.ResourceName,
 		Version:    existingVersion,
 		APIVersion: req.APIVersion,
