@@ -131,7 +131,7 @@ func (svc *Service) updateRemoteOrLocalObject(req *Request, existingRecord *repo
 	}
 
 	existingObject := &repo.TMFRecord{
-		ID:         req.ID,
+		ID:         id,
 		Type:       req.ResourceName,
 		Version:    existingVersion,
 		APIVersion: req.APIVersion,
