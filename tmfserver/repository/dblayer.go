@@ -70,10 +70,21 @@ func (repo *DBService) CreateObject(obj *TMFRecord) error {
 	obj.UpdatedAt = now.Unix()
 
 	// Execute the SQL
-	_, err := repo.db.NamedExec(`INSERT INTO tmf_object
-		(id, type, version, api_version, seller, buyer, last_update, content, created_at, updated_at)
-		VALUES (:id, :type, :version, :api_version, :seller, :buyer, :last_update, :content, :created_at, :updated_at)`,
-		obj,
+	_, err := repo.db.Exec(`INSERT INTO tmf_object
+		(id, type, version, api_version, seller, seller_operator, buyer, buyer_operator, last_update, content, created_at, updated_at)
+		VALUES (:id, :type, :version, :api_version, :seller, :seller_operator, :buyer, :buyer_operator, :last_update, jsonb(:content), :created_at, :updated_at)`,
+		sql.Named("id", obj.ID),
+		sql.Named("type", obj.Type),
+		sql.Named("version", obj.Version),
+		sql.Named("api_version", obj.APIVersion),
+		sql.Named("seller", obj.Seller),
+		sql.Named("seller_operator", obj.SellerOperator),
+		sql.Named("buyer", obj.Buyer),
+		sql.Named("buyer_operator", obj.BuyerOperator),
+		sql.Named("last_update", obj.LastUpdate),
+		sql.Named("content", obj.Content),
+		sql.Named("created_at", obj.CreatedAt),
+		sql.Named("updated_at", obj.UpdatedAt),
 	)
 	if err != nil {
 		var sqliteErr sqlite3.Error
@@ -93,7 +104,18 @@ func (repo *DBService) GetObject(id, objectType string) (*TMFRecord, error) {
 	slog.Debug("dbLayer: getObject", slog.String("id", id), slog.String("type", objectType))
 
 	var obj TMFRecord
-	err := repo.db.Get(&obj, "SELECT * FROM tmf_object WHERE id = ? AND type = ?", id, objectType)
+	err := repo.db.QueryRow(`
+		SELECT id, type, version, api_version, seller, seller_operator, buyer, buyer_operator, last_update, json(content), random, created_at, updated_at
+		FROM tmf_object
+		WHERE id = :id AND type = :type`,
+		sql.Named("id", id),
+		sql.Named("type", objectType),
+	).Scan(
+		&obj.ID, &obj.Type, &obj.Version, &obj.APIVersion,
+		&obj.Seller, &obj.SellerOperator, &obj.Buyer, &obj.BuyerOperator,
+		&obj.LastUpdate, &obj.Content, &obj.Random, &obj.CreatedAt, &obj.UpdatedAt,
+	)
+
 	if err == sql.ErrNoRows {
 		slog.Info("DBLayer: Object not found", slog.String("id", id), slog.String("type", objectType))
 		return nil, nil // Object not found
@@ -116,14 +138,19 @@ func (repo *DBService) UpdateObject(obj *TMFRecord) error {
 	// Update the row for this object, storing the latest version and content.
 	// Note: seller and buyer are intentionally excluded from the SET clause – they cannot
 	// be changed after the object is created.
-	res, err := repo.db.NamedExec(`UPDATE tmf_object
+	res, err := repo.db.Exec(`UPDATE tmf_object
 		SET   version     = :version,
 		      last_update = :last_update,
-		      content     = :content,
+		      content     = jsonb(:content),
 		      updated_at  = :updated_at
 		WHERE id      = :id
 		  AND type    = :type`,
-		obj,
+		sql.Named("version", obj.Version),
+		sql.Named("last_update", obj.LastUpdate),
+		sql.Named("content", obj.Content),
+		sql.Named("updated_at", obj.UpdatedAt),
+		sql.Named("id", obj.ID),
+		sql.Named("type", obj.Type),
 	)
 	if err != nil {
 		return errl.Errorf("failed to update object id=%s type=%s: %w", obj.ID, obj.Type, err)
@@ -160,15 +187,24 @@ func (repo *DBService) UpsertObject(obj *TMFRecord) error {
 	// Insert a new row (new object), or update the matching row in-place
 	// when the exact same (id, type) already exists.
 	// seller and buyer are excluded from DO UPDATE SET — they are immutable after creation.
-	_, err := repo.db.NamedExec(`INSERT INTO tmf_object
+	_, err := repo.db.Exec(`INSERT INTO tmf_object
 		(id, type, version, api_version, seller, buyer, last_update, content, created_at, updated_at)
-		VALUES (:id, :type, :version, :api_version, :seller, :buyer, :last_update, :content, :created_at, :updated_at)
+		VALUES (:id, :type, :version, :api_version, :seller, :buyer, :last_update, jsonb(:content), :created_at, :updated_at)
 		ON CONFLICT(id, type) DO UPDATE SET
 			version     = excluded.version,
 			last_update = excluded.last_update,
-			content     = excluded.content,
+			content     = jsonb(excluded.content),
 			updated_at  = excluded.updated_at`,
-		obj,
+		sql.Named("id", obj.ID),
+		sql.Named("type", obj.Type),
+		sql.Named("version", obj.Version),
+		sql.Named("api_version", obj.APIVersion),
+		sql.Named("seller", obj.Seller),
+		sql.Named("buyer", obj.Buyer),
+		sql.Named("last_update", obj.LastUpdate),
+		sql.Named("content", obj.Content),
+		sql.Named("created_at", obj.CreatedAt),
+		sql.Named("updated_at", obj.UpdatedAt),
 	)
 	if err != nil {
 		return errl.Errorf("failed to upsert object id=%s type=%s: %w", obj.ID, obj.Type, err)
@@ -271,7 +307,7 @@ func BuildSelectFromParms(resourceName string, queryValues url.Values) (query st
 
 	// The main select
 	buf.Render(
-		`SELECT id, type, version, api_version, seller, buyer, last_update, content, created_at, updated_at FROM tmf_object`,
+		`SELECT id, type, version, api_version, seller, buyer, last_update, json(content), created_at, updated_at FROM tmf_object`,
 	)
 
 	// WHERE: normally we expect the resource name of object to be specified, but we support a query for all object types

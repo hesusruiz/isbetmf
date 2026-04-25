@@ -1,17 +1,17 @@
 package migrations
 
 import (
+	"database/sql"
 	"log/slog"
 
 	"github.com/hesusruiz/isbetmf/tmfserver/repository"
-	"github.com/jmoiron/sqlx"
 )
 
 func init() {
 	repository.RegisterMigration("20251102T203201", migration_up_20251102T203201, nil)
 }
 
-func migration_up_20251102T203201(db *sqlx.DB) error {
+func migration_up_20251102T203201(db *sql.DB) error {
 	slog.Info("Hello from migration_up_20251102T203201")
 
 	// According to the SQLite manual, this is a general procedure for making arbitrary changes to the schema design of some table X.

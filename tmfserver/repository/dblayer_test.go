@@ -161,10 +161,10 @@ func TestBuildSelectFromParms_ArrayOfObjectsFieldExplicitIndex(t *testing.T) {
 	v := url.Values{}
 	v.Set("organizationIdentification[0].identificationId", "did:elsi:VATEL-094402295")
 	sql, args, _, _, _ := BuildSelectFromParms("ProductOffering", v)
-	if !strings.Contains(sql, "json_each(tmf_object.content, '$.category')") {
-		t.Fatalf("expected SQL to reference JSON path for category.id, got: %s", sql)
+	if !strings.HasSuffix(sql, "FROM tmf_object WHERE type = ? AND EXISTS (SELECT 1 FROM json_tree(tmf_object.content) WHERE json_tree.fullkey LIKE '$.organizationIdentification[0].identificationId%' AND json_tree.value = ?)") {
+		t.Fatalf("expected SQL to search for organizationIdentification, got: %s", sql)
 	}
-	if len(args) < 2 || args[1] != "urn:ngsi-ld:category:31a1d8a8-56e8-49c3-aabb-6b0306bc0316" {
+	if len(args) < 2 || args[1] != "did:elsi:VATEL-094402295" {
 		t.Fatalf("expected args to contain category.id value, got: %v", args)
 	}
 }
@@ -174,7 +174,7 @@ func TestBuildSelectFromParms_ArrayOfObjectsMultiValue(t *testing.T) {
 	// Simulate filtering by relatedParty.role with multiple values
 	v.Set("relatedParty.role", "Seller,SellerOperator")
 	sql, args, _, _, _ := BuildSelectFromParms("ProductOffering", v)
-	if !strings.HasSuffix(sql, "FROM json_tree(tmf_object.content) WHERE json_tree.fullkey GLOB '$.relatedParty*.role*' AND json_tree.value IN (?,?))") {
+	if !strings.HasSuffix(sql, "FROM json_tree(tmf_object.content) WHERE json_tree.fullkey LIKE '$.relatedParty%.role%' AND json_tree.value IN (?,?))") {
 		t.Fatalf("expected SQL to reference JSON path for relatedParty.role, got: %s", sql)
 	}
 	want := []string{"Seller", "SellerOperator"}

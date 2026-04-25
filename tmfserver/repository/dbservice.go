@@ -1,10 +1,10 @@
 package repository
 
 import (
+	"database/sql"
 	"log/slog"
 
 	"github.com/hesusruiz/isbetmf/internal/errl"
-	"github.com/jmoiron/sqlx"
 )
 
 // CreateTMFTableSQL is the SQL statement to create the table 'tmf_object', holding all objects of all types
@@ -52,7 +52,7 @@ const VacuumSQL = `VACUUM;`
 
 // DBService is the database layer for TMF objects.
 type DBService struct {
-	db *sqlx.DB
+	db *sql.DB
 }
 
 // NewDBService creates a new database service.
@@ -90,7 +90,7 @@ func NewDBService(dbName string) (*DBService, error) {
 	dbName = dbName + "&_defer_foreign_keys=on"
 
 	// Connect to the database.
-	db, err := sqlx.Connect("sqlite3", dbName)
+	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
 		return nil, errl.Errorf("failed to connect to database: %w", err)
 	}
@@ -107,7 +107,7 @@ func NewDBService(dbName string) (*DBService, error) {
 
 // CreateTables creates the tables in the database if they do not exist.
 // It also handles automatic schema/data migration when possible.
-func CreateTables(db *sqlx.DB) error {
+func CreateTables(db *sql.DB) error {
 
 	if _, err := db.Exec(CreateTMFTableSQL); err != nil {
 		return errl.Errorf("failed to create tmf_object table: %w", err)

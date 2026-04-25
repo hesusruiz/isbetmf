@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/hesusruiz/isbetmf/internal/errl"
-	"github.com/jmoiron/sqlx"
 )
 
 const createMigrationsTableSQL = `CREATE TABLE IF NOT EXISTS migrations (
@@ -16,7 +15,7 @@ const createMigrationsTableSQL = `CREATE TABLE IF NOT EXISTS migrations (
 	"created_at" INTEGER
 );`
 
-type migrationfun func(db *sqlx.DB) error
+type migrationfun func(db *sql.DB) error
 
 type oneMigration struct {
 	version string
@@ -61,7 +60,7 @@ func RegisterMigration(version string, up migrationfun, down migrationfun) {
 //     chosen so that lexicographical order corresponds to the intended application order.
 //   - Recommended version format is a timestamp in the format YYYYMMDDTHHMMSS (YearMonthDayTHoursMinutesSeconds),
 //     like '20251102T203201'.
-func RunMigrationsUp(db *sqlx.DB) error {
+func RunMigrationsUp(db *sql.DB) error {
 
 	slog.Info("Running migrations")
 	defer slog.Info("Migrations done")
@@ -131,7 +130,7 @@ func RunMigrationsUp(db *sqlx.DB) error {
 //
 // Parameters:
 //
-//	db        - a *sqlx.DB connected to the SQLite database to operate on.
+//	db        - a *sql.DB connected to the SQLite database to operate on.
 //	migration - a oneMigration describing the migration to execute (provides up
 //	            and the version to record).
 //
@@ -140,7 +139,7 @@ func RunMigrationsUp(db *sqlx.DB) error {
 //	Any error encountered while starting the savepoint, running the migration,
 //	recording the version, or releasing the savepoint is returned to the caller.
 //	The function ensures uncommitted changes are rolled back on error.
-func applyMigration(db *sqlx.DB, migration oneMigration) error {
+func applyMigration(db *sql.DB, migration oneMigration) error {
 
 	// Generate a random string
 	savepointName := "S_" + rand.Text()
