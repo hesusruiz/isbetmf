@@ -7,14 +7,18 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	"github.com/hesusruiz/isbetmf/tmfserver/repository"
+	repo "github.com/hesusruiz/isbetmf/tmfserver/repository"
 )
 
-// TMFClientConfig holds the configuration for the tmfclient package
+// TMFClientConfig holds the configuration for the tmfclient service
 type TMFClientConfig struct {
 	// BaseURL of the remote TMForum server
 	BaseURL string `json:"base_url" yaml:"base_url"`
@@ -24,6 +28,9 @@ type TMFClientConfig struct {
 
 	// Timeout in seconds for HTTP requests
 	Timeout int `json:"timeout" yaml:"timeout"`
+
+	// Default page size for requests to the remote server
+	PageSize int `json:"page_size" yaml:"page_size"`
 }
 
 // TMFClient is a client for the TMForum API.
@@ -37,8 +44,8 @@ func NewClient(config *TMFClientConfig) *TMFClient {
 	if config.Timeout == 0 {
 		config.Timeout = 10
 	}
-	if config.PathPrefix == "" {
-		config.PathPrefix = "/tmf-api"
+	if config.PageSize == 0 {
+		config.PageSize = 100
 	}
 	return &TMFClient{
 		config: config,
@@ -46,6 +53,10 @@ func NewClient(config *TMFClientConfig) *TMFClient {
 			Timeout: time.Duration(config.Timeout) * time.Second,
 		},
 	}
+}
+
+func (c *TMFClient) PageSize() int {
+	return c.config.PageSize
 }
 
 func (c *TMFClient) TMFPost(req *Request, objMap repository.TMFObjectMap) (repository.TMFObjectMap, []error) {
@@ -176,9 +187,35 @@ func (c *TMFClient) TMFPatch(req *Request, patchMap repository.TMFObjectMap) (re
 
 }
 
+// processObject is a function provided by the caller of GetAllObjectsOfType which processes an object of a specific type.
+// It takes the object type and the object being processed as input.
+// It returns the processed object, a boolean indicating whether to continue processing, and an error if any.
+// If processObject returns false, it means that the caller wants to stop processing the objects.
+type processObject func(obj repo.TMFObjectMap) (repo.TMFObjectMap, bool, error)
+
 // TMFGetList retrieves a list of TMF objects from the remote server.
-// It does not perform any validation of the objects.
-func (c *TMFClient) TMFGetList(path string, headers map[string]string) ([]repository.TMFObjectMap, error) {
+// It does not perform any validation of the objects, but delegates it to the processObject callback provided by the caller.
+func (c *TMFClient) TMFGetList(resourceName string, queryParams url.Values, pageSize int, pageOffset int, headers map[string]string, processObject processObject) ([]repository.TMFObjectMap, error) {
+
+	// Build the parameters to send to the remote server
+	baseParams := queryParams.Encode()
+
+	// Build the base path including parameters for the request to the remote server
+	// The path is terminated with '&' or '?' because we will add the paging parameters later
+	basePath, err := config.UpstreamTMFPath(resourceName)
+	if err != nil {
+		return nil, errl.Errorf("failed to get path prefix: %w", err)
+	}
+	if baseParams != "" {
+		basePath += "?" + baseParams + "&"
+	} else {
+		basePath += "?"
+	}
+
+	// Build the full path and ask the server for the specified page of objects
+	path := basePath + "limit=" + strconv.Itoa(pageSize) + "&offset=" + strconv.Itoa(pageOffset)
+
+	slog.Debug("sending request to remote", "path", path)
 
 	resp, err := c.Get(path, headers)
 	if err != nil {
@@ -220,6 +257,23 @@ func (c *TMFClient) TMFGetList(path string, headers map[string]string) ([]reposi
 	var objects []repository.TMFObjectMap
 	if err := json.Unmarshal(body, &objects); err != nil {
 		return nil, errl.Errorf("remote server returned invalid JSON: %w", err)
+	}
+
+	// Process each object with the user-supplied logic
+	var cont bool
+	if processObject != nil {
+		for i := range objects {
+			objects[i], cont, err = processObject(objects[i])
+			// In case of error we just log it and continue with the next object
+			if err != nil {
+				err = errl.Error(err)
+				slog.Error("processing object", "object_id", objects[i].ID(), "error", err)
+			}
+			// If the user wants to stop processing, we return the objects retrieved so far
+			if !cont {
+				return objects, nil
+			}
+		}
 	}
 
 	return objects, nil

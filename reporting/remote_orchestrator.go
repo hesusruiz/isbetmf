@@ -109,7 +109,11 @@ func (p *RemoteOrchestrator) Run(ctx context.Context) error {
 
 		for i, result := range allResults {
 			// Set the URL of the object
-			allResults[i].Href = p.pager.GetObjectURL(result.ObjectType, result.ObjectID)
+			url, err := p.pager.GetObjectURL(result.ObjectType, result.ObjectID)
+			if err != nil {
+				log.Printf("Warning: Failed to get URL for object %s: %v", result.ObjectID, err)
+			}
+			allResults[i].Href = url
 		}
 
 		log.Printf("Validation complete for %s: %d total objects, %d valid, %d errors, %d warnings",

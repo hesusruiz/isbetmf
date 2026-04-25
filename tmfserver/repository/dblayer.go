@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
-	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -53,8 +51,6 @@ func (e *ErrObjectNotFound) Is(target error) bool {
 		return false
 	}
 }
-
-
 
 // Close closes the database connection.
 func (repo *DBService) Close() error {
@@ -179,7 +175,6 @@ func (repo *DBService) UpsertObject(obj *TMFRecord) error {
 	}
 	return nil
 }
-
 
 // DeleteObject deletes a TMF object by its ID and type.
 func (repo *DBService) DeleteObject(id, resourceName string) error {
@@ -322,9 +317,11 @@ func BuildSelectFromParms(resourceName string, queryValues url.Values) (query st
 			if len(vals) == 1 {
 				buf.Render(" AND ", key, " = ?")
 			} else if len(vals) > 1 {
-				buf.Render(" AND ", key, " IN ").RenderSQLList(vals...)
+				buf.Render(" AND ", key, " IN ").RenderSQLList(vals)
 			}
-			args = append(args, vals...)
+			for _, v := range vals {
+				args = append(args, v)
+			}
 
 		case "category.id", "productSpecification.id":
 			// Simplification of the query in the category array for common fields
@@ -341,9 +338,11 @@ func BuildSelectFromParms(resourceName string, queryValues url.Values) (query st
 				)
 			} else if len(vals) > 1 {
 				buf.Render(
-					" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", object, "') WHERE json_extract(value, '$.id') IN ").RenderSQLList(vals...).Render(")")
+					" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", object, "') WHERE json_extract(value, '$.id') IN ").RenderSQLList(vals).Render(")")
 			}
-			args = append(args, vals...)
+			for _, v := range vals {
+				args = append(args, v)
+			}
 
 		case "organizationIdentification[*].identificationId", "organizationIdentification.identificationId",
 			"individualIdentification[*].identificationId", "individualIdentification.identificationId", "individualIdentification.id":
@@ -366,9 +365,11 @@ func BuildSelectFromParms(resourceName string, queryValues url.Values) (query st
 				)
 			} else if len(vals) > 1 {
 				buf.Render(
-					" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", arrayName, "') WHERE json_extract(value, '$.", keyName, "') IN ").RenderSQLList(vals...).Render(")")
+					" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", arrayName, "') WHERE json_extract(value, '$.", keyName, "') IN ").RenderSQLList(vals).Render(")")
 			}
-			args = append(args, vals...)
+			for _, v := range vals {
+				args = append(args, v)
+			}
 
 		default:
 
@@ -376,39 +377,31 @@ func BuildSelectFromParms(resourceName string, queryValues url.Values) (query st
 			// in the form 'lifecycleStatus=Launched,Active'
 			vals := processValues(values)
 
-			// We perform special processin when the key is simple (no dots), to use a simple and more efficient SQL expression.
+			// We perform special processing when the key is simple (no dots), to use a simple and more efficient SQL expression.
 			pathParts := strings.Split(key, ".")
 			if len(pathParts) == 1 {
 
 				if len(vals) == 1 {
 					buf.Render(" AND content->>'$.", key, "' = ?")
 				} else {
-					buf.Render(" AND content->>'$.", key, "' IN ").RenderSQLList(vals...)
+					buf.Render(" AND content->>'$.", key, "' IN ").RenderSQLList(vals)
 				}
-				args = append(args, vals...)
+				for _, v := range vals {
+					args = append(args, v)
+				}
 			} else {
-				// For complex paths like relatedParty.role, the test expects a specific recursive structure
-				if len(pathParts) == 2 && !strings.Contains(key, "[*]") {
-					if len(vals) == 1 {
-						buf.Render(" AND content->>'$.", key, "' = ?")
-					} else {
-						buf.Render(" AND content->>'$.", key, "' IN ").RenderSQLList(vals...)
-					}
-					args = append(args, vals...)
-				} else {
-					subSql, _, err := GenerateRecursiveJSONQuery("tmf_object", key, vals)
-					if err != nil {
-						return "", nil, 0, 0, err
-					}
-					buf.Render(" AND ", subSql)
-					args = append(args, vals...)
+				subSql, _, err := GenerateRecursiveJSONQuery("tmf_object", key, vals)
+				if err != nil {
+					return "", nil, 0, 0, err
+				}
+				buf.Render(" AND ", subSql)
+				for _, v := range vals {
+					args = append(args, v)
 				}
 			}
 
 		}
 	}
-
-
 
 	// Build the query, with the statement and the arguments to be used
 	sql := buf.String()
@@ -417,46 +410,35 @@ func BuildSelectFromParms(resourceName string, queryValues url.Values) (query st
 }
 
 // GenerateRecursiveJSONQuery generates a SQL query to search for a value in a JSON object, given a JSON path where some elements may be arrays.
-func GenerateRecursiveJSONQuery(tableName string, pathInput string, values any) (string, string, error) {
+func GenerateRecursiveJSONQuery(tableName string, pathInput string, values []string) (string, string, error) {
 
-	v := reflect.ValueOf(values)
-	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
-		return "", "", fmt.Errorf("invalid values: must be a slice or array")
-	}
-
-	if v.Len() == 0 {
+	if len(values) == 0 {
 		return "", "", fmt.Errorf("invalid values: no values provided for recursive JSON queries")
 	}
 
-	targetValue, ok := v.Index(0).Interface().(string)
-	if !ok {
-		return "", "", fmt.Errorf("invalid value type for recursive query: %T", v.Index(0).Interface())
-	}
-
 	pathParts := strings.Split(pathInput, ".")
-	var globPath strings.Builder
-	globPath.WriteString("$")
 
-	hasIndex := regexp.MustCompile(`^(.+)\[(\d+)\]$`)
+	var like StringRenderer
+	like.WriteString("$")
 
 	for _, p := range pathParts {
-		matches := hasIndex.FindStringSubmatch(p)
-		if len(matches) > 0 {
-			field := matches[1]
-			index := matches[2]
-			fmt.Fprintf(&globPath, ".%s[[]%s]", field, index)
+		field, index := extractFromBrackets(p)
+		if index == "*" {
+			index = "%"
+		}
+		if index == "" {
+			like.Render('.', field, '%')
 		} else {
-			p = strings.TrimSuffix(p, "[*]")
-			fmt.Fprintf(&globPath, ".%s*", p)
+			like.Render('.', field, '[', index, ']')
 		}
 	}
 
-	if v.Len() == 1 {
-		sql := "EXISTS (SELECT 1 FROM json_tree(" + tableName + ".content)\n\t\t\t\tWHERE json_tree.fullkey GLOB '" + globPath.String() + "' AND json_tree.value = ?)"
-		return strings.TrimSpace(sql), targetValue, nil
+	if len(values) == 1 {
+		sql := "EXISTS (SELECT 1 FROM json_tree(" + tableName + ".content) WHERE json_tree.fullkey LIKE '" + like.String() + "' AND json_tree.value = ?)"
+		return strings.TrimSpace(sql), values[0], nil
 	} else {
 		var buf StringRenderer
-		buf.Render("EXISTS (SELECT 1 FROM json_tree(" + tableName + ".content) WHERE json_tree.fullkey GLOB '" + globPath.String() + "' AND json_tree.value IN ")
+		buf.Render("EXISTS (SELECT 1 FROM json_tree(" + tableName + ".content) WHERE json_tree.fullkey LIKE '" + like.String() + "' AND json_tree.value IN ")
 		buf.RenderSQLList(values)
 		buf.Render(")")
 		return strings.TrimSpace(buf.String()), "", nil
@@ -496,23 +478,10 @@ func (r *StringRenderer) Renderln(inputs ...any) *StringRenderer {
 	return r
 }
 
-// RenderSQLList renders an SQL argument list
-func (r *StringRenderer) RenderSQLList(inputs ...any) *StringRenderer {
+// RenderSQLList renders an SQL argument list.
+// The actual values are not used, just the lengh of the list.
+func (r *StringRenderer) RenderSQLList(inputs []string) *StringRenderer {
 	r.Render("(")
-
-	if len(inputs) == 1 {
-		v := reflect.ValueOf(inputs[0])
-		if v.Kind() == reflect.Slice || v.Kind() == reflect.Array {
-			for i := 0; i < v.Len(); i++ {
-				if i > 0 {
-					r.Render(",")
-				}
-				r.Render("?")
-			}
-			r.Render(")")
-			return r
-		}
-	}
 
 	for i := range inputs {
 		if i > 0 {
@@ -524,9 +493,9 @@ func (r *StringRenderer) RenderSQLList(inputs ...any) *StringRenderer {
 	return r
 }
 
-// processValues converts from a slice of strings to a slice of any
-func processValues(values []string) []any {
-	var vals []any
+// processValues converts from a slice of strings, each possibly a comma separeted set of values, to a slice of strings
+func processValues(values []string) []string {
+	var vals []string
 	for _, v := range values {
 		parts := strings.Split(v, ",")
 		for i := range parts {
@@ -535,4 +504,28 @@ func processValues(values []string) []any {
 		}
 	}
 	return vals
+}
+
+func extractFromBrackets(s string) (string, string) {
+	// Find the position of the opening bracket
+	start := strings.Index(s, "[")
+	if start == -1 {
+		return s, ""
+	}
+
+	// Find the position of the closing bracket
+	// We search from 'start' onwards to be safe
+	end := strings.Index(s[start:], "]")
+	if end == -1 {
+		return s, ""
+	}
+
+	// The prefix is everything before the opening bracket
+	prefix := s[:start]
+
+	// The content is everything between '[' and ']'
+	// 'end' is relative to s[start:], so the absolute position of ']' is start + end
+	content := s[start+1 : start+end]
+
+	return prefix, content
 }

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	repo "github.com/hesusruiz/isbetmf/tmfserver/repository"
 )
@@ -160,15 +161,17 @@ func (svc *Service) updateRemoteOrLocalObject(req *Request, existingRecord *repo
 // listRemoteObjects retrieves objects from the remote TMF server, filters them based on authorization,
 // caches them locally, and returns the requested page.
 func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, fieldSet map[string]bool) (
-	[]repo.TMFObjectMap, map[string]string, *Response) {
+	responseObjects []repo.TMFObjectMap, responseHeaders map[string]string, diagnosticObjects []repo.ValidationResult, err error) {
 
-	// Delete the attribute selection for the query to the backend. We will receive full objects and
+	// Delete the attribute selection for the query to the upstream server. We will receive full objects and
 	// perform attribute selection ourselves. This is because we want to store the full objects in our local cache.
 	req.QueryParams.Del("fields")
 
 	// We forward the same access token that we received from the user
-	headers := map[string]string{
+	upstreamHeaders := map[string]string{
 		"Authorization": "Bearer " + req.AuthUser.AccessToken,
+		"Accept":        "application/json",
+		"Content-Type":  "application/json",
 	}
 
 	// Check if the user wants diagnostic information, which is specified in the query string as '?diagnostic=true'
@@ -179,8 +182,8 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 		req.QueryParams.Del("diagnostic")
 	}
 
-	responseObjectMaps := make([]repo.TMFObjectMap, 0)
-	diagnosticObjects := make([]repo.ValidationResult, 0)
+	responseObjects = make([]repo.TMFObjectMap, 0)
+	diagnosticObjects = make([]repo.ValidationResult, 0)
 	var offsetCounter int
 	invalidObjects := 0
 
@@ -193,57 +196,48 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 	req.QueryParams.Del("offset")
 	req.QueryParams.Del("limit")
 
-	// Build the new parameters to send to the remote server
-	baseParams := req.QueryParams.Encode()
-
-	// Build the base path including parametersfor the request to the remote server
-	basePath := fmt.Sprintf("/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName)
-	if baseParams != "" {
-		basePath += "?" + baseParams + "&"
-	} else {
-		basePath += "?"
-	}
-
-	// Reduce logging for health requests, to avoid polluting the logs
-	isHealthRequest := req.HealthRequest
-
-	pageSize := 100
+	pageSize := svc.tmfClient.PageSize()
 	pageOffset := 0
-	if !isHealthRequest {
-		slog.Info("listing remote objects", "path", basePath, "limit", userLimit, "offset", userOffset)
-	}
 	for {
 
-		// Tell the server which page of objects we want
-		path := fmt.Sprintf("%slimit=%d&offset=%d", basePath, pageSize, pageOffset)
-
-		if !isHealthRequest {
-			slog.Debug("sending request to remote", "path", path)
-		}
-
 		// Get one page of objects from the remote server
-		receivedObjects, err := svc.tmfClient.TMFGetList(path, headers)
+		receivedObjects, err := svc.tmfClient.TMFGetList(req.ResourceName, req.QueryParams, pageSize, pageOffset, upstreamHeaders, nil)
 		if err != nil {
-			return nil, nil, ErrorResponsef(http.StatusInternalServerError, "upstream server failed with error: %w", err)
+			return nil, nil, nil, errl.Errorf("upstream server failed with error: %w", err)
 		}
-		if !isHealthRequest {
-			slog.Debug("received objects from remote", "num_objects", len(receivedObjects))
-		}
+
+		slog.Debug("received objects from remote", "num_objects", len(receivedObjects))
 
 		// We check each object to see if the user can access it.
 		// Additionally, we cache all the objects received independently of the user's access.
-		for _, responseObject := range receivedObjects {
+		for _, receivedObject := range receivedObjects {
 
-			// Get the internal object map from the response object, performing validation
-			objectMap, validations := repo.NewTMFObjectMapFromUpstream(req.ResourceName, responseObject)
+			// Perform validations on the received object
+			validations := receivedObject.Validate(req.ResourceName)
 			if len(validations.Errors) > 0 {
 				invalidObjects++
 				diagnosticObjects = append(diagnosticObjects, validations)
+				if diagnostic {
+					receivedObject["validationErrors"] = validations.Errors
+					responseObjects = append(responseObjects, receivedObject)
+				}
+
+				// Delete the offending object if we are not in production
+				if svc.environment != config.DOME_PRO {
+					path := fmt.Sprintf("/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, receivedObject.ID())
+					resp, err := svc.tmfClient.Delete(path, upstreamHeaders)
+					if err != nil || resp.StatusCode >= 300 {
+						slog.Error("failed to delete invalid object", "error", err, "status_code", resp.StatusCode, "path", path)
+						continue
+					}
+					resp.Body.Close()
+				}
+
 				continue
 			}
 
 			// Convert object to storage representation to save it in the local database
-			storageObject := objectMap.ToTMFRecord(req.ResourceName)
+			storageObject := receivedObject.ToTMFRecord(req.ResourceName)
 			if err := svc.UpsertObject(storageObject); err != nil {
 				if !errors.Is(err, &ErrObjectExists{}) {
 					invalidObjects++
@@ -253,19 +247,19 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 			}
 
 			// Check if the user is authorized to access the object
-			authorized, err := svc.takeDecision(svc.ruleEngine, req, objectMap)
+			authorized, err := svc.takeDecision(svc.ruleEngine, req, receivedObject)
 			if !authorized {
-				slog.Debug("object not authorized", "id", objectMap.ID(), "error", err)
+				slog.Debug("object not authorized", "id", receivedObject.ID(), "error", err)
 				// Add diagnostic info if not authorized
 				invalidObjects++
 				diagnosticObjects = append(diagnosticObjects, repo.ValidationResult{
-					ObjectID:   objectMap.ID(),
+					ObjectID:   receivedObject.ID(),
 					ObjectType: req.ResourceName,
 					Valid:      false,
 					Errors: []repo.ValidationError{
 						{
-							Field:   objectMap.ID(),
-							Message: fmt.Sprintf("object %s not authorized: %s", objectMap.ID(), errl.Error(err)),
+							Field:   receivedObject.ID(),
+							Message: fmt.Sprintf("object %s not authorized: %s", receivedObject.ID(), errl.Error(err)),
 							Code:    "NOT_AUTHORIZED",
 						},
 					},
@@ -279,11 +273,11 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 			}
 
 			// Apply attribute selection, according to what the user specified in the query
-			objectMap = svc.applyAttributeSelection(objectMap, fieldSet)
-			responseObjectMaps = append(responseObjectMaps, objectMap)
+			receivedObject = svc.applyAttributeSelection(receivedObject, fieldSet)
+			responseObjects = append(responseObjects, receivedObject)
 
 			// Stop validating objects if we have enough objects to satisfy the user's request
-			if userLimit >= 0 && len(responseObjectMaps) >= userLimit {
+			if userLimit >= 0 && len(responseObjects) >= userLimit {
 				break
 			}
 		}
@@ -293,23 +287,19 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 		// We use the 'len(receivedObjects) < pageSize' condition to detect if we have received all objects from the remote server.
 		// It may be that with this check we do an additional request if the remote server had an exact multiple of pageSize objects,
 		// but the robustness of the code is more important than the performance.
-		if (userLimit >= 0 && len(responseObjectMaps) >= userLimit) || len(receivedObjects) < pageSize {
+		if (userLimit >= 0 && len(responseObjects) >= userLimit) || len(receivedObjects) < pageSize {
 			break
 		}
 		pageOffset += pageSize
 	}
 
-	responseHeaders := map[string]string{
-		"X-Total-Count": strconv.Itoa(len(responseObjectMaps)),
+	responseHeaders = map[string]string{
+		"X-Total-Count": strconv.Itoa(len(responseObjects)),
 	}
 
-	slog.Debug("Remote objects listed", slog.Int("valid", len(responseObjectMaps)), slog.Int("invalid", invalidObjects), slog.String("resourceName", req.ResourceName))
+	slog.Debug("Remote objects listed", slog.Int("valid", len(responseObjects)), slog.Int("invalid", invalidObjects), slog.String("resourceName", req.ResourceName))
 
-	// If the user wants diagnostic information, return it
-	if diagnostic {
-		return nil, responseHeaders, &Response{StatusCode: http.StatusOK, Headers: responseHeaders, Body: diagnosticObjects}
-	}
-	return responseObjectMaps, responseHeaders, nil
+	return responseObjects, responseHeaders, diagnosticObjects, nil
 }
 
 // listLocalObjects retrieves TMF objects from the local database, filters them based on authorization,

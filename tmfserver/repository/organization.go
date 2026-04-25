@@ -133,6 +133,7 @@ func (u *Organization) ToMap() map[string]any {
 
 func TMFRecordFromOrganizationAndToken(user *Organization, accessToken map[string]any) (*TMFRecord, error) {
 
+	// Generate the DID for the organization and the TMF object id
 	did := user.OrganizationIdentifier
 	if !strings.HasPrefix(did, "did:elsi:") {
 		did = "did:elsi:" + did

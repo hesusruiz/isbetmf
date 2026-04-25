@@ -33,6 +33,6 @@ var PublicResources = map[string]bool{
 	// Organization from TMF632 Party Management. But Individual is private.
 	"organization": true,
 
-	// TMF669 Party Rola Management
+	// TMF669 Party Role Management
 	"partyrole": true,
 }

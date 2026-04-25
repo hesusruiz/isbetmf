@@ -47,8 +47,6 @@ var isbedevConfig = &Config{
 	},
 
 	PolicyFileName: "auth_policies.star",
-
-	// TODO: the IdP must be set to the Keycloak instance which generates the access tokens
 	VerifierServer: "https://idp.dev.cloud-w.envs.redisbe.com/auth/realms/dev-isbe",
 
 	Dbname:      "data/isbetmf.db",
@@ -97,8 +95,6 @@ var isbepreConfig = &Config{
 	},
 
 	PolicyFileName: "auth_policies.star",
-
-	// TODO: the IdP must be set to the Keycloak instance which generates the access tokens
 	VerifierServer: "https://idp.pre.portal.redisbe.com/auth/realms/pre-isbe",
 
 	Dbname:      "data/isbetmf.db",
@@ -147,8 +143,6 @@ var isbeproConfig = &Config{
 	},
 
 	PolicyFileName: "auth_policies.star",
-
-	// TODO: the IdP must be set to the Keycloak instance which generates the access tokens
 	VerifierServer: "https://idp.portal.redisbe.com/auth/realms/pro-isbe",
 
 	Dbname:      "data/isbetmf.db",
@@ -333,7 +327,7 @@ var lclConfig = &Config{
 	ClonePeriod:    DefaultClonePeriod,
 	Features: Features{
 		OfferingLaunchOnlyByAdmin: false,
-		GenerateIDOnCreate:        false,
+		GenerateIDOnCreate:        true,
 		AllowIDInBody:             false,
 	},
 }

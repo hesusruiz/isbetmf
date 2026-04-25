@@ -134,10 +134,27 @@ func (svc *Service) ensureCreateMetadata(req *Request, obj repo.TMFObjectMap) *R
 	if svc.Features.GenerateIDOnCreate {
 		if id == "" {
 			if obj.IsOrganization() {
+				// For an organization, we must ensure the following:
+				// The organizationIdentification must contain an entry with "@type": "organizationIdentification"
+				// That entry must have an identificationId field
+				// The identificationId must have the prefix "did:elsi:", otherwise we need to add the prefix
 				orgList := jpath.GetList(obj, "organizationIdentification")
 				if len(orgList) == 0 {
 					return ErrorResponsef(http.StatusBadRequest, "organizationIdentification is required in organization object")
 				}
+
+				// Find the entry with "@type": "organizationIdentification"
+				var identificationId string
+				for _, entry := range orgList {
+					if entryType := jpath.GetString(entry, "@type"); entryType == "organizationIdentification" {
+						identificationId = jpath.GetString(entry, "identificationId")
+						break
+					}
+				}
+				if identificationId == "" {
+					return ErrorResponsef(http.StatusBadRequest, "organizationIdentification[0].@type must be organizationIdentification")
+				}
+
 				org := jpath.GetString(orgList[0], "identificationId")
 				if org == "" {
 					return ErrorResponsef(http.StatusBadRequest, "organizationIdentification[0].identificationId is required")

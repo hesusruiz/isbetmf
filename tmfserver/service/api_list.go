@@ -13,6 +13,10 @@ func (svc *Service) ListGenericObjects(req *Request) *Response {
 		slog.Debug("ListGenericObjects called", slog.String("resourceName", req.ResourceName), slog.String("queryParams", req.QueryParams.Encode()))
 	}
 
+	// Check if the user wants diagnostic information, which is specified in the query string as '?diagnostic=true'
+	// This is not standard TMF, we use it to report on quality of data
+	diagnostic := req.QueryParams.Has("diagnostic")
+
 	// Parse pagination parameters
 	userLimit, userOffset := svc.parsePaginationParams(req)
 
@@ -31,9 +35,19 @@ func (svc *Service) ListGenericObjects(req *Request) *Response {
 
 	// Retrieve objects (Remote or Local)
 	if svc.proxyEnabled {
-		responseData, responseHeaders, resp = svc.listRemoteObjects(req, userLimit, userOffset, fieldSet)
-		if resp != nil {
-			return resp
+		var err error
+		var diagnosticObjects []repo.ValidationResult
+		responseData, responseHeaders, diagnosticObjects, err = svc.listRemoteObjects(req, userLimit, userOffset, fieldSet)
+		if err != nil {
+			return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", err)
+		}
+		if diagnostic || len(diagnosticObjects) > 0 {
+			// return &Response{StatusCode: http.StatusOK, Headers: responseHeaders, Body: diagnosticObjects}
+			return &Response{
+				StatusCode: http.StatusOK,
+				Headers:    responseHeaders,
+				Body:       responseData,
+			}
 		}
 	} else {
 		responseData, responseHeaders, resp = svc.listLocalObjects(req, userLimit, userOffset, fieldSet)

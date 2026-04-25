@@ -64,22 +64,112 @@ func processOneFile(filePath string) {
 		panic(err)
 	}
 
-	docmodel, err := document.BuildV2Model()
+	v2Model, err := document.BuildV2Model()
 	if err != nil {
 		panic(err)
 	}
 
+	index := v2Model.Index
+	fmt.Printf("There are %d paths and %d schemas in the document\n",
+		len(index.GetAllPaths()), len(index.GetAllSchemas()))
+
+	definitions := v2Model.Model.Definitions
+
+	dd := definitions.Definitions
+	pp := dd.GetPair("ProductOffering_Create")
+	fmt.Println("=====>", pp.Key)
+
+	for key, reference := range definitions.Definitions.FromNewest() {
+
+		if key == "ProductOffering_Create" || key == "ProductOffering" || key == "ProductOffering_Update" {
+
+			fmt.Println(key)
+			schema := reference.Schema()
+			fmt.Println("  Required:", schema.Required)
+
+			properties := schema.Properties
+			for key, _ := range properties.FromNewest() {
+				fmt.Println("  ", key)
+
+			}
+
+		}
+	}
+
+	if true {
+		os.Exit(0)
+	}
+
 	// get a count of the number of paths and schemas.
-	pathItems := docmodel.Model.Paths.PathItems
+	pathItems := v2Model.Model.Paths.PathItems
 
 	// print the number of paths and schemas in the document
-	len := orderedmap.Len(pathItems)
-	fmt.Println(len)
+	pathCount := orderedmap.Len(pathItems)
+	fmt.Println()
+	fmt.Println(filePath, pathCount)
 
 	for _, pathItem := range pathItems.FromNewest() {
 		ops := pathItem.GetOperations()
-		for k, op := range ops.FromNewest() {
-			fmt.Println(k, op.OperationId)
+		if ops != nil {
+			for op := range ops.ValuesFromNewest() {
+				if op.OperationId != "createProductOffering" {
+					continue
+				}
+				fmt.Println("  ", op.OperationId)
+				opParameters := op.Parameters
+				if opParameters == nil {
+					fmt.Println("    No parameters")
+					continue
+				} else {
+					fmt.Println("    Parameters:", len(opParameters))
+				}
+
+				for _, opParameter := range opParameters {
+					if opParameter == nil {
+						fmt.Println("    No parameter")
+						continue
+					}
+					fmt.Println("    ", opParameter.Name, "in:", opParameter.In, "required:", *opParameter.Required)
+					bodySchemaPtr := opParameter.Schema.Schema()
+					if bodySchemaPtr == nil {
+						fmt.Println("      No schema")
+						continue
+					}
+					bodySchemaRef := opParameter.Schema.GetReference()
+					fmt.Println("      Ref", bodySchemaRef)
+
+					// We are here typically because of a body is required
+
+					if len(bodySchemaPtr.Type) > 0 {
+						fmt.Println("      Type", bodySchemaPtr.Type[0], "Title:", bodySchemaPtr.Title)
+					}
+
+					fmt.Println("      Required:", bodySchemaPtr.Required)
+					fmt.Println("      Title:", bodySchemaPtr.Title)
+					fmt.Println("      Description:", bodySchemaPtr.Description)
+
+					bodyProperties := bodySchemaPtr.Properties
+					if bodyProperties != nil {
+						for key, bodyPropProxy := range bodyProperties.FromOldest() {
+							bodyPropSchema := bodyPropProxy.Schema()
+							if bodyPropSchema != nil {
+								fmt.Printf("         %s\n", key)
+
+							}
+						}
+					}
+
+					// b, err := json.MarshalIndent(schemaPtr, "", "  ")
+					// if err != nil {
+					// 	fmt.Println("      Error marshalling schema:", err)
+					// 	continue
+					// }
+					// fmt.Println("      ", string(b))
+
+				}
+
+			}
+
 		}
 	}
 

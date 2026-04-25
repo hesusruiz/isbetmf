@@ -4,6 +4,8 @@
 
 package config
 
+import "github.com/hesusruiz/isbetmf/internal/errl"
+
 var GeneratedDefaultResourceToPathPrefix = map[string]string{
 	"agreement":                  "/tmf-api/agreementManagement/v4/agreement",
 	"agreementSpecification":     "/tmf-api/agreementManagement/v4/agreementSpecification",
@@ -51,4 +53,11 @@ var GeneratedDefaultResourceToPathPrefix = map[string]string{
 	"settlementAccount":          "/tmf-api/accountManagement/v4/settlementAccount",
 	"usage":                      "/tmf-api/usageManagement/v4/usage",
 	"usageSpecification":         "/tmf-api/usageManagement/v4/usageSpecification",
+}
+
+func UpstreamTMFPath(resourceName string) (string, error) {
+	if pathPrefix, exists := GeneratedDefaultResourceToPathPrefix[resourceName]; exists {
+		return pathPrefix, nil
+	}
+	return "", errl.Errorf("unknown object type: %s", resourceName)
 }
