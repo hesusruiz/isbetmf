@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hesusruiz/isbetmf/internal/errl"
 	"github.com/hesusruiz/isbetmf/internal/sqlogger"
 	"github.com/hesusruiz/isbetmf/types"
 )
@@ -133,8 +134,12 @@ func LoadConfig(
 	// Get the admin token from the environment variable ISBETMF_ADMIN_TOKEN
 	adminToken := os.Getenv("ISBETMF_ADMIN_TOKEN")
 	if adminToken == "" {
-		// For testing, use the testing token
-		adminToken = "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX"
+		// For local testing, use the testing token. For other environments, it is compulsory
+		if environment == LOCAL {
+			adminToken = "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX"
+		} else {
+			return nil, errl.Errorf("ISBETMF_ADMIN_TOKEN not set for environment %s", environment)
+		}
 	}
 
 	// Configure the slog logger
@@ -247,14 +252,3 @@ func (c *Config) Close() {
 		c.LogHandler.Close()
 	}
 }
-
-// The names of some special objects in the DOME ecosystem
-const ProductOffering = "productOffering"
-const ProductSpecification = "productSpecification"
-const ProductOfferingPrice = "productOfferingPrice"
-const ServiceSpecification = "serviceSpecification"
-const ResourceSpecification = "resourceSpecification"
-const Category = "category"
-const Catalog = "catalog"
-const Organization = "organization"
-const Individual = "individual"

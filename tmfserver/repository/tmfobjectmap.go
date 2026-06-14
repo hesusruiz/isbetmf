@@ -146,7 +146,7 @@ func (obj TMFObjectMap) validateRequiredFieldsCreate(resourceName string, result
 	}
 
 	// Generate the warnings for the recommended fields
-	for _, field := range RecommendedFieldsForAllObjects {
+	for _, field := range types.RecommendedFieldsForAllObjects {
 		if !obj.HasField(field) {
 			result.Warnings = append(result.Warnings, ValidationWarning{
 				Field:   field,
@@ -185,7 +185,7 @@ func (obj TMFObjectMap) validateRequiredFields(resourceName string, result *Vali
 	}
 
 	// This checks the fields that are required for all objects
-	for _, field := range RequiredFieldsForAllObjects {
+	for _, field := range types.RequiredFieldsForAllObjects {
 		if !obj.HasField(field) {
 			result.Errors = append(result.Errors, ValidationError{
 				Field:   field,
@@ -196,7 +196,7 @@ func (obj TMFObjectMap) validateRequiredFields(resourceName string, result *Vali
 	}
 
 	// Generate the warnings for the recommended fields
-	for _, field := range RecommendedFieldsForAllObjects {
+	for _, field := range types.RecommendedFieldsForAllObjects {
 		if !obj.HasField(field) {
 			result.Warnings = append(result.Warnings, ValidationWarning{
 				Field:   field,
@@ -441,6 +441,14 @@ func (obj TMFObjectMap) ToMap() map[string]any {
 
 // Utility methods for well-known top-level attributes
 
+func (obj TMFObjectMap) IsPublic() bool {
+	resourceDefinition := types.GetResourceDefinition(obj.Type())
+	if resourceDefinition == nil {
+		return false
+	}
+	return resourceDefinition.Public
+}
+
 // ID returns the object ID
 func (obj TMFObjectMap) ID() string {
 	if id, ok := obj["id"].(string); ok {
@@ -504,6 +512,24 @@ func (obj TMFObjectMap) SetLastUpdate(lastUpdate string) {
 // SetLastUpdateNow sets the object lastUpdate to current timestamp in RFC3339 format
 func (obj TMFObjectMap) SetLastUpdateNow() {
 	obj["lastUpdate"] = time.Now().Format(time.RFC3339)
+}
+
+// LastModified returns the object lastModified
+func (obj TMFObjectMap) LastModified() string {
+	if lastModified, ok := obj["lastModified"].(string); ok {
+		return lastModified
+	}
+	return ""
+}
+
+// SetLastModified sets the object lastModified
+func (obj TMFObjectMap) SetLastModified(lastModified string) {
+	obj["lastModified"] = lastModified
+}
+
+// SetLastModifiedNow sets the object lastModified to current timestamp in RFC3339 format
+func (obj TMFObjectMap) SetLastModifiedNow() {
+	obj["lastModified"] = time.Now().Format(time.RFC3339)
 }
 
 // Type returns the object @type
@@ -1002,19 +1028,17 @@ func setSellerInfoV5(tmfObjectMap map[string]any, serverOperatorDid string, orga
 func (obj TMFObjectMap) RequiresSellerInfo() bool {
 	objType := obj.Type()
 	objType = strings.ToLower(objType)
-	return !slices.Contains(DoNotRequireRelatedParties, objType)
+	return !slices.Contains(types.DoNotRequireRelatedParties, objType)
 }
 
 func (obj TMFObjectMap) RequiresBuyerInfo() bool {
 	objType := obj.Type()
 	objType = strings.ToLower(objType)
-	relp := slices.Contains(DoNotRequireRelatedParties, objType)
-	buyp := slices.Contains(DoNotRequireBuyerInfo, objType)
-	rr := relp || buyp
-	return !rr
+	return !slices.Contains(types.DoNotRequireBuyerInfo, objType)
 }
 
-// GetSellerInfo finds the Seller and SellerOperator identifiers in the relatedParty array of the object.
+// GetSellerInfo finds the Seller and SellerOperator identifiers in the relatedParty array of the object,
+// using the apiVersion to determine which version of the function to use. If no version is provided, defaults to "v4".
 // If some identifier is missing (or both), it returns an error. But it returns what it finds.
 // So, even if the returned error is not nil, the caller may check the sellerDid and the sellerOperatorDid.
 // This is useful if the caller has logic to handle cases where only one of the values is found.

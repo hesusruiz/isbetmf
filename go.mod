@@ -20,6 +20,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	gitlab.com/greyxor/slogor v1.6.2
 	go.starlark.net v0.0.0-20250804182900-3c9dc17c5f2e
+	go.yaml.in/yaml/v4 v4.0.0-rc.4
 	golang.org/x/exp v0.0.0-20250819193227-8b4c13bb791b
 	golang.org/x/tools v0.36.0
 )
@@ -55,7 +56,6 @@ require (
 	github.com/yalp/jsonpath v0.0.0-20180802001716-5cc68e5049a0 // indirect
 	github.com/yudai/gojsondiff v1.0.0 // indirect
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // indirect
-	go.yaml.in/yaml/v4 v4.0.0-rc.4 // indirect
 	golang.org/x/net v0.43.0 // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect

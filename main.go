@@ -142,7 +142,7 @@ func runNormalProcess(configuration *config.Config) {
 		AppName:        "TMForum API Server",
 		ServerHeader:   "TMForum",
 		ProxyHeader:    "X-Forwarded-For",
-		ReadBufferSize: 16 * 1024, // 16 KB — allows large Authorization headers (e.g. JWTs with many claims)
+		ReadBufferSize: 64 * 1024, // 64 KB — allows large Authorization headers (e.g. JWTs with many claims)
 		ReadTimeout:    30 * time.Second,
 		WriteTimeout:   30 * time.Second,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
@@ -150,7 +150,6 @@ func runNormalProcess(configuration *config.Config) {
 			if e, ok := err.(*fiber.Error); ok {
 				code = e.Code
 			}
-			// slog.Error("Fiber error", slog.Any("error", err), slog.Int("status", code))
 
 			meth := fmt.Sprintf("<= %s %s", c.Method(), c.Path())
 			slog.Error(meth, slog.Any("error", err), slog.Int("status", code), slog.String("ip", c.IP()))
@@ -178,12 +177,12 @@ func runNormalProcess(configuration *config.Config) {
 
 	// 3. CORS middleware - enable cross-origin requests
 	webServer.Use(cors.New(cors.Config{
-		AllowOrigins:     "*", // Allow all origins as requested
+		AllowOrigins:     "*",
 		AllowMethods:     "GET,POST,HEAD,PUT,DELETE,PATCH,OPTIONS",
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Request-Id",
-		AllowCredentials: false, // Set to false when AllowOrigins is "*"
+		AllowCredentials: false,
 		ExposeHeaders:    "X-Request-Id",
-		MaxAge:           86400, // 24 hours
+		MaxAge:           86400,
 	}))
 
 	// 4. Compression middleware - compress responses

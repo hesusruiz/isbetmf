@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -20,21 +19,17 @@ import (
 	repo "github.com/hesusruiz/isbetmf/tmfserver/repository"
 )
 
-// createLocalOrRemoteObject creates an object in the remote server and then in the local database, if the proxy is enabled.
+// createRemoteOrLocalObject creates an object in the remote server and then in the local database, if the proxy is enabled.
 // Othewise, it just creates the object in the local database.
-func (svc *Service) createLocalOrRemoteObject(req *Request, obj *repo.TMFRecord) *Response {
+func (svc *Service) createRemoteOrLocalObject(req *Request, objMap repo.TMFObjectMap) *Response {
 
-	objMap, err := obj.ToTMFObjectMapCreate()
-	if err != nil {
-		err = errl.Errorf("failed to marshal object: %w", err)
-		return ErrorResponsef(http.StatusInternalServerError, "failed to marshal object: %w", err)
-	}
+	repoObject := objMap.ToTMFRecord(req.ResourceName)
 
 	// Create the object only in the local database if the proxy is not enabled
 	if !svc.proxyEnabled {
-		if err := svc.CreateObject(obj); err != nil {
+		if err := svc.CreateObject(repoObject); err != nil {
 			if errors.Is(err, &ErrObjectExists{}) {
-				return ErrorResponsef(http.StatusBadRequest, "object %s already exists: %w", obj.ID, err)
+				return ErrorResponsef(http.StatusBadRequest, "object %s already exists: %w", objMap.ID(), err)
 			} else {
 				return ErrorResponsef(http.StatusInternalServerError, "failed to create object locally: %w", err)
 			}
@@ -225,12 +220,11 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 				// Delete the offending object if we are not in production
 				if svc.environment != config.DOME_PRO {
 					path := fmt.Sprintf("/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, receivedObject.ID())
-					resp, err := svc.tmfClient.Delete(path, upstreamHeaders)
+					resp, _, err := svc.tmfClient.Delete(path, upstreamHeaders)
 					if err != nil || resp.StatusCode >= 300 {
 						slog.Error("failed to delete invalid object", "error", err, "status_code", resp.StatusCode, "path", path)
 						continue
 					}
-					resp.Body.Close()
 				}
 
 				continue
@@ -247,7 +241,7 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 			}
 
 			// Check if the user is authorized to access the object
-			authorized, err := svc.takeDecision(svc.ruleEngine, req, receivedObject)
+			authorized, err := svc.checkAuthorization(svc.ruleEngine, req, receivedObject)
 			if !authorized {
 				slog.Debug("object not authorized", "id", receivedObject.ID(), "error", err)
 				// Add diagnostic info if not authorized
@@ -318,7 +312,7 @@ func (svc *Service) listLocalObjects(req *Request, userLimit, userOffset int, fi
 		}
 
 		// Check if the user is authorized to access the object
-		authorized, err := svc.takeDecision(svc.ruleEngine, req, objMap)
+		authorized, err := svc.checkAuthorization(svc.ruleEngine, req, objMap)
 		if !authorized {
 			slog.Debug("object not authorized", "id", storageObject.ID, "error", err)
 			return false
@@ -423,15 +417,9 @@ func (svc *Service) getRemoteObject(req *Request) (*repo.TMFRecord, error) {
 	path := fmt.Sprintf("/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, req.ID)
 
 	// Send the request to the remote with our HTTP Client
-	resp, err := svc.tmfClient.Get(path, headers)
+	resp, body, err := svc.tmfClient.Get(path, headers)
 	if err != nil {
 		return nil, errl.Errorf("failed to proxy request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errl.Errorf("failed to read response body: %w", err)
 	}
 
 	// Not found is not an error at this level, but the caller must check for a nil object

@@ -5,8 +5,8 @@ import (
 	"net/http"
 )
 
-// UpdateGenericObject updates an existing TMF object using generalized parameters.
-func (svc *Service) UpdateGenericObject(req *Request) *Response {
+// UpdateTMFObject updates an existing TMF object using generalized parameters.
+func (svc *Service) UpdateTMFObject(req *Request) *Response {
 	slog.Debug("UpdateGenericObject called", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
 	// Authentication is required for update operations
@@ -21,7 +21,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	}
 
 	// Ensure update metadata
-	if errorResponse := svc.ensureUpdateMetadata(req, incomingObjectMap); errorResponse != nil {
+	if errorResponse := svc.verifyObjectOnUpdate(req, incomingObjectMap); errorResponse != nil {
 		return errorResponse
 	}
 

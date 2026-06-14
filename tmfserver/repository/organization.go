@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	"github.com/hesusruiz/isbetmf/internal/jpath"
+	"github.com/hesusruiz/isbetmf/types"
 )
 
 const eIDASAuthority = "eIDAS"
@@ -26,7 +26,7 @@ func (obj TMFObjectMap) ELSIOrganizationIdentification() (string, error) {
 	}
 
 	// Loop the array until we find the entry with the identificationType elsiIdentificationType
-	for _, identification := range organizationIdentificationArray {
+	for i, identification := range organizationIdentificationArray {
 
 		identificationMap, _ := identification.(map[string]any)
 
@@ -48,6 +48,13 @@ func (obj TMFObjectMap) ELSIOrganizationIdentification() (string, error) {
 			continue
 		}
 
+		// Make sure that the identificationId has the prefix "did:elsi:"
+		if !strings.HasPrefix(identificationId, "did:elsi:") {
+			identificationId = "did:elsi:" + identificationId
+			identificationMap["identificationId"] = identificationId
+			organizationIdentificationArray[i] = identificationMap
+		}
+
 		return identificationId, nil
 	}
 	return "", errl.Errorf("no identificationType elsiIdentificationType")
@@ -55,7 +62,7 @@ func (obj TMFObjectMap) ELSIOrganizationIdentification() (string, error) {
 
 // SetELSIOrganizationIdentification sets the ELSI organization identification in the object
 // It modifies an existing entry, or creates a new one if needed
-func (obj TMFObjectMap) SetELSIOrganizationIdentification(identificationId string) error {
+func (obj TMFObjectMap) SetELSIOrganizationIdentification(identificationId string) {
 
 	// Normalize the identificationId to have always a prefix "did:elsi:"
 	if !strings.HasPrefix(identificationId, "did:elsi:") {
@@ -76,7 +83,7 @@ func (obj TMFObjectMap) SetELSIOrganizationIdentification(identificationId strin
 		obj["organizationIdentification"] = []any{
 			theIdentification,
 		}
-		return nil
+		return
 	}
 
 	// Loop the array until we find the entry with the identificationType elsiIdentificationType
@@ -101,13 +108,13 @@ func (obj TMFObjectMap) SetELSIOrganizationIdentification(identificationId strin
 		identificationMap["issuingAuthority"] = eIDASAuthority
 		identificationMap["@type"] = "organizationIdentification"
 
-		return nil
+		return
 	}
 
 	// No existing entry was found, add a new one
 	organizationIdentificationArray = append(organizationIdentificationArray, theIdentification)
 	obj["organizationIdentification"] = organizationIdentificationArray
-	return nil
+	return
 
 }
 
@@ -143,7 +150,7 @@ func TMFRecordFromOrganizationAndToken(user *Organization, accessToken map[strin
 	now := time.Now()
 	lastUpdate := now.Format(time.RFC3339Nano)
 
-	objectType := config.Organization
+	objectType := types.Organization
 	version := "1.0"
 
 	theIdentification := map[string]any{

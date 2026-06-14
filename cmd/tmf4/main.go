@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"slices"
 	"strings"
 
+	"github.com/hesusruiz/isbetmf/types"
 	"github.com/pb33f/libopenapi"
-	"github.com/pb33f/libopenapi/orderedmap"
+	v2 "github.com/pb33f/libopenapi/datamodel/high/v2"
+	"go.yaml.in/yaml/v4"
 )
 
 // This is a simple tool to process the Swagger files in the "swagger" directory
@@ -16,16 +19,12 @@ import (
 // It assumes the Swagger files are in the format used by the TMForum APIs.
 // It will print the mapping and the routes to the standard output in JSON format.
 
-var (
-	managementToUpstream = map[string]string{}
-	resourceToManagement = map[string]string{}
-	resourceToFullPath   = map[string]string{}
-)
-
 func main() {
 
 	// Visit all the JSON files in the "swagger" directory
 	swaggerDir := "./www/oapiv4/oapiv4"
+
+	// processOneFile("www/oapiv4/oapiv4/TMF620-productCatalogManagement.json")
 
 	// Read the directory entries
 	dirEntries, err := os.ReadDir(swaggerDir)
@@ -33,6 +32,9 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error reading directory %s: %v\n", swaggerDir, err)
 		os.Exit(1)
 	}
+
+	// This is the map where we will accumulate the information for generation of code
+	resources := make(types.Resources)
 
 	// Process each file in the directory
 	for _, dirEntry := range dirEntries {
@@ -43,17 +45,15 @@ func main() {
 				// Skip non-JSON files
 				continue
 			}
-			processOneFile(filePath)
+			resources = processOneFile(filePath, resources)
 		}
 	}
 
-	if true {
-		os.Exit(0)
-	}
+	generateDefinitions(resources)
 
 }
 
-func processOneFile(filePath string) {
+func processOneFile(filePath string, resources types.Resources) types.Resources {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		panic(err)
@@ -69,108 +69,156 @@ func processOneFile(filePath string) {
 		panic(err)
 	}
 
-	index := v2Model.Index
-	fmt.Printf("There are %d paths and %d schemas in the document\n",
-		len(index.GetAllPaths()), len(index.GetAllSchemas()))
-
-	definitions := v2Model.Model.Definitions
-
-	dd := definitions.Definitions
-	pp := dd.GetPair("ProductOffering_Create")
-	fmt.Println("=====>", pp.Key)
-
-	for key, reference := range definitions.Definitions.FromNewest() {
-
-		if key == "ProductOffering_Create" || key == "ProductOffering" || key == "ProductOffering_Update" {
-
-			fmt.Println(key)
-			schema := reference.Schema()
-			fmt.Println("  Required:", schema.Required)
-
-			properties := schema.Properties
-			for key, _ := range properties.FromNewest() {
-				fmt.Println("  ", key)
-
-			}
-
-		}
-	}
-
-	if true {
-		os.Exit(0)
-	}
-
-	// get a count of the number of paths and schemas.
 	pathItems := v2Model.Model.Paths.PathItems
 
-	// print the number of paths and schemas in the document
-	pathCount := orderedmap.Len(pathItems)
-	fmt.Println()
-	fmt.Println(filePath, pathCount)
+	for path, pathItem := range pathItems.FromNewest() {
 
-	for _, pathItem := range pathItems.FromNewest() {
-		ops := pathItem.GetOperations()
-		if ops != nil {
-			for op := range ops.ValuesFromNewest() {
-				if op.OperationId != "createProductOffering" {
-					continue
-				}
-				fmt.Println("  ", op.OperationId)
-				opParameters := op.Parameters
-				if opParameters == nil {
-					fmt.Println("    No parameters")
-					continue
-				} else {
-					fmt.Println("    Parameters:", len(opParameters))
-				}
+		if pathItem == nil {
+			fmt.Println("pathItem is nil")
+			continue
+		}
 
-				for _, opParameter := range opParameters {
-					if opParameter == nil {
-						fmt.Println("    No parameter")
-						continue
+		var op *v2.Operation
+
+		op = pathItem.Post
+		if op != nil {
+			resources = processCREATEorUPDATE("CREATE", path, op, resources)
+		}
+
+		op = pathItem.Patch
+		if op != nil {
+			resources = processCREATEorUPDATE("UPDATE", path, op, resources)
+		}
+
+	}
+
+	return resources
+
+}
+
+func processCREATEorUPDATE(action string, path string, op *v2.Operation, resources types.Resources) types.Resources {
+	if op != nil {
+
+		// We skip the operations that we do not have to implement
+		id := op.OperationId
+		if strings.HasPrefix(id, "listen") || strings.HasSuffix(id, "Job") || strings.HasSuffix(id, "Listener") {
+			return resources
+		}
+
+		// The Swagger parameters definition for the operation
+		params := op.Parameters
+
+		requiredProperties := []string{}
+		allProperties := []string{}
+		var resourceName string
+
+		for _, param := range params {
+			paramName := param.Name
+			paramIn := param.In
+
+			// We only process the data in the body of the request
+			if paramIn == "body" {
+
+				resourceName = paramName
+				bodySchemaProxy := param.Schema
+				if bodySchemaProxy != nil {
+					bodySchema := bodySchemaProxy.Schema()
+
+					for _, value := range bodySchema.Required {
+						requiredProperties = append(requiredProperties, value)
 					}
-					fmt.Println("    ", opParameter.Name, "in:", opParameter.In, "required:", *opParameter.Required)
-					bodySchemaPtr := opParameter.Schema.Schema()
-					if bodySchemaPtr == nil {
-						fmt.Println("      No schema")
-						continue
-					}
-					bodySchemaRef := opParameter.Schema.GetReference()
-					fmt.Println("      Ref", bodySchemaRef)
 
-					// We are here typically because of a body is required
-
-					if len(bodySchemaPtr.Type) > 0 {
-						fmt.Println("      Type", bodySchemaPtr.Type[0], "Title:", bodySchemaPtr.Title)
-					}
-
-					fmt.Println("      Required:", bodySchemaPtr.Required)
-					fmt.Println("      Title:", bodySchemaPtr.Title)
-					fmt.Println("      Description:", bodySchemaPtr.Description)
-
-					bodyProperties := bodySchemaPtr.Properties
+					bodyProperties := bodySchema.Properties
 					if bodyProperties != nil {
 						for key, bodyPropProxy := range bodyProperties.FromOldest() {
 							bodyPropSchema := bodyPropProxy.Schema()
 							if bodyPropSchema != nil {
-								fmt.Printf("         %s\n", key)
-
+								allProperties = append(allProperties, key)
 							}
 						}
 					}
 
-					// b, err := json.MarshalIndent(schemaPtr, "", "  ")
-					// if err != nil {
-					// 	fmt.Println("      Error marshalling schema:", err)
-					// 	continue
-					// }
-					// fmt.Println("      ", string(b))
-
 				}
-
 			}
-
 		}
+
+		// Add to required some fields in DOME and ISBE
+		// All objects except "category", "individual" and "organization", require the "relatedParty"
+		exceptions := []string{"category", "individual", "organization"}
+		if action == "CREATE" {
+			if !slices.Contains(exceptions, resourceName) {
+				// Add to required if it is not yet
+				if !slices.Contains(requiredProperties, "relatedParty") {
+					requiredProperties = append(requiredProperties, "relatedParty")
+				}
+			}
+		}
+
+		thisOperation := &types.Action{
+			Resource: resourceName,
+			Action:   action,
+			Required: requiredProperties,
+			Fields:   allProperties,
+		}
+
+		if resources[resourceName] == nil {
+			resources[resourceName] = &types.Resource{
+				Actions: make(map[string]*types.Action),
+				Public:  IsPublicResource(resourceName),
+			}
+		}
+
+		resources[resourceName].Actions[action] = thisOperation
+
+	}
+	return resources
+
+}
+
+func generateDefinitions(resources types.Resources) {
+
+	b, err := yaml.Marshal(resources)
+	if err != nil {
+		panic(err)
 	}
 
+	err = os.WriteFile("./tmf_operations.yaml", b, 0644)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// Public TMF resources are accessible by all users, even unauthenticated ones
+func IsPublicResource(resourceName string) bool {
+	resourceName = strings.ToLower(resourceName)
+	_, ok := PublicResources[resourceName]
+	return ok
+}
+
+// The public objects are the following:
+var PublicResources = map[string]bool{
+	// TMF620 Product Catalog Management
+	"category":             true,
+	"catalog":              true,
+	"productoffering":      true,
+	"productofferingprice": true,
+	"productspecification": true,
+
+	// TMF633 Service Catalog Management
+	"servicecatalog":       true,
+	"servicecategory":      true,
+	"servicecandidate":     true,
+	"servicespecification": true,
+
+	// TMF634 Resource Catalog Management
+	"resourcecatalog":       true,
+	"resourcecategory":      true,
+	"resourcecandidate":     true,
+	"resourcespecification": true,
+
+	// Organization from TMF632 Party Management. But Individual is private.
+	"organization": true,
+
+	// TMF669 Party Role Management
+	"partyrole": true,
 }

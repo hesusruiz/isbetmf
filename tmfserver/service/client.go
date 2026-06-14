@@ -31,6 +31,9 @@ type TMFClientConfig struct {
 
 	// Default page size for requests to the remote server
 	PageSize int `json:"page_size" yaml:"page_size"`
+
+	// If we are running in internal mode we do not use the BaseURL
+	InternalMode bool `json:"internal_mode" yaml:"internal_mode"`
 }
 
 // TMFClient is a client for the TMForum API.
@@ -73,15 +76,9 @@ func (c *TMFClient) TMFPost(req *Request, objMap repository.TMFObjectMap) (repos
 		"Content-Type":  "application/json",
 	}
 
-	resp, err := c.Post(path, requestBody, headers)
+	resp, responseBody, err := c.Post(path, requestBody, headers)
 	if err != nil {
 		return nil, []error{errl.Errorf("remote server returned error: %w", err)}
-	}
-	defer resp.Body.Close()
-
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, []error{errl.Errorf("failed to read response body: %w", err)}
 	}
 
 	if resp.StatusCode != http.StatusCreated {
@@ -137,15 +134,9 @@ func (c *TMFClient) TMFPatch(req *Request, patchMap repository.TMFObjectMap) (re
 		"Content-Type":  "application/json",
 	}
 
-	resp, err := c.Patch(path, requestBody, headers)
+	resp, responseBody, err := c.Patch(path, requestBody, headers)
 	if err != nil {
 		return nil, []error{errl.Errorf("remote server returned error: %w", err)}
-	}
-	defer resp.Body.Close()
-
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, []error{errl.Errorf("failed to read response body: %w", err)}
 	}
 
 	if resp.StatusCode >= 300 {
@@ -202,7 +193,7 @@ func (c *TMFClient) TMFGetList(resourceName string, queryParams url.Values, page
 
 	// Build the base path including parameters for the request to the remote server
 	// The path is terminated with '&' or '?' because we will add the paging parameters later
-	basePath, err := config.UpstreamTMFPath(resourceName)
+	basePath, err := config.ExternalUpstreamTMFPath(resourceName)
 	if err != nil {
 		return nil, errl.Errorf("failed to get path prefix: %w", err)
 	}
@@ -217,15 +208,9 @@ func (c *TMFClient) TMFGetList(resourceName string, queryParams url.Values, page
 
 	slog.Debug("sending request to remote", "path", path)
 
-	resp, err := c.Get(path, headers)
+	resp, body, err := c.Get(path, headers)
 	if err != nil {
 		return nil, errl.Errorf("remote server returned error: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errl.Errorf("failed to read response body: %w", err)
 	}
 
 	// Check the content type of the response and return an error if it is not JSON
@@ -280,29 +265,42 @@ func (c *TMFClient) TMFGetList(resourceName string, queryParams url.Values, page
 }
 
 // Get sends a GET request to the remote server.
-func (c *TMFClient) Get(path string, headers map[string]string) (*http.Response, error) {
+func (c *TMFClient) Get(path string, headers map[string]string) (*http.Response, []byte, error) {
 	return c.do("GET", path, nil, headers)
 }
 
 // Post sends a POST request to the remote server.
-func (c *TMFClient) Post(path string, body []byte, headers map[string]string) (*http.Response, error) {
+func (c *TMFClient) Post(path string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
 	return c.do("POST", path, body, headers)
 }
 
 // Patch sends a PATCH request to the remote server.
-func (c *TMFClient) Patch(path string, body []byte, headers map[string]string) (*http.Response, error) {
+func (c *TMFClient) Patch(path string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
 	return c.do("PATCH", path, body, headers)
 }
 
 // Delete sends a DELETE request to the remote server.
-func (c *TMFClient) Delete(path string, headers map[string]string) (*http.Response, error) {
+func (c *TMFClient) Delete(path string, headers map[string]string) (*http.Response, []byte, error) {
 	return c.do("DELETE", path, nil, headers)
 }
 
 // do sends an HTTP request to the remote server.
 // It uses the BaseURL and PathPrefix for the server from the configuration.
-func (c *TMFClient) do(method, path string, body []byte, headers map[string]string) (*http.Response, error) {
-	url := fmt.Sprintf("%s%s%s", c.config.BaseURL, c.config.PathPrefix, path)
+func (c *TMFClient) do(method, path string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
+
+	var url string
+
+	if c.config.InternalMode {
+		// Get the URL from the config
+		origin, err := config.InternalUpstreamURL(path)
+		if err != nil {
+			return nil, nil, errl.Errorf("failed to get upstream URL for %s: %w", path, err)
+		}
+		url = fmt.Sprintf("%s%s%s", origin, c.config.PathPrefix, path)
+	} else {
+		url = fmt.Sprintf("%s%s%s", c.config.BaseURL, c.config.PathPrefix, path)
+	}
+
 	slog.Debug("sending", slog.String("method", method), "url", url)
 
 	var req *http.Request
@@ -315,7 +313,7 @@ func (c *TMFClient) do(method, path string, body []byte, headers map[string]stri
 	}
 
 	if err != nil {
-		return nil, errl.Errorf("failed to create request for %s: %w", url, err)
+		return nil, nil, errl.Errorf("failed to create request for %s: %w", url, err)
 	}
 
 	for key, value := range headers {
@@ -324,8 +322,15 @@ func (c *TMFClient) do(method, path string, body []byte, headers map[string]stri
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, errl.Errorf("error sending %s request to %s: %w", method, url, err)
+		return nil, nil, errl.Errorf("error sending %s request to %s: %w", method, url, err)
 	}
 
-	return resp, nil
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, errl.Errorf("failed to read response body: %w", err)
+	}
+
+	return resp, responseBody, nil
 }

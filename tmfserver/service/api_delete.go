@@ -2,14 +2,13 @@ package service
 
 import (
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 
 	repo "github.com/hesusruiz/isbetmf/tmfserver/repository"
 )
 
-// DeleteGenericObject deletes a TMF object using generalized parameters.
+// DeleteTMFObject deletes a TMF object using generalized parameters.
 //
 // The function performs the following checks and operations:
 //
@@ -33,7 +32,7 @@ import (
 // 5.  **Response and Notification**:
 //   - It returns a 204 No Content response on successful deletion.
 //   - It sends a "DeleteEvent" notification to subscribed listeners.
-func (svc *Service) DeleteGenericObject(req *Request) *Response {
+func (svc *Service) DeleteTMFObject(req *Request) *Response {
 	var err error
 	slog.Debug("DeleteGenericObject called", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
@@ -71,7 +70,7 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 	// based on the rules defined by the user in the policy engine.
 	// ************************************************************************************************
 
-	if authorized, err := svc.takeDecision(svc.ruleEngine, req, existingObjectMap); !authorized {
+	if authorized, err := svc.checkAuthorization(svc.ruleEngine, req, existingObjectMap); !authorized {
 		return ErrorResponsef(http.StatusForbidden,
 			"user %s is not authorized, object: %s, error: %w",
 			req.AuthUser.OrganizationIdentifier,
@@ -93,17 +92,12 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 			"Authorization": "Bearer " + req.AuthUser.AccessToken,
 		}
 		path := fmt.Sprintf("/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, req.ID)
-		resp, err := svc.tmfClient.Delete(path, headers)
+		resp, body, err := svc.tmfClient.Delete(path, headers)
 		if err != nil {
 			return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", err)
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode >= 300 {
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return ErrorResponsef(http.StatusInternalServerError, "failed to read response body: %w", err)
-			}
 			return &Response{
 				StatusCode: resp.StatusCode,
 				Body:       body,

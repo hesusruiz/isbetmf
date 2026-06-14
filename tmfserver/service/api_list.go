@@ -5,12 +5,19 @@ import (
 	"net/http"
 
 	repo "github.com/hesusruiz/isbetmf/tmfserver/repository"
+	"github.com/hesusruiz/isbetmf/types"
 )
 
-// ListGenericObjects retrieves all TMF objects of a given type.
-func (svc *Service) ListGenericObjects(req *Request) *Response {
+// ListTMFObjects retrieves all TMF objects of a given type.
+func (svc *Service) ListTMFObjects(req *Request) *Response {
 	if !req.HealthRequest {
 		slog.Debug("ListGenericObjects called", slog.String("resourceName", req.ResourceName), slog.String("queryParams", req.QueryParams.Encode()))
+	}
+
+	// Make sure the resource is supported
+	res := types.GetResourceDefinition(req.ResourceName)
+	if res == nil {
+		return ErrorResponsef(http.StatusBadRequest, "resource type %s not supported", req.ResourceName)
 	}
 
 	// Check if the user wants diagnostic information, which is specified in the query string as '?diagnostic=true'

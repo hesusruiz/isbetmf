@@ -296,6 +296,12 @@ var lclConfig = &Config{
 	Environment:  LOCAL,
 	ProxyEnabled: false,
 
+	// The operator is Alastria
+	ServerOperatorOrganizationIdentifier: "VATES-G87936159",
+	ServerOperatorDid:                    "did:elsi:VATES-G87936159",
+	ServerOperatorName:                   "Alastria",
+	ServerOperatorCountry:                "ES",
+
 	LEARPower: types.OnePower{
 		Type:     "domain",
 		Domain:   "DOME",

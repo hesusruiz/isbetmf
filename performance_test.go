@@ -29,7 +29,7 @@ func TestPerformance(t *testing.T) {
 	iterations := 50 // Start with a smaller number for the first run
 	start := time.Now()
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		// 1. Create (POST)
 		ps := repository.TMFObjectMap{
 			"name":            fmt.Sprintf("Perf Test Spec %d", i),

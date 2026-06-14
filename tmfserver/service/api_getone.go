@@ -8,7 +8,7 @@ import (
 	"github.com/hesusruiz/isbetmf/internal/errl"
 )
 
-// GetGenericObject retrieves a TMF object using generalized parameters.
+// GetTMFObject retrieves a TMF object using generalized parameters.
 //
 // The function performs the following checks and operations:
 //
@@ -28,39 +28,40 @@ import (
 // 4.  **Response**:
 //   - It handles partial field selection using the "fields" query parameter.
 //   - It returns a 200 OK response with the (potentially filtered) object in the body.
-func (svc *Service) GetGenericObject(req *Request) *Response {
-	slog.Debug("GetGenericObject called", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+func (svc *Service) GetTMFObject(req *Request) *Response {
+	slog.Debug("GetTMFObject called", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
 	// Authentication: anonymous access is allowed, so we do not check the existence of the access token
 
 	// Retrieve the object from the database. If it is not found, we try to get it from the remote server (if proxy is enabled).
 	// If the object is not found, we return a 404 error.
-	existingObject, err := svc.getLocalOrRemoteObject(req)
+	existingStorageObject, err := svc.getLocalOrRemoteObject(req)
 	if err != nil {
 		// This is an unexpected error, so we return a server error
 		return ErrorResponsef(http.StatusInternalServerError, "failed to get object from service: %w", errl.Error(err))
 	}
 
-	if existingObject == nil {
+	// Check if the object was found (which is not an error in the previous step)
+	if existingStorageObject == nil {
 		return ErrorResponsef(http.StatusNotFound, "object not found")
 	}
 
 	// Convert to a type-safe map representation to facilitate manipulation
-	existingObjectMap, err := existingObject.ToTMFObjectMap()
+	existingObjectMap, err := existingStorageObject.ToTMFObjectMap()
 	if err != nil {
-		if len(existingObject.Validations.Errors) > 0 {
-			return ErrorResponsef(http.StatusInternalServerError, "validation errors found: %s", existingObject.Validations.String())
+		if len(existingStorageObject.Validations.Errors) > 0 {
+			return ErrorResponsef(http.StatusInternalServerError, "validation errors found: %s", existingStorageObject.Validations.String())
 		} else {
 			return ErrorResponsef(http.StatusInternalServerError, "failed to unmarshal existing object content: %w", errl.Error(err))
 		}
 	}
 
 	// ************************************************************************************************
-	// Before performing the action, check if the user can perform the operation on the object,
-	// based on the rules defined by the user in the policy engine.
+	// Before returning the object to the user, check if the user has access to the object,
+	// based on the rules defined by the owner of the object in the policy engine.
 	// ************************************************************************************************
 
-	if authorized, err := svc.takeDecision(svc.ruleEngine, req, existingObjectMap); !authorized {
+	if authorized, err := svc.checkAuthorization(svc.ruleEngine, req, existingObjectMap); !authorized {
 		return ErrorResponsef(http.StatusForbidden,
 			"user %s is not authorized, object: %s, error: %w",
 			req.AuthUser.OrganizationIdentifier,
@@ -76,34 +77,35 @@ func (svc *Service) GetGenericObject(req *Request) *Response {
 	// ************************************************************************************************
 
 	// Handle partial field selection
-	fieldsParam := req.QueryParams.Get("fields")
-	if fieldsParam != "" {
-		var fields []string
-		if fieldsParam != "none" {
-			fields = strings.Split(fieldsParam, ",")
-		}
+	fields := req.QueryParams["fields"]
+	if len(fields) > 0 {
+
+		// The user can specify "none", but we do not have to care about it, because if he specifies a field that does not exist,
+		// we will return the object with the mandatory fields anyway.
 
 		// Create a set of fields for quick lookup
-		fieldSet := make(map[string]bool)
+		fieldSet := make(map[string]bool, len(fields))
 		for _, f := range fields {
 			fieldSet[strings.TrimSpace(f)] = true
 		}
 
-		// Always include id, href, lastUpdate, version, @type and lifecycleStatus
+		// Always include id, href, lastUpdate or lastModified, version, @type and lifecycleStatus
 		fieldSet["id"] = true
 		fieldSet["href"] = true
 		fieldSet["lastUpdate"] = true
+		fieldSet["lastModified"] = true
 		fieldSet["version"] = true
 		fieldSet["@type"] = true
 		fieldSet["lifecycleStatus"] = true
 
-		filteredItem := make(map[string]any)
+		// Instead of deleting the fields we don't want, we replace the object with a new one containing only the fields we want.
+		filteredObject := make(map[string]any)
 		for key, value := range existingObjectMap {
 			if fieldSet[key] {
-				filteredItem[key] = value
+				filteredObject[key] = value
 			}
 		}
-		existingObjectMap = filteredItem
+		existingObjectMap = filteredObject
 	}
 
 	slog.Info("Object retrieved successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))

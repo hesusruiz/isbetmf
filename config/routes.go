@@ -55,7 +55,7 @@ var GeneratedDefaultResourceToPathPrefix = map[string]string{
 	"usageSpecification":         "/tmf-api/usageManagement/v4/usageSpecification",
 }
 
-func UpstreamTMFPath(resourceName string) (string, error) {
+func ExternalUpstreamTMFPath(resourceName string) (string, error) {
 	if pathPrefix, exists := GeneratedDefaultResourceToPathPrefix[resourceName]; exists {
 		return pathPrefix, nil
 	}

@@ -1,6 +1,7 @@
 package service
 
 import (
+	_ "embed"
 	"errors"
 	"net/url"
 	"regexp"
@@ -146,6 +147,10 @@ type Service struct {
 
 // NewTMFService creates a new service.
 func NewTMFService(cnf *config.Config, storage TMFStorage, ruleEngine *pdp.PDP) (*Service, error) {
+
+	// Parse the YAML definition
+	types.ParseActionDefinitions()
+
 	svc := &Service{}
 
 	svc.environment = cnf.Environment

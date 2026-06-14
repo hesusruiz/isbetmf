@@ -79,7 +79,7 @@ func (h *AdminHandler) ListObjects(c *fiber.Ctx) error {
 	// For now, let's try calling it directly. The service layer might fail if no token is present
 	// and the policy requires it.
 
-	resp := h.service.ListGenericObjects(req)
+	resp := h.service.ListTMFObjects(req)
 
 	if resp.StatusCode >= 400 {
 		return c.Status(resp.StatusCode).SendString(fmt.Sprintf("Error fetching objects: %v", resp.Body))
@@ -114,7 +114,7 @@ func (h *AdminHandler) ViewObject(c *fiber.Ctx) error {
 		ID:           id,
 	}
 
-	resp := h.service.GetGenericObject(req)
+	resp := h.service.GetTMFObject(req)
 
 	if resp.StatusCode >= 400 {
 		return c.Status(resp.StatusCode).SendString(fmt.Sprintf("Error fetching object: %v", resp.Body))

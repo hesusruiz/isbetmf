@@ -2,9 +2,16 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"log/slog"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/hesusruiz/isbetmf/internal/errl"
+	"github.com/mattn/go-sqlite3"
 )
 
 // CreateTMFTableSQL is the SQL statement to create the table 'tmf_object', holding all objects of all types
@@ -118,4 +125,557 @@ func CreateTables(db *sql.DB) error {
 	}
 
 	return nil
+}
+
+// ErrObjectExists is returned when trying to create an object that already exists.
+type ErrObjectExists struct {
+	ID   string
+	Type string
+}
+
+func (e *ErrObjectExists) Error() string {
+	return fmt.Sprintf("object with id %s and type %s already exists", e.ID, e.Type)
+}
+
+func (e *ErrObjectExists) Is(target error) bool {
+	switch target.(type) {
+	case *ErrObjectExists:
+		return true
+	default:
+		return false
+	}
+}
+
+// ErrObjectNotFound is returned when trying to perform an operation on an object that does not exist.
+type ErrObjectNotFound struct {
+	ID   string
+	Type string
+}
+
+func (e *ErrObjectNotFound) Error() string {
+	return fmt.Sprintf("object with id %s and type %s not found", e.ID, e.Type)
+}
+
+func (e *ErrObjectNotFound) Is(target error) bool {
+	switch target.(type) {
+	case *ErrObjectNotFound:
+		return true
+	default:
+		return false
+	}
+}
+
+// Close closes the database connection.
+func (repo *DBService) Close() error {
+	return repo.db.Close()
+}
+
+// CreateObject creates a new TMF object. Returns &ErrObjectExists if the object already existed.
+func (repo *DBService) CreateObject(obj *TMFRecord) error {
+	if obj == nil {
+		return errl.Errorf("object is nil")
+	}
+	slog.Debug("dbLayer: createObject", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
+
+	// Make sure timestamps are correct
+	now := time.Now()
+	obj.CreatedAt = now.Unix()
+	obj.UpdatedAt = now.Unix()
+
+	// Execute the SQL
+	_, err := repo.db.Exec(`INSERT INTO tmf_object
+		(id, type, version, api_version, seller, seller_operator, buyer, buyer_operator, last_update, content, created_at, updated_at)
+		VALUES (:id, :type, :version, :api_version, :seller, :seller_operator, :buyer, :buyer_operator, :last_update, jsonb(:content), :created_at, :updated_at)`,
+		sql.Named("id", obj.ID),
+		sql.Named("type", obj.Type),
+		sql.Named("version", obj.Version),
+		sql.Named("api_version", obj.APIVersion),
+		sql.Named("seller", obj.Seller),
+		sql.Named("seller_operator", obj.SellerOperator),
+		sql.Named("buyer", obj.Buyer),
+		sql.Named("buyer_operator", obj.BuyerOperator),
+		sql.Named("last_update", obj.LastUpdate),
+		sql.Named("content", obj.Content),
+		sql.Named("created_at", obj.CreatedAt),
+		sql.Named("updated_at", obj.UpdatedAt),
+	)
+	if err != nil {
+		var sqliteErr sqlite3.Error
+		if errors.As(err, &sqliteErr) {
+			if sqliteErr.Code == sqlite3.ErrConstraint && sqliteErr.ExtendedCode == sqlite3.ErrConstraintPrimaryKey {
+				return &ErrObjectExists{ID: obj.ID, Type: obj.Type}
+			}
+		}
+		err = errl.Errorf("failed to create object id=%s type=%s: %w", obj.ID, obj.Type, err)
+	}
+	return err
+}
+
+// GetObject retrieves a TMF object by its ID and type.
+// If the object is not found anywhere, it returns a nil object and no error.
+func (repo *DBService) GetObject(id, objectType string) (*TMFRecord, error) {
+	slog.Debug("dbLayer: getObject", slog.String("id", id), slog.String("type", objectType))
+
+	var obj TMFRecord
+	err := repo.db.QueryRow(`
+		SELECT id, type, version, api_version, seller, seller_operator, buyer, buyer_operator, last_update, json(content), random, created_at, updated_at
+		FROM tmf_object
+		WHERE id = :id AND type = :type`,
+		sql.Named("id", id),
+		sql.Named("type", objectType),
+	).Scan(
+		&obj.ID, &obj.Type, &obj.Version, &obj.APIVersion,
+		&obj.Seller, &obj.SellerOperator, &obj.Buyer, &obj.BuyerOperator,
+		&obj.LastUpdate, &obj.Content, &obj.Random, &obj.CreatedAt, &obj.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		slog.Info("DBLayer: Object not found", slog.String("id", id), slog.String("type", objectType))
+		return nil, nil // Object not found
+	} else if err != nil {
+		err = errl.Errorf("failed to get object id=%s type=%s: %w", id, objectType, err)
+	}
+	return &obj, err
+}
+
+// UpdateObject updates an existing TMF object row.
+//
+// Returns:
+//   - ErrObjectNotFound  – no row exists for the given (id, type).
+func (repo *DBService) UpdateObject(obj *TMFRecord) error {
+	slog.Debug("dbLayer: UpdateObject", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
+
+	// Make sure timestamps are correct
+	obj.UpdatedAt = time.Now().Unix()
+
+	// Update the row for this object, storing the latest version and content.
+	// Note: seller and buyer are intentionally excluded from the SET clause – they cannot
+	// be changed after the object is created.
+	res, err := repo.db.Exec(`UPDATE tmf_object
+		SET   version     = :version,
+		      last_update = :last_update,
+		      content     = jsonb(:content),
+		      updated_at  = :updated_at
+		WHERE id      = :id
+		  AND type    = :type`,
+		sql.Named("version", obj.Version),
+		sql.Named("last_update", obj.LastUpdate),
+		sql.Named("content", obj.Content),
+		sql.Named("updated_at", obj.UpdatedAt),
+		sql.Named("id", obj.ID),
+		sql.Named("type", obj.Type),
+	)
+	if err != nil {
+		return errl.Errorf("failed to update object id=%s type=%s: %w", obj.ID, obj.Type, err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return errl.Errorf("failed to get rows affected object id=%s type=%s: %w", obj.ID, obj.Type, err)
+	}
+
+	if rowsAffected == 0 {
+		return &ErrObjectNotFound{ID: obj.ID, Type: obj.Type}
+	}
+
+	return nil
+}
+
+// UpsertObject creates or updates a TMF object.
+//
+// Semantics:
+//   - If no row exists for the given (id, type): the object is inserted.
+//   - If the same (id, type) already exists: the row is updated in-place
+//     (version, content, last_update, updated_at). Seller and buyer are NOT changed.
+func (repo *DBService) UpsertObject(obj *TMFRecord) error {
+	slog.Debug("dbLayer: UpsertObject", slog.String("id", obj.ID), slog.String("type", obj.Type), slog.String("version", obj.Version))
+
+	// Set timestamps. For the insert path both are set; for the in-place update path
+	// (ON CONFLICT) created_at is intentionally absent from the DO UPDATE SET clause
+	// so the original creation time is preserved.
+	now := time.Now()
+	obj.CreatedAt = now.Unix()
+	obj.UpdatedAt = now.Unix()
+
+	// Insert a new row (new object), or update the matching row in-place
+	// when the exact same (id, type) already exists.
+	// seller and buyer are excluded from DO UPDATE SET — they are immutable after creation.
+	_, err := repo.db.Exec(`INSERT INTO tmf_object
+		(id, type, version, api_version, seller, buyer, last_update, content, created_at, updated_at)
+		VALUES (:id, :type, :version, :api_version, :seller, :buyer, :last_update, jsonb(:content), :created_at, :updated_at)
+		ON CONFLICT(id, type) DO UPDATE SET
+			version     = excluded.version,
+			last_update = excluded.last_update,
+			content     = jsonb(excluded.content),
+			updated_at  = excluded.updated_at`,
+		sql.Named("id", obj.ID),
+		sql.Named("type", obj.Type),
+		sql.Named("version", obj.Version),
+		sql.Named("api_version", obj.APIVersion),
+		sql.Named("seller", obj.Seller),
+		sql.Named("buyer", obj.Buyer),
+		sql.Named("last_update", obj.LastUpdate),
+		sql.Named("content", obj.Content),
+		sql.Named("created_at", obj.CreatedAt),
+		sql.Named("updated_at", obj.UpdatedAt),
+	)
+	if err != nil {
+		return errl.Errorf("failed to upsert object id=%s type=%s: %w", obj.ID, obj.Type, err)
+	}
+	return nil
+}
+
+// DeleteObject deletes a TMF object by its ID and type.
+func (repo *DBService) DeleteObject(id, resourceName string) error {
+	slog.Debug("dbLayer: deleteObject", slog.String("id", id), slog.String("type", resourceName))
+
+	// Execute the SQL
+	_, err := repo.db.Exec("DELETE FROM tmf_object WHERE id = ? AND type = ?", id, resourceName)
+	if err != nil {
+		err = errl.Errorf("failed to delete object id=%s type=%s: %w", id, resourceName, err)
+	}
+	return err
+}
+
+// ObjectFilter is a function that filters TMF objects. If it returns false, the object is excluded from the result.
+type ObjectFilter func(obj *TMFRecord) bool
+
+// ListObjects retrieves TMF objects of a given type, returning only the latest version for each unique ID.
+// It supports pagination, filtering, and sorting according to TMF630 guidelines.
+// filter is a callback function that is called for each object. If it returns false, the object is excluded from the result.
+func (repo *DBService) ListObjects(healthRequest bool, resourceName string, queryParams url.Values, filter ObjectFilter) ([]TMFRecord, error) {
+	if !healthRequest {
+		slog.Debug("dbLayer: listObjects", "type", resourceName, "queryParams", queryParams)
+	}
+
+	// Parse the parameters according to TM Forum specs and build the SELECT
+	baseQuery, args, limit, offset, err := BuildSelectFromParms(resourceName, queryParams)
+	if err != nil {
+		return nil, errl.Errorf("failed to build select query: %w", err)
+	}
+	if !healthRequest {
+		fmt.Printf("SQL: %s\nARGS: %v\n", baseQuery, args)
+	}
+
+	var objs []TMFRecord
+	var offsetCounter int
+
+	// Run the SQL
+	rows, err := repo.db.Query(baseQuery, args...)
+	if err != nil {
+		return nil, errl.Errorf("performing query %s with args %v: %w", baseQuery, args, err)
+	}
+	defer rows.Close()
+
+	// Loop through rows, using Scan to assign column data to struct fields.
+	for rows.Next() {
+		var obj TMFRecord
+		if err := rows.Scan(&obj.ID, &obj.Type, &obj.Version, &obj.APIVersion,
+			&obj.Seller, &obj.Buyer, &obj.LastUpdate, &obj.Content, &obj.CreatedAt, &obj.UpdatedAt); err != nil {
+
+			return nil, errl.Errorf("iterating over rows in query %s with args %v: %w", baseQuery, args, err)
+
+		}
+
+		// Callback to the caller for filtering/ammendment of the object
+		if filter != nil && !filter(&obj) {
+			// The callback said that we should not include this object
+			continue
+		}
+
+		// If the object has passed all checks, we still have to discard the first 'offset' objects, as specified by the user
+		if offsetCounter < offset {
+			offsetCounter++
+			continue
+		}
+
+		// Now we add the object to the result array and check if we reached the limit as specified by the user
+		objs = append(objs, obj)
+
+		if len(objs) >= limit {
+			break
+		}
+
+	}
+	if err = rows.Err(); err != nil {
+		return nil, errl.Errorf("performing query %s with args %v: %w", baseQuery, args, err)
+	}
+
+	return objs, err
+}
+
+// BuildSelectFromParms creates a SELECT statement based on the query values.
+// Some keys are columns in the database row, but most of them are in the JSON object in the 'content' column
+// For TMF objects with same id, selects the one with the latest version.
+func BuildSelectFromParms(resourceName string, queryValues url.Values) (query string, arguments []any, qlimit int, qoffset int, theerr error) {
+
+	// Default values if the user did not specify them. -1 is equivalent to no values provided.
+	// Offset and limit will not be included in the SQL query, but will be used by the caller to limit the number of objects returned,
+	// after filtering is applied to the set of objects returned by the database SELECT statement.
+	var limit = -1
+	var offset = -1
+
+	var queryBuilder StringRenderer
+	var args []any
+
+	// The main SELECT statement
+	queryBuilder.Render(
+		`SELECT id, type, version, api_version, seller, buyer, last_update, json(content), created_at, updated_at FROM tmf_object`,
+	)
+
+	// The main WHERE clause: normally we expect the resource name of object to be specified, but we support a query for all object types
+	// There will be additionally inner SELECTs when we use the content column
+	if len(resourceName) > 0 {
+		queryBuilder.Render(" WHERE type = ?")
+		args = append(args, resourceName)
+	}
+
+	// Build the WHERE by processing the query values specified by the user
+	for key, values := range queryValues {
+
+		// Create additional parts of the SELECT, with some special processing
+		switch key {
+		case "sort", "fields":
+			// TODO: implement processing for these parameters. For the moment, they must be implemented by the caller.
+			continue
+
+		case "limit":
+			// Just extract the value for later, it will not be used in the SELECT
+			limitStr := queryValues.Get("limit")
+			if limitStr != "" {
+				if l, err := strconv.Atoi(limitStr); err == nil {
+					limit = l
+				}
+			}
+
+		case "offset":
+			// Just extract the value for later, it will not be used in the SELECT
+			offsetStr := queryValues.Get("offset")
+			if offsetStr != "" {
+				if l, err := strconv.Atoi(offsetStr); err == nil {
+					offset = l
+				}
+			}
+
+		case "seller", "buyer":
+			// A shortcut for DOME and ISBE, to simplify life to applications (but can be also done in a TMF-compliant way).
+			// Special processing to allow specifying multiple values in the form 'seller=id1,id2,id3'.
+			// We also support the standard HTTP query strings like 'seller=id1,id2&seller=id3'
+			vals := processValues(values)
+
+			// Use either an equality (when one element) or an inclusion expression (when several)
+			if len(vals) == 1 {
+				queryBuilder.Render(" AND ", key, " = ?")
+			} else if len(vals) > 1 {
+				queryBuilder.Render(" AND ", key, " IN ").RenderSQLList(vals)
+			}
+			for _, v := range vals {
+				args = append(args, v)
+			}
+
+		case "category.id", "productSpecification.id":
+			// Simplification of the query for common array fields at the first level of the JSON object
+
+			object := strings.TrimSuffix(key, ".id")
+
+			// Special processing because TMForum allows to specify multiple values
+			// in the form 'lifecycleStatus=Launched,Active'
+			vals := processValues(values)
+
+			if len(vals) == 1 {
+				queryBuilder.Render(
+					" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", object, "') WHERE json_extract(value, '$.id') = ?)",
+				)
+			} else if len(vals) > 1 {
+				queryBuilder.Render(
+					" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", object, "') WHERE json_extract(value, '$.id') IN ").RenderSQLList(vals).Render(")")
+			}
+			for _, v := range vals {
+				args = append(args, v)
+			}
+
+		case "organizationIdentification[*].identificationId", "organizationIdentification.identificationId",
+			"individualIdentification[*].identificationId", "individualIdentification.identificationId", "individualIdentification.id":
+			// Simplification of the query in the identification arrays for the special case of organization identification data
+			arrayName := "organizationIdentification"
+			keyName := "identificationId"
+
+			if strings.HasPrefix("individualIdentification", key) {
+				arrayName = "individualIdentification"
+				keyName = "identificationId"
+			}
+
+			// Special processing because TMForum allows to specify multiple values
+			// in the form 'lifecycleStatus=Launched,Active'
+			vals := processValues(values)
+
+			if len(vals) == 1 {
+				queryBuilder.Render(
+					" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", arrayName, "') WHERE json_extract(value, '$.", keyName, "') = ?)",
+				)
+			} else if len(vals) > 1 {
+				queryBuilder.Render(
+					" AND EXISTS (SELECT 1 FROM json_each(tmf_object.content, '$.", arrayName, "') WHERE json_extract(value, '$.", keyName, "') IN ").RenderSQLList(vals).Render(")")
+			}
+			for _, v := range vals {
+				args = append(args, v)
+			}
+
+		default:
+
+			// Special processing because TMForum allows to specify multiple values
+			// in the form 'lifecycleStatus=Launched,Active'
+			vals := processValues(values)
+
+			// We perform special processing when the key is simple (no dots), to use a simple and more efficient SQL expression.
+			pathParts := strings.Split(key, ".")
+			if len(pathParts) == 1 {
+
+				if len(vals) == 1 {
+					queryBuilder.Render(" AND content->>'$.", key, "' = ?")
+				} else {
+					queryBuilder.Render(" AND content->>'$.", key, "' IN ").RenderSQLList(vals)
+				}
+				for _, v := range vals {
+					args = append(args, v)
+				}
+			} else {
+				subSql, _, err := GenerateRecursiveJSONQuery("tmf_object", key, vals)
+				if err != nil {
+					return "", nil, 0, 0, err
+				}
+				queryBuilder.Render(" AND ", subSql)
+				for _, v := range vals {
+					args = append(args, v)
+				}
+			}
+
+		}
+	}
+
+	// Build the query, with the statement and the arguments to be used
+	sql := queryBuilder.String()
+
+	return sql, args, limit, offset, nil
+}
+
+// GenerateRecursiveJSONQuery generates a SQL query to search for a value in a JSON object, given a JSON path where some elements may be arrays.
+func GenerateRecursiveJSONQuery(tableName string, pathInput string, values []string) (string, string, error) {
+
+	if len(values) == 0 {
+		return "", "", fmt.Errorf("invalid values: no values provided for recursive JSON queries")
+	}
+
+	pathParts := strings.Split(pathInput, ".")
+
+	var like StringRenderer
+	like.WriteString("$")
+
+	for _, p := range pathParts {
+		field, index := extractFromBrackets(p)
+		if index == "*" {
+			index = "%"
+		}
+		if index == "" {
+			like.Render('.', field, '%')
+		} else {
+			like.Render('.', field, '[', index, ']')
+		}
+	}
+
+	if len(values) == 1 {
+		sql := "EXISTS (SELECT 1 FROM json_tree(" + tableName + ".content) WHERE json_tree.fullkey LIKE '" + like.String() + "' AND json_tree.value = ?)"
+		return strings.TrimSpace(sql), values[0], nil
+	} else {
+		var buf StringRenderer
+		buf.Render("EXISTS (SELECT 1 FROM json_tree(" + tableName + ".content) WHERE json_tree.fullkey LIKE '" + like.String() + "' AND json_tree.value IN ")
+		buf.RenderSQLList(values)
+		buf.Render(")")
+		return strings.TrimSpace(buf.String()), "", nil
+	}
+}
+
+// StringRenderer is a utility for efficiently building strings by rendering values to a buffer.
+type StringRenderer struct {
+	strings.Builder
+}
+
+// Render renders the given inputs to the buffer.
+func (r *StringRenderer) Render(inputs ...any) *StringRenderer {
+	for _, s := range inputs {
+		switch v := s.(type) {
+		case string:
+			r.WriteString(v)
+		case []byte:
+			r.Write(v)
+		case int:
+			r.WriteString(strconv.FormatInt(int64(v), 10))
+		case byte:
+			r.WriteByte(v)
+		case rune:
+			r.WriteRune(v)
+		default:
+			slog.Error("attemping to write something not a string, int, rune, []byte or byte: %T", s)
+		}
+	}
+	return r
+}
+
+// Renderln renders the given inputs to the buffer, followed by a newline.
+func (r *StringRenderer) Renderln(inputs ...any) *StringRenderer {
+	r.Render(inputs...)
+	r.Render('\n')
+	return r
+}
+
+// RenderSQLList renders an SQL argument list.
+// The actual values are not used, just the lengh of the list.
+func (r *StringRenderer) RenderSQLList(inputs []string) *StringRenderer {
+	r.Render("(")
+
+	for i := range inputs {
+		if i > 0 {
+			r.Render(",")
+		}
+		r.Render("?")
+	}
+	r.Render(")")
+	return r
+}
+
+// processValues converts from a slice of strings, each possibly a comma separeted set of values, to a slice of strings
+func processValues(values []string) []string {
+	var vals []string
+	for _, v := range values {
+		parts := strings.Split(v, ",")
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+			vals = append(vals, parts[i])
+		}
+	}
+	return vals
+}
+
+func extractFromBrackets(s string) (string, string) {
+	// Find the position of the opening bracket
+	start := strings.Index(s, "[")
+	if start == -1 {
+		return s, ""
+	}
+
+	// Find the position of the closing bracket
+	// We search from 'start' onwards to be safe
+	end := strings.Index(s[start:], "]")
+	if end == -1 {
+		return s, ""
+	}
+
+	// The prefix is everything before the opening bracket
+	prefix := s[:start]
+
+	// The content is everything between '[' and ']'
+	// 'end' is relative to s[start:], so the absolute position of ']' is start + end
+	content := s[start+1 : start+end]
+
+	return prefix, content
 }

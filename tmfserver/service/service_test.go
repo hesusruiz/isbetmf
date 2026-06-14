@@ -54,7 +54,7 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 		AuthUser:     *authUser,
 	}
 
-	cResp := s.CreateGenericObject(cReq)
+	cResp := s.CreateTMFObject(cReq)
 	if cResp.StatusCode != http.StatusCreated {
 		t.Fatalf("create expected 201, got %d", cResp.StatusCode)
 	}
@@ -78,7 +78,7 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 		AuthUser:     *authUser,
 	}
 
-	gResp := s.GetGenericObject(gReq)
+	gResp := s.GetTMFObject(gReq)
 	if gResp.StatusCode != http.StatusOK {
 		t.Fatalf("get expected 200, got %d", gResp.StatusCode)
 	}
@@ -92,7 +92,7 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 	}
 	bUpd, _ := json.Marshal(upd)
 	uReq := newReq("PATCH", "UPDATE", apiFamily, resourceName, id, bUpd, nil)
-	uResp := s.UpdateGenericObject(uReq)
+	uResp := s.UpdateTMFObject(uReq)
 	if uResp.StatusCode != http.StatusOK {
 		t.Fatalf("update expected 200, got %d", uResp.StatusCode)
 	}
@@ -106,7 +106,7 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 
 	// List (all)
 	lReq := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{})
-	lResp := s.ListGenericObjects(lReq)
+	lResp := s.ListTMFObjects(lReq)
 	if lResp.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200, got %d", lResp.StatusCode)
 	}
@@ -119,7 +119,7 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 
 	// List with fields=none (should reduce fields per item)
 	lReqQP := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{"fields": []string{"none"}})
-	lResp2 := s.ListGenericObjects(lReqQP)
+	lResp2 := s.ListTMFObjects(lReqQP)
 	if lResp2.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200, got %d", lResp2.StatusCode)
 	}
@@ -135,14 +135,14 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 
 	// Delete
 	dReq := newReq("DELETE", "DELETE", apiFamily, resourceName, id, nil, nil)
-	dResp := s.DeleteGenericObject(dReq)
+	dResp := s.DeleteTMFObject(dReq)
 	if dResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete expected 204, got %d", dResp.StatusCode)
 	}
 
 	// Get after delete -> 404
 	gReq = newReq("GET", "READ", apiFamily, resourceName, id, nil, nil)
-	gResp2 := s.GetGenericObject(gReq)
+	gResp2 := s.GetTMFObject(gReq)
 	if gResp2.StatusCode != http.StatusNotFound {
 		t.Fatalf("get after delete expected 404, got %d", gResp2.StatusCode)
 	}
@@ -189,7 +189,7 @@ func TestBadISBECreate(t *testing.T) {
 		AuthUser:     *authUser,
 	}
 
-	cResp := s.CreateGenericObject(cReq)
+	cResp := s.CreateTMFObject(cReq)
 	if cResp.StatusCode != http.StatusCreated {
 		t.Fatalf("create expected 201, got %d", cResp.StatusCode)
 	}
@@ -409,7 +409,7 @@ func TestCreateGenericObjectPublishesEvent(t *testing.T) {
 
 	req.AuthUser = *authUser
 
-	resp := s.CreateGenericObject(req)
+	resp := s.CreateTMFObject(req)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("expected 201, got %d", resp.StatusCode)
 	}
@@ -447,7 +447,7 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	}
 	bCreate, _ := json.Marshal(createObj)
 	cReq := newReq("POST", "CREATE", apiFamily, resourceName, "", bCreate, nil)
-	cResp := s.CreateGenericObject(cReq)
+	cResp := s.CreateTMFObject(cReq)
 	if cResp.StatusCode != http.StatusCreated {
 		t.Fatalf("create expected 201, got %d", cResp.StatusCode)
 	}
@@ -459,7 +459,7 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 
 	// Get
 	gReq := newReq("GET", "READ", apiFamily, resourceName, id, nil, nil)
-	gResp := s.GetGenericObject(gReq)
+	gResp := s.GetTMFObject(gReq)
 	if gResp.StatusCode != http.StatusOK {
 		t.Fatalf("get expected 200, got %d", gResp.StatusCode)
 	}
@@ -473,7 +473,7 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	}
 	bUpd, _ := json.Marshal(upd)
 	uReq := newReq("PATCH", "UPDATE", apiFamily, resourceName, id, bUpd, nil)
-	uResp := s.UpdateGenericObject(uReq)
+	uResp := s.UpdateTMFObject(uReq)
 	if uResp.StatusCode != http.StatusOK {
 		t.Fatalf("update expected 200, got %d", uResp.StatusCode)
 	}
@@ -487,7 +487,7 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 
 	// List (all)
 	lReq := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{})
-	lResp := s.ListGenericObjects(lReq)
+	lResp := s.ListTMFObjects(lReq)
 	if lResp.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200, got %d", lResp.StatusCode)
 	}
@@ -500,7 +500,7 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 
 	// List with fields=none (should reduce fields per item)
 	lReqQP := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{"fields": []string{"none"}})
-	lResp2 := s.ListGenericObjects(lReqQP)
+	lResp2 := s.ListTMFObjects(lReqQP)
 	if lResp2.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200, got %d", lResp2.StatusCode)
 	}
@@ -516,14 +516,14 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 
 	// Delete
 	dReq := newReq("DELETE", "DELETE", apiFamily, resourceName, id, nil, nil)
-	dResp := s.DeleteGenericObject(dReq)
+	dResp := s.DeleteTMFObject(dReq)
 	if dResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete expected 204, got %d", dResp.StatusCode)
 	}
 
 	// Get after delete -> 404
 	gReq = newReq("GET", "READ", apiFamily, resourceName, id, nil, nil)
-	gResp2 := s.GetGenericObject(gReq)
+	gResp2 := s.GetTMFObject(gReq)
 	if gResp2.StatusCode != http.StatusNotFound {
 		t.Fatalf("get after delete expected 404, got %d", gResp2.StatusCode)
 	}
@@ -537,7 +537,7 @@ func TestEmptyList(t *testing.T) {
 
 	// List objects for a resource that doesn't exist (should return empty list)
 	lReq := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{})
-	lResp := s.ListGenericObjects(lReq)
+	lResp := s.ListTMFObjects(lReq)
 
 	// Should return 200 OK
 	if lResp.StatusCode != http.StatusOK {

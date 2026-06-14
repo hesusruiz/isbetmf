@@ -54,22 +54,14 @@ func (h *Handler) registerRoutes(app *fiber.App) {
 
 	// Generalized routes for TMF API resources
 	// Collection operations (List and Create)
-	tmfApi.Get("/:resourceName", h.ListGenericObjects)
-	tmfApi.Post("/:resourceName", h.CreateGenericObject)
+	tmfApi.Get("/:resourceName", h.ListTMFObjects)
+	tmfApi.Post("/:resourceName", h.CreateTMFObject)
 
 	// Individual resource operations (Get, Update, Delete)
-	tmfApi.Get("/:resourceName/:id", h.GetGenericObject)
-	tmfApi.Patch("/:resourceName/:id", h.UpdateGenericObject)
+	tmfApi.Get("/:resourceName/:id", h.GetTMFObject)
+	tmfApi.Patch("/:resourceName/:id", h.UpdateTMFObject)
 	tmfApi.Delete("/:resourceName/:id", h.DeleteGenericObject)
 
-}
-
-// ExtractJWTToken extracts the JWT token from the Authorization header.
-// It handles both "Bearer <token>" and raw token formats.
-// If the token is not found, it returns an empty string.
-func ExtractJWTToken(authHeader string) string {
-	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-	return tokenString
 }
 
 // Health is a simple hello world handler.
@@ -88,31 +80,18 @@ func (h *Handler) Health(c *fiber.Ctx) error {
 		QueryParams:   queryParams,
 	}
 
-	resp := h.service.ListGenericObjects(req)
+	resp := h.service.ListTMFObjects(req)
 	return SendResponse(c, resp)
 
 }
 
 // CreateHubSubscription creates a new notification subscription (hub)
 func (h *Handler) CreateHubSubscription(c *fiber.Ctx) error {
-	jwtToken := ExtractJWTToken(c.Get("Authorization"))
 
-	authUser, err := h.service.ProcessAccessToken(jwtToken)
+	req, err := h.parseRequest(c)
 	if err != nil {
-		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "error parsing request: %w", errl.Error(err))
 		return SendResponse(c, resp)
-	}
-
-	// Extract API version from the URL parameter
-	apiVersion := strings.ToLower(c.Params("apiVersion"))
-
-	req := &svc.Request{
-		Method:     c.Method(),
-		Action:     svc.HttpActions[c.Method()],
-		APIfamily:  c.Params("apiFamily"),
-		APIVersion: apiVersion,
-		Body:       c.Body(),
-		AuthUser:   *authUser,
 	}
 
 	resp := h.service.CreateHubSubscription(req)
@@ -121,25 +100,11 @@ func (h *Handler) CreateHubSubscription(c *fiber.Ctx) error {
 
 // DeleteHubSubscription deletes an existing notification subscription (hub)
 func (h *Handler) DeleteHubSubscription(c *fiber.Ctx) error {
-	jwtToken := ExtractJWTToken(c.Get("Authorization"))
 
-	authUser, err := h.service.ProcessAccessToken(jwtToken)
+	req, err := h.parseRequest(c)
 	if err != nil {
-		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "error parsing request: %w", errl.Error(err))
 		return SendResponse(c, resp)
-	}
-
-	// Extract API version from the URL parameter
-	apiVersion := strings.ToLower(c.Params("apiVersion"))
-
-	idParam, _ := url.QueryUnescape(c.Params("id"))
-	req := &svc.Request{
-		Method:     c.Method(),
-		Action:     svc.HttpActions[c.Method()],
-		APIfamily:  c.Params("apiFamily"),
-		APIVersion: apiVersion,
-		ID:         idParam,
-		AuthUser:   *authUser,
 	}
 
 	resp := h.service.DeleteHubSubscription(req)
@@ -163,8 +128,8 @@ func (h *Handler) MockListener(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-// CreateGenericObject creates a new TMF object using generalized parameters.
-func (h *Handler) CreateGenericObject(c *fiber.Ctx) error {
+// CreateTMFObject creates a new TMF object.
+func (h *Handler) CreateTMFObject(c *fiber.Ctx) error {
 
 	resourceName := c.Params("resourceName")
 	if resourceName == "hub" {
@@ -172,166 +137,69 @@ func (h *Handler) CreateGenericObject(c *fiber.Ctx) error {
 		return h.CreateHubSubscription(c)
 	}
 
-	// Extract API version from the URL parameter
-	apiVersion := strings.ToLower(c.Params("apiVersion"))
-
-	jwtToken := ExtractJWTToken(c.Get("Authorization"))
-
-	// Authentication: process the AccessToken to extract caller info from its claims in the payload
-	// The tokenMap may be nil, which means that the user did not send any authorization header, and
-	// this will be checked in the service downstream.
-	authUser, err := h.service.ProcessAccessToken(jwtToken)
+	req, err := h.parseRequest(c)
 	if err != nil {
-		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "error parsing request: %w", errl.Error(err))
 		return SendResponse(c, resp)
 	}
 
-	req := &svc.Request{
-		Method:       c.Method(),
-		Action:       svc.HttpActions[c.Method()],
-		APIfamily:    c.Params("apiFamily"),
-		APIVersion:   apiVersion,
-		ResourceName: resourceName,
-		Body:         c.Body(),
-		AuthUser:     *authUser,
-	}
-
-	resp := h.service.CreateGenericObject(req)
+	resp := h.service.CreateTMFObject(req)
 	return SendResponse(c, resp)
 }
 
-// GetGenericObject retrieves a TMF object using generalized parameters.
-func (h *Handler) GetGenericObject(c *fiber.Ctx) error {
+// GetTMFObject retrieves a TMF object.
+func (h *Handler) GetTMFObject(c *fiber.Ctx) error {
 
-	// Extract API version from the URL parameter
-	apiVersion := strings.ToLower(c.Params("apiVersion"))
-
-	jwtToken := ExtractJWTToken(c.Get("Authorization"))
-
-	// Authentication: process the AccessToken to extract caller info from its claims in the payload
-	// The tokenMap may be nil, which means that the user did not send any authorization header, and
-	// this will be checked in the service downstream.
-	authUser, err := h.service.ProcessAccessToken(jwtToken)
+	req, err := h.parseRequest(c)
 	if err != nil {
-		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "error parsing request: %w", errl.Error(err))
 		return SendResponse(c, resp)
 	}
 
-	queryParams, _ := url.ParseQuery(string(c.Request().URI().QueryString()))
-	idParam, _ := url.QueryUnescape(c.Params("id"))
-	req := &svc.Request{
-		Method:       c.Method(),
-		Action:       svc.HttpActions[c.Method()],
-		APIfamily:    c.Params("apiFamily"),
-		APIVersion:   apiVersion,
-		ResourceName: c.Params("resourceName"),
-		ID:           idParam,
-		QueryParams:  queryParams,
-		AuthUser:     *authUser,
-	}
-
-	resp := h.service.GetGenericObject(req)
+	resp := h.service.GetTMFObject(req)
 	return SendResponse(c, resp)
 }
 
-// UpdateGenericObject updates an existing TMF object using generalized parameters.
-func (h *Handler) UpdateGenericObject(c *fiber.Ctx) error {
+// UpdateTMFObject updates an existing TMF object.
+func (h *Handler) UpdateTMFObject(c *fiber.Ctx) error {
 
-	// Extract API version from the URL parameter
-	apiVersion := strings.ToLower(c.Params("apiVersion"))
-
-	jwtToken := ExtractJWTToken(c.Get("Authorization"))
-
-	// Authentication: process the AccessToken to extract caller info from its claims in the payload
-	// The tokenMap may be nil, which means that the user did not send any authorization header, and
-	// this will be checked in the service downstream.
-	authUser, err := h.service.ProcessAccessToken(jwtToken)
+	req, err := h.parseRequest(c)
 	if err != nil {
-		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "error parsing request: %w", errl.Error(err))
 		return SendResponse(c, resp)
 	}
 
-	idParam, _ := url.QueryUnescape(c.Params("id"))
-	req := &svc.Request{
-		Method:       c.Method(),
-		Action:       svc.HttpActions[c.Method()],
-		APIfamily:    c.Params("apiFamily"),
-		APIVersion:   apiVersion,
-		ResourceName: c.Params("resourceName"),
-		ID:           idParam,
-		Body:         c.Body(),
-		AuthUser:     *authUser,
-	}
-
-	resp := h.service.UpdateGenericObject(req)
+	resp := h.service.UpdateTMFObject(req)
 	return SendResponse(c, resp)
 }
 
-// DeleteGenericObject deletes a TMF object using generalized parameters.
+// DeleteGenericObject deletes a TMF object.
 func (h *Handler) DeleteGenericObject(c *fiber.Ctx) error {
 	resourceName := c.Params("resourceName")
 	if resourceName == "hub" {
-		slog.Debug("handling hub creation")
+		slog.Debug("handling hub deletion")
 		return h.DeleteHubSubscription(c)
 	}
 
-	// Extract API version from the URL parameter
-	apiVersion := strings.ToLower(c.Params("apiVersion"))
-
-	jwtToken := ExtractJWTToken(c.Get("Authorization"))
-
-	// Authentication: process the AccessToken to extract caller info from its claims in the payload
-	// The tokenMap may be nil, which means that the user did not send any authorization header, and
-	// this will be checked in the service downstream.
-	authUser, err := h.service.ProcessAccessToken(jwtToken)
+	req, err := h.parseRequest(c)
 	if err != nil {
-		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "error parsing request: %w", errl.Error(err))
 		return SendResponse(c, resp)
 	}
-
-	idParam, _ := url.QueryUnescape(c.Params("id"))
-	req := &svc.Request{
-		Method:       c.Method(),
-		Action:       svc.HttpActions[c.Method()],
-		APIfamily:    c.Params("apiFamily"),
-		APIVersion:   apiVersion,
-		ResourceName: c.Params("resourceName"),
-		ID:           idParam,
-		AuthUser:     *authUser,
-	}
-
-	resp := h.service.DeleteGenericObject(req)
+	resp := h.service.DeleteTMFObject(req)
 	return SendResponse(c, resp)
 }
 
-// ListGenericObjects retrieves all TMF objects of a given type using generalized parameters.
-func (h *Handler) ListGenericObjects(c *fiber.Ctx) error {
-	// Extract API version from the URL parameter
-	apiVersion := strings.ToLower(c.Params("apiVersion"))
+// ListTMFObjects retrieves all TMF objects.
+func (h *Handler) ListTMFObjects(c *fiber.Ctx) error {
 
-	jwtToken := ExtractJWTToken(c.Get("Authorization"))
-
-	// Authentication: process the AccessToken to extract caller info from its claims in the payload
-	// The tokenMap may be nil, which means that the user did not send any authorization header, and
-	// this will be checked in the service downstream.
-	authUser, err := h.service.ProcessAccessToken(jwtToken)
+	req, err := h.parseRequest(c)
 	if err != nil {
-		resp := svc.ErrorResponsef(http.StatusUnauthorized, "invalid access token: %w", errl.Error(err))
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "error parsing request: %w", errl.Error(err))
 		return SendResponse(c, resp)
 	}
 
-	queryParams, _ := url.ParseQuery(string(c.Request().URI().QueryString()))
-	req := &svc.Request{
-		Method:       c.Method(),
-		Action:       svc.HttpActions["LIST"],
-		APIfamily:    c.Params("apiFamily"),
-		APIVersion:   apiVersion,
-		ResourceName: c.Params("resourceName"),
-		QueryParams:  queryParams,
-		AuthUser:     *authUser,
-	}
-
-	resp := h.service.ListGenericObjects(req)
+	resp := h.service.ListTMFObjects(req)
 	return SendResponse(c, resp)
 }
 
@@ -343,4 +211,108 @@ func SendResponse(c *fiber.Ctx, resp *svc.Response) error {
 		return c.Status(resp.StatusCode).JSON(resp.Body)
 	}
 	return c.SendStatus(resp.StatusCode)
+}
+
+// ParseTMFParams takes url.Values and ensures every key has a slice
+// where comma-separated values are broken into individual elements.
+// It supports queries like these:
+//
+//	GET /api/troubleTicket/42/?fields=description,status&pepe=1&fields=version
+//
+// where the 'fields' key will contain after parsing: ['description'. 'status', 'version']
+// It does not attempt to de-duplicate values, which is not a problem for TMF logic.
+func ParseTMFParams(v url.Values) {
+	for key, slices := range v {
+		var flattened []string
+		for _, s := range slices {
+			// Split by comma
+			parts := strings.SplitSeq(s, ",")
+			for p := range parts {
+				trimmed := strings.TrimSpace(p)
+				if trimmed != "" {
+					flattened = append(flattened, trimmed)
+				}
+			}
+		}
+		// Overwrite the existing slice with the flattened one
+		v[key] = flattened
+	}
+}
+
+// ParseTMFRequestQuery processes the URL query as per TMF requirements,
+// where comma-separated values are broken into individual elements.
+// It supports queries like these:
+//
+//	GET /api/troubleTicket/42/?fields=description,status&pepe=1&fields=version
+//
+// where the 'fields' key will contain after parsing: ['description'. 'status', 'version']
+// It does not attempt to de-duplicate values, which is not a problem for TMF logic.
+func ParseTMFRequestQuery(c *fiber.Ctx) (url.Values, error) {
+	queryParams, err := url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return nil, errl.Errorf("parsing the request query: %w", err)
+	}
+
+	ParseTMFParams(queryParams)
+
+	return queryParams, nil
+}
+
+// parseRequest parses the Fiber request and returns a framework-agnostic and transport-agnostic service request.
+// The service Request allows the service layer to be used for any framework (http, grpc, etc) and any transport.
+func (h *Handler) parseRequest(c *fiber.Ctx) (*svc.Request, error) {
+
+	// Extract API version from the path parameter
+	apiVersion := strings.ToLower(c.Params("apiVersion"))
+
+	// Extract the JWT token from the Authorization header
+	jwtToken := ExtractJWTToken(c.Get("Authorization"))
+
+	// Extract caller info from the token claims in the payload, verifying the signature.
+	// If no token is present, authUser will be theGuestUser.
+	// We do not perform authentication at this step, it is done in the service layer.
+	authUser, err := h.service.ProcessAccessToken(jwtToken)
+	if err != nil {
+		return nil, errl.Errorf("invalid access token: %w", err)
+	}
+
+	// Acondition the query parameters, according to the TMF specs
+	queryParams, err := ParseTMFRequestQuery(c)
+	if err != nil {
+		return nil, errl.Errorf("error parsing the request query: %w", err)
+	}
+
+	// Parses the 'id' in the path of the TMF requests which have it (PATCH, GET, PUT, DELETE)
+	// If the id is not present in the path, 'idParam' is the empty string
+	idParam, err := url.QueryUnescape(c.Params("id"))
+	if err != nil {
+		return nil, errl.Errorf("error parsing the id parameter: %w", err)
+	}
+
+	req := &svc.Request{
+		Method:       c.Method(),
+		Action:       svc.HttpActions[c.Method()],
+		APIfamily:    c.Params("apiFamily"),
+		APIVersion:   apiVersion,
+		ResourceName: c.Params("resourceName"),
+		ID:           idParam,
+		QueryParams:  queryParams,
+		AuthUser:     *authUser,
+	}
+
+	// Set the Body if the request potentially has one (POST, PATCH, PUT)
+	if c.Method() == fiber.MethodPost || c.Method() == fiber.MethodPatch || c.Method() == fiber.MethodPut {
+		req.Body = c.Body()
+	}
+
+	return req, nil
+
+}
+
+// ExtractJWTToken extracts the JWT token from the Authorization header.
+// It handles both "Bearer <token>" and raw token formats.
+// If the token is not found, it returns an empty string.
+func ExtractJWTToken(authHeader string) string {
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	return tokenString
 }

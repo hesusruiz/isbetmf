@@ -5,9 +5,9 @@ import (
 	"net/http"
 )
 
-// CreateGenericObject creates a new TMF object using generalized parameters.
-func (svc *Service) CreateGenericObject(req *Request) *Response {
-	slog.Debug("CreateGenericObject called", slog.String("apiFamily", req.APIfamily), slog.String("resourceName", req.ResourceName))
+// CreateTMFObject creates a new TMF object using generalized parameters.
+func (svc *Service) CreateTMFObject(req *Request) *Response {
+	slog.Debug("CreateTMFObject called", slog.String("apiFamily", req.APIfamily), slog.String("resourceName", req.ResourceName))
 
 	// Authentication is required for create operations
 	if errorResponse := svc.requiresAuthentication(req); errorResponse != nil {
@@ -21,7 +21,7 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 	}
 
 	// Ensure TMF metadata (ID, version, href, etc.)
-	if errorResponse := svc.ensureCreateMetadata(req, incomingObjectMap); errorResponse != nil {
+	if errorResponse := svc.verifyObjectOnCreate(req, incomingObjectMap); errorResponse != nil {
 		return errorResponse
 	}
 
@@ -30,9 +30,8 @@ func (svc *Service) CreateGenericObject(req *Request) *Response {
 		return errorResponse
 	}
 
-	// Object Creation (Local or Remote). First convert incoming object to a storage representation
-	repoObject := incomingObjectMap.ToTMFRecord(req.ResourceName)
-	response := svc.createLocalOrRemoteObject(req, repoObject)
+	// Object Creation (Remote or Local)
+	response := svc.createRemoteOrLocalObject(req, incomingObjectMap)
 
 	// Notification to subscribers
 	if response.StatusCode == http.StatusCreated {
