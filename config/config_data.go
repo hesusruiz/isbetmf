@@ -164,9 +164,9 @@ var domedevConfig = &Config{
 	Environment:  DOME_DEV,
 	ProxyEnabled: true,
 
-	ServerOperatorOrganizationIdentifier: "VATSB-12345678J",
-	ServerOperatorDid:                    "did:elsi:VATSB-12345678J",
-	ServerOperatorName:                   "DOME Foundation SBX",
+	ServerOperatorOrganizationIdentifier: "VATES-A15456585",
+	ServerOperatorDid:                    "did:elsi:VATES-A15456585",
+	ServerOperatorName:                   "ALTIA CONSULTORES SA",
 	ServerOperatorCountry:                "ES",
 
 	LEARPower: types.OnePower{
@@ -210,6 +210,11 @@ var domepreConfig = &Config{
 	Environment:  DOME_PRE,
 	ProxyEnabled: true,
 
+	ServerOperatorOrganizationIdentifier: "VATES-A15456585",
+	ServerOperatorDid:                    "did:elsi:VATES-A15456585",
+	ServerOperatorName:                   "ALTIA CONSULTORES SA",
+	ServerOperatorCountry:                "ES",
+
 	LEARPower: types.OnePower{
 		Type:     "domain",
 		Domain:   "DOME",
@@ -250,6 +255,11 @@ var domepreConfig = &Config{
 var domeproConfig = &Config{
 	Environment:  DOME_PRO,
 	ProxyEnabled: true,
+
+	ServerOperatorOrganizationIdentifier: "VATES-A15456585",
+	ServerOperatorDid:                    "did:elsi:VATES-A15456585",
+	ServerOperatorName:                   "ALTIA CONSULTORES SA",
+	ServerOperatorCountry:                "ES",
 
 	LEARPower: types.OnePower{
 		Type:     "domain",
