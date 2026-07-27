@@ -218,12 +218,20 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 
 				// Delete the offending object if we are not in production
 				if svc.environment != config.DOME_PRO {
-					path := fmt.Sprintf("/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, receivedObject.ID())
+					pathPrefix, err := config.ExternalUpstreamTMFPath(req.ResourceName)
+					if err != nil {
+						slog.Error("failed to get path prefix", "error", err, "resourceName", req.ResourceName)
+						continue
+					}
+					path := fmt.Sprintf("%s/%s", pathPrefix, receivedObject.ID())
+
 					resp, _, err := svc.tmfClient.Delete(path, upstreamHeaders)
 					if err != nil || resp.StatusCode >= 300 {
 						slog.Error("failed to delete invalid object", "error", err, "status_code", resp.StatusCode, "path", path)
 						continue
 					}
+
+					slog.Info("Invalid object deleted", "resourceName", req.ResourceName, "id", receivedObject.ID())
 				}
 
 				continue
