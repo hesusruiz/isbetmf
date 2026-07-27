@@ -306,7 +306,7 @@ func (c *TMFClient) do(method, path string, body []byte, headers map[string]stri
 		}
 		url = fmt.Sprintf("%s%s%s", origin, c.config.PathPrefix, path)
 	} else {
-		url = fmt.Sprintf("%s%s%s", c.config.BaseURL, c.config.PathPrefix, path)
+		url = fmt.Sprintf("%s%s", c.config.BaseURL, path)
 	}
 
 	slog.Debug("sending", slog.String("method", method), "url", url)
