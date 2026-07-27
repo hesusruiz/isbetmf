@@ -298,7 +298,9 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 		"X-Total-Count": strconv.Itoa(len(responseObjects)),
 	}
 
-	slog.Debug("Remote objects listed", slog.Int("valid", len(responseObjects)), slog.Int("invalid", invalidObjects), slog.String("resourceName", req.ResourceName))
+	if !req.HealthRequest {
+		slog.Debug("Remote objects listed", slog.Int("valid", len(responseObjects)), slog.Int("invalid", invalidObjects), slog.String("resourceName", req.ResourceName))
+	}
 
 	return responseObjects, responseHeaders, diagnosticObjects, nil
 }
