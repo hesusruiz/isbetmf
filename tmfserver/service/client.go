@@ -194,7 +194,7 @@ type processObject func(obj repo.TMFObjectMap) (repo.TMFObjectMap, bool, error)
 
 // TMFGetList retrieves a list of TMF objects from the remote server.
 // It does not perform any validation of the objects, but delegates it to the processObject callback provided by the caller.
-func (c *TMFClient) TMFGetList(resourceName string, queryParams url.Values, pageSize int, pageOffset int, headers map[string]string, processObject processObject) ([]repository.TMFObjectMap, error) {
+func (c *TMFClient) TMFGetList(resourceName string, queryParams url.Values, pageSize int, pageOffset int, headers map[string]string, processObject processObject, healthRequest bool) ([]repository.TMFObjectMap, error) {
 
 	// Build the parameters to send to the remote server
 	baseParams := queryParams.Encode()
@@ -214,7 +214,9 @@ func (c *TMFClient) TMFGetList(resourceName string, queryParams url.Values, page
 	// Build the full path and ask the server for the specified page of objects
 	path := basePath + "limit=" + strconv.Itoa(pageSize) + "&offset=" + strconv.Itoa(pageOffset)
 
-	slog.Debug("sending request to remote", "path", path)
+	if !healthRequest {
+		slog.Debug("sending request to remote", "path", path)
+	}
 
 	resp, body, err := c.Get(path, headers)
 	if err != nil {
@@ -308,8 +310,6 @@ func (c *TMFClient) do(method, path string, body []byte, headers map[string]stri
 	} else {
 		url = fmt.Sprintf("%s%s", c.config.BaseURL, path)
 	}
-
-	slog.Debug("sending", slog.String("method", method), "url", url)
 
 	var req *http.Request
 	var err error

@@ -195,7 +195,7 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 	for {
 
 		// Get one page of objects from the remote server
-		receivedObjects, err := svc.tmfClient.TMFGetList(req.ResourceName, req.QueryParams, pageSize, pageOffset, upstreamHeaders, nil)
+		receivedObjects, err := svc.tmfClient.TMFGetList(req.ResourceName, req.QueryParams, pageSize, pageOffset, upstreamHeaders, nil, req.HealthRequest)
 		if err != nil {
 			return nil, nil, nil, errl.Errorf("upstream server failed with error: %w", err)
 		}
