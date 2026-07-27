@@ -8,9 +8,11 @@
 package fiber
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"encoding/json"
 	"log/slog"
@@ -80,7 +82,11 @@ func (h *Handler) Health(c *fiber.Ctx) error {
 		QueryParams:   queryParams,
 	}
 
-	resp := h.service.ListTMFObjects(req)
+	// Create a context with a timeout of 30 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	resp := h.service.ListTMFObjects(ctx, req)
 	return SendResponse(c, resp)
 
 }
@@ -143,7 +149,11 @@ func (h *Handler) CreateTMFObject(c *fiber.Ctx) error {
 		return SendResponse(c, resp)
 	}
 
-	resp := h.service.CreateTMFObject(req)
+	// Create a context with a timeout of 30 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	resp := h.service.CreateTMFObject(ctx, req)
 	return SendResponse(c, resp)
 }
 
@@ -156,7 +166,11 @@ func (h *Handler) GetTMFObject(c *fiber.Ctx) error {
 		return SendResponse(c, resp)
 	}
 
-	resp := h.service.GetTMFObject(req)
+	// Create a context with a timeout of 30 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	resp := h.service.GetTMFObject(ctx, req)
 	return SendResponse(c, resp)
 }
 
@@ -169,7 +183,11 @@ func (h *Handler) UpdateTMFObject(c *fiber.Ctx) error {
 		return SendResponse(c, resp)
 	}
 
-	resp := h.service.UpdateTMFObject(req)
+	// Create a context with a timeout of 30 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	resp := h.service.UpdateTMFObject(ctx, req)
 	return SendResponse(c, resp)
 }
 
@@ -186,7 +204,12 @@ func (h *Handler) DeleteGenericObject(c *fiber.Ctx) error {
 		resp := svc.ErrorResponsef(http.StatusBadRequest, "error parsing request: %w", errl.Error(err))
 		return SendResponse(c, resp)
 	}
-	resp := h.service.DeleteTMFObject(req)
+
+	// Create a context with a timeout of 30 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	resp := h.service.DeleteTMFObject(ctx, req)
 	return SendResponse(c, resp)
 }
 
@@ -199,7 +222,11 @@ func (h *Handler) ListTMFObjects(c *fiber.Ctx) error {
 		return SendResponse(c, resp)
 	}
 
-	resp := h.service.ListTMFObjects(req)
+	// Create a context with a timeout of 30 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	resp := h.service.ListTMFObjects(ctx, req)
 	return SendResponse(c, resp)
 }
 

@@ -1,12 +1,13 @@
 package service
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 )
 
 // UpdateTMFObject updates an existing TMF object using generalized parameters.
-func (svc *Service) UpdateTMFObject(req *Request) *Response {
+func (svc *Service) UpdateTMFObject(ctx context.Context, req *Request) *Response {
 	slog.Debug("UpdateGenericObject called", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
 	// Authentication is required for update operations
@@ -26,7 +27,7 @@ func (svc *Service) UpdateTMFObject(req *Request) *Response {
 	}
 
 	// Retrieve existing object
-	existingRecord, err := svc.getLocalOrRemoteObject(req)
+	existingRecord, err := svc.getLocalOrRemoteObject(ctx, req)
 	if err != nil {
 		return ErrorResponsef(http.StatusInternalServerError, "error retrieving existing object %s for update: %w", req.ID, err)
 	}
@@ -46,7 +47,7 @@ func (svc *Service) UpdateTMFObject(req *Request) *Response {
 	}
 
 	// Object Update (Local or Remote)
-	response := svc.updateRemoteOrLocalObject(req, existingRecord, incomingObjectMap)
+	response := svc.updateRemoteOrLocalObject(ctx, req, existingRecord, incomingObjectMap)
 
 	// Notification
 	if response.StatusCode == http.StatusOK {

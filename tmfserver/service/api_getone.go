@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -28,14 +29,14 @@ import (
 // 4.  **Response**:
 //   - It handles partial field selection using the "fields" query parameter.
 //   - It returns a 200 OK response with the (potentially filtered) object in the body.
-func (svc *Service) GetTMFObject(req *Request) *Response {
+func (svc *Service) GetTMFObject(ctx context.Context, req *Request) *Response {
 	slog.Debug("GetTMFObject called", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
 	// Authentication: anonymous access is allowed, so we do not check the existence of the access token
 
 	// Retrieve the object from the database. If it is not found, we try to get it from the remote server (if proxy is enabled).
 	// If the object is not found, we return a 404 error.
-	existingStorageObject, err := svc.getLocalOrRemoteObject(req)
+	existingStorageObject, err := svc.getLocalOrRemoteObject(ctx, req)
 	if err != nil {
 		// This is an unexpected error, so we return a server error
 		return ErrorResponsef(http.StatusInternalServerError, "failed to get object from service: %w", errl.Error(err))

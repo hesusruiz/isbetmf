@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -62,7 +63,7 @@ func (c *TMFClient) PageSize() int {
 	return c.config.PageSize
 }
 
-func (c *TMFClient) TMFPost(req *Request, objMap repository.TMFObjectMap) (repository.TMFObjectMap, []error) {
+func (c *TMFClient) TMFPost(ctx context.Context, req *Request, objMap repository.TMFObjectMap) (repository.TMFObjectMap, []error) {
 
 	requestBody, err := json.Marshal(objMap)
 	if err != nil {
@@ -79,7 +80,7 @@ func (c *TMFClient) TMFPost(req *Request, objMap repository.TMFObjectMap) (repos
 		"Content-Type":  "application/json",
 	}
 
-	resp, responseBody, err := c.Post(path, requestBody, headers)
+	resp, responseBody, err := c.Post(ctx, path, requestBody, headers)
 	if err != nil {
 		return nil, []error{errl.Errorf("remote server returned error: %w", err)}
 	}
@@ -123,7 +124,7 @@ func (c *TMFClient) TMFPost(req *Request, objMap repository.TMFObjectMap) (repos
 
 }
 
-func (c *TMFClient) TMFPatch(req *Request, patchMap repository.TMFObjectMap) (repository.TMFObjectMap, []error) {
+func (c *TMFClient) TMFPatch(ctx context.Context, req *Request, patchMap repository.TMFObjectMap) (repository.TMFObjectMap, []error) {
 
 	requestBody, err := json.Marshal(patchMap)
 	if err != nil {
@@ -142,7 +143,7 @@ func (c *TMFClient) TMFPatch(req *Request, patchMap repository.TMFObjectMap) (re
 		"Content-Type":  "application/json",
 	}
 
-	resp, responseBody, err := c.Patch(path, requestBody, headers)
+	resp, responseBody, err := c.Patch(ctx, path, requestBody, headers)
 	if err != nil {
 		return nil, []error{errl.Errorf("remote server returned error: %w", err)}
 	}
@@ -194,7 +195,7 @@ type processObject func(obj repo.TMFObjectMap) (repo.TMFObjectMap, bool, error)
 
 // TMFGetList retrieves a list of TMF objects from the remote server.
 // It does not perform any validation of the objects, but delegates it to the processObject callback provided by the caller.
-func (c *TMFClient) TMFGetList(resourceName string, queryParams url.Values, pageSize int, pageOffset int, headers map[string]string, processObject processObject, healthRequest bool) ([]repository.TMFObjectMap, error) {
+func (c *TMFClient) TMFGetList(ctx context.Context, resourceName string, queryParams url.Values, pageSize int, pageOffset int, headers map[string]string, processObject processObject, healthRequest bool) ([]repository.TMFObjectMap, error) {
 
 	// Build the parameters to send to the remote server
 	baseParams := queryParams.Encode()
@@ -218,7 +219,7 @@ func (c *TMFClient) TMFGetList(resourceName string, queryParams url.Values, page
 		slog.Debug("sending request to remote", "path", path)
 	}
 
-	resp, body, err := c.Get(path, headers)
+	resp, body, err := c.Get(ctx, path, headers)
 	if err != nil {
 		return nil, errl.Errorf("remote server returned error: %w", err)
 	}
@@ -275,28 +276,28 @@ func (c *TMFClient) TMFGetList(resourceName string, queryParams url.Values, page
 }
 
 // Get sends a GET request to the remote server.
-func (c *TMFClient) Get(path string, headers map[string]string) (*http.Response, []byte, error) {
-	return c.do("GET", path, nil, headers)
+func (c *TMFClient) Get(ctx context.Context, path string, headers map[string]string) (*http.Response, []byte, error) {
+	return c.do(ctx, "GET", path, nil, headers)
 }
 
 // Post sends a POST request to the remote server.
-func (c *TMFClient) Post(path string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
-	return c.do("POST", path, body, headers)
+func (c *TMFClient) Post(ctx context.Context, path string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
+	return c.do(ctx, "POST", path, body, headers)
 }
 
 // Patch sends a PATCH request to the remote server.
-func (c *TMFClient) Patch(path string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
-	return c.do("PATCH", path, body, headers)
+func (c *TMFClient) Patch(ctx context.Context, path string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
+	return c.do(ctx, "PATCH", path, body, headers)
 }
 
 // Delete sends a DELETE request to the remote server.
-func (c *TMFClient) Delete(path string, headers map[string]string) (*http.Response, []byte, error) {
-	return c.do("DELETE", path, nil, headers)
+func (c *TMFClient) Delete(ctx context.Context, path string, headers map[string]string) (*http.Response, []byte, error) {
+	return c.do(ctx, "DELETE", path, nil, headers)
 }
 
 // do sends an HTTP request to the remote server.
 // It uses the BaseURL and PathPrefix for the server from the configuration.
-func (c *TMFClient) do(method, path string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
+func (c *TMFClient) do(ctx context.Context, method, path string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
 
 	var url string
 
@@ -315,9 +316,9 @@ func (c *TMFClient) do(method, path string, body []byte, headers map[string]stri
 	var err error
 
 	if body != nil {
-		req, err = http.NewRequest(method, url, bytes.NewReader(body))
+		req, err = http.NewRequestWithContext(ctx, method, url, bytes.NewReader(body))
 	} else {
-		req, err = http.NewRequest(method, url, nil)
+		req, err = http.NewRequestWithContext(ctx, method, url, nil)
 	}
 
 	if err != nil {

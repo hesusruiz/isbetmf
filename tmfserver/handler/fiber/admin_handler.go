@@ -1,10 +1,12 @@
 package fiber
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/hesusruiz/isbetmf/internal/html"
@@ -79,7 +81,11 @@ func (h *AdminHandler) ListObjects(c *fiber.Ctx) error {
 	// For now, let's try calling it directly. The service layer might fail if no token is present
 	// and the policy requires it.
 
-	resp := h.service.ListTMFObjects(req)
+	// Create a context with a timeout of 30 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	resp := h.service.ListTMFObjects(ctx, req)
 
 	if resp.StatusCode >= 400 {
 		return c.Status(resp.StatusCode).SendString(fmt.Sprintf("Error fetching objects: %v", resp.Body))
@@ -114,7 +120,11 @@ func (h *AdminHandler) ViewObject(c *fiber.Ctx) error {
 		ID:           id,
 	}
 
-	resp := h.service.GetTMFObject(req)
+	// Create a context with a timeout of 30 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	resp := h.service.GetTMFObject(ctx, req)
 
 	if resp.StatusCode >= 400 {
 		return c.Status(resp.StatusCode).SendString(fmt.Sprintf("Error fetching object: %v", resp.Body))

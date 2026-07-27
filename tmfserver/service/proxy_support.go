@@ -5,6 +5,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,7 +22,7 @@ import (
 
 // createRemoteOrLocalObject creates an object in the remote server and then in the local database, if the proxy is enabled.
 // Othewise, it just creates the object in the local database.
-func (svc *Service) createRemoteOrLocalObject(req *Request, objMap repo.TMFObjectMap) *Response {
+func (svc *Service) createRemoteOrLocalObject(ctx context.Context, req *Request, objMap repo.TMFObjectMap) *Response {
 
 	repoObject := objMap.ToTMFRecord(req.ResourceName)
 
@@ -49,7 +50,7 @@ func (svc *Service) createRemoteOrLocalObject(req *Request, objMap repo.TMFObjec
 	// We do not have to worry about transaction integrity, because if the remote server fails, we do not create the object locally
 	// If the local server fails, the object will be eventually updated in our cache later, for other operations against the object.
 
-	remoteObjectMap, errs := svc.tmfClient.TMFPost(req, objMap)
+	remoteObjectMap, errs := svc.tmfClient.TMFPost(ctx, req, objMap)
 	if len(errs) > 0 {
 		return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", errs[0])
 	}
@@ -82,7 +83,7 @@ func (svc *Service) createRemoteOrLocalObject(req *Request, objMap repo.TMFObjec
 // if the proxy is enabled.
 // existingRecord is only used if the proxy is not enabled.
 // Otherwise, it just updates the object in the local database after merging with the RFC7396 patch.
-func (svc *Service) updateRemoteOrLocalObject(req *Request, existingRecord *repo.TMFRecord, patch repo.TMFObjectMap) *Response {
+func (svc *Service) updateRemoteOrLocalObject(ctx context.Context, req *Request, existingRecord *repo.TMFRecord, patch repo.TMFObjectMap) *Response {
 	var existingObjectMap repo.TMFObjectMap
 	var err error
 
@@ -92,7 +93,7 @@ func (svc *Service) updateRemoteOrLocalObject(req *Request, existingRecord *repo
 	}
 
 	if svc.proxyEnabled {
-		remoteObjectMap, errs := svc.tmfClient.TMFPatch(req, patch)
+		remoteObjectMap, errs := svc.tmfClient.TMFPatch(ctx, req, patch)
 		if len(errs) > 0 {
 			return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", errs[0])
 		}
@@ -154,7 +155,7 @@ func (svc *Service) updateRemoteOrLocalObject(req *Request, existingRecord *repo
 
 // listRemoteObjects retrieves objects from the remote TMF server, filters them based on authorization,
 // caches them locally, and returns the requested page.
-func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, fieldSet map[string]bool) (
+func (svc *Service) listRemoteObjects(ctx context.Context, req *Request, userLimit, userOffset int, fieldSet map[string]bool) (
 	responseObjects []repo.TMFObjectMap, responseHeaders map[string]string, diagnosticObjects []repo.ValidationResult, err error) {
 
 	// Delete the attribute selection for the query to the upstream server. We will receive full objects and
@@ -195,12 +196,14 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 	for {
 
 		// Get one page of objects from the remote server
-		receivedObjects, err := svc.tmfClient.TMFGetList(req.ResourceName, req.QueryParams, pageSize, pageOffset, upstreamHeaders, nil, req.HealthRequest)
+		receivedObjects, err := svc.tmfClient.TMFGetList(ctx, req.ResourceName, req.QueryParams, pageSize, pageOffset, upstreamHeaders, nil, req.HealthRequest)
 		if err != nil {
 			return nil, nil, nil, errl.Errorf("upstream server failed with error: %w", err)
 		}
 
-		slog.Debug("received objects from remote", "num_objects", len(receivedObjects))
+		if !req.HealthRequest {
+			slog.Debug("received objects from remote", "num_objects", len(receivedObjects))
+		}
 
 		// We check each object to see if the user can access it.
 		// Additionally, we cache all the objects received independently of the user's access.
@@ -225,7 +228,7 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 					}
 					path := fmt.Sprintf("%s/%s", pathPrefix, receivedObject.ID())
 
-					resp, _, err := svc.tmfClient.Delete(path, upstreamHeaders)
+					resp, _, err := svc.tmfClient.Delete(ctx, path, upstreamHeaders)
 					if err != nil || resp.StatusCode >= 300 {
 						slog.Error("failed to delete invalid object", "error", err, "status_code", resp.StatusCode, "path", path)
 						continue
@@ -361,7 +364,7 @@ func (svc *Service) listLocalObjects(req *Request, userLimit, userOffset int, fi
 // If the proxy is enabled and the object is not found locally or is stale, we try to get it from the remote server.
 // If the object is not found anywhere, it returns a nil object and no error.
 // There is no way to force the retrieval from the remote server if the object exists locally and is fresh enough.
-func (svc *Service) getLocalOrRemoteObject(req *Request) (*repo.TMFRecord, error) {
+func (svc *Service) getLocalOrRemoteObject(ctx context.Context, req *Request) (*repo.TMFRecord, error) {
 
 	objectID := req.ID
 
@@ -397,7 +400,7 @@ func (svc *Service) getLocalOrRemoteObject(req *Request) (*repo.TMFRecord, error
 	}
 
 	// The object was not found or is stale, so we have to retrieve remotely and update the local database
-	remoteObj, err := svc.getRemoteObject(req)
+	remoteObj, err := svc.getRemoteObject(ctx, req)
 	if err != nil {
 		return nil, errl.Errorf("failed to get object %s from remote service: %w", req.ID, err)
 	}
@@ -414,7 +417,7 @@ func (svc *Service) getLocalOrRemoteObject(req *Request) (*repo.TMFRecord, error
 
 }
 
-func (svc *Service) getRemoteObject(req *Request) (*repo.TMFRecord, error) {
+func (svc *Service) getRemoteObject(ctx context.Context, req *Request) (*repo.TMFRecord, error) {
 	slog.Debug("retrieving object from remote", slog.String("id", req.ID))
 
 	// Send the access token
@@ -431,7 +434,7 @@ func (svc *Service) getRemoteObject(req *Request) (*repo.TMFRecord, error) {
 	path := fmt.Sprintf("%s/%s", pathPrefix, req.ID)
 
 	// Send the request to the remote with our HTTP Client
-	resp, body, err := svc.tmfClient.Get(path, headers)
+	resp, body, err := svc.tmfClient.Get(ctx, path, headers)
 	if err != nil {
 		return nil, errl.Errorf("failed to proxy request: %w", err)
 	}

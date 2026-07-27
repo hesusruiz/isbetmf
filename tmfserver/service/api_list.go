@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 
@@ -9,7 +10,7 @@ import (
 )
 
 // ListTMFObjects retrieves all TMF objects of a given type.
-func (svc *Service) ListTMFObjects(req *Request) *Response {
+func (svc *Service) ListTMFObjects(ctx context.Context, req *Request) *Response {
 	if !req.HealthRequest {
 		slog.Debug("ListGenericObjects called", slog.String("resourceName", req.ResourceName), slog.String("queryParams", req.QueryParams.Encode()))
 	}
@@ -44,7 +45,7 @@ func (svc *Service) ListTMFObjects(req *Request) *Response {
 	if svc.proxyEnabled {
 		var err error
 		var diagnosticObjects []repo.ValidationResult
-		responseData, responseHeaders, diagnosticObjects, err = svc.listRemoteObjects(req, userLimit, userOffset, fieldSet)
+		responseData, responseHeaders, diagnosticObjects, err = svc.listRemoteObjects(ctx, req, userLimit, userOffset, fieldSet)
 		if err != nil {
 			return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", err)
 		}

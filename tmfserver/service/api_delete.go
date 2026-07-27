@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -10,7 +11,7 @@ import (
 )
 
 // DeleteTMFObject deletes a TMF object, first in the remote server and then locally.
-func (svc *Service) DeleteTMFObject(req *Request) *Response {
+func (svc *Service) DeleteTMFObject(ctx context.Context, req *Request) *Response {
 	var err error
 	slog.Debug("DeleteGenericObject called", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
@@ -26,7 +27,7 @@ func (svc *Service) DeleteTMFObject(req *Request) *Response {
 	var existingObject *repo.TMFRecord
 
 	// Retrieve existing object, locally or remotely
-	existingObject, err = svc.getLocalOrRemoteObject(req)
+	existingObject, err = svc.getLocalOrRemoteObject(ctx, req)
 	if err != nil {
 		// TODO: check the return code from remote server and reply accordingly
 		return ErrorResponsef(http.StatusBadRequest, "failed to get existing object for update: %w", err)
@@ -76,7 +77,7 @@ func (svc *Service) DeleteTMFObject(req *Request) *Response {
 		}
 		path := fmt.Sprintf("%s/%s", pathPrefix, req.ID)
 
-		resp, body, err := svc.tmfClient.Delete(path, headers)
+		resp, body, err := svc.tmfClient.Delete(ctx, path, headers)
 		if err != nil {
 			return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", err)
 		}

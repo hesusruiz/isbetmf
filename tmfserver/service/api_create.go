@@ -1,12 +1,13 @@
 package service
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 )
 
 // CreateTMFObject creates a new TMF object using generalized parameters.
-func (svc *Service) CreateTMFObject(req *Request) *Response {
+func (svc *Service) CreateTMFObject(ctx context.Context, req *Request) *Response {
 	slog.Debug("CreateTMFObject called", slog.String("apiFamily", req.APIfamily), slog.String("resourceName", req.ResourceName))
 
 	// Authentication is required for create operations
@@ -31,7 +32,7 @@ func (svc *Service) CreateTMFObject(req *Request) *Response {
 	}
 
 	// Object Creation (Remote or Local)
-	response := svc.createRemoteOrLocalObject(req, incomingObjectMap)
+	response := svc.createRemoteOrLocalObject(ctx, req, incomingObjectMap)
 
 	// Notification to subscribers
 	if response.StatusCode == http.StatusCreated {
