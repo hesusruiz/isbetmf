@@ -69,7 +69,10 @@ func (c *TMFClient) TMFPost(req *Request, objMap repository.TMFObjectMap) (repos
 		return nil, []error{errl.Errorf("failed to marshall object: %w", err)}
 	}
 
-	path := fmt.Sprintf("/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName)
+	path, err := config.ExternalUpstreamTMFPath(req.ResourceName)
+	if err != nil {
+		return nil, []error{errl.Errorf("failed to get path prefix: %w", err)}
+	}
 
 	headers := map[string]string{
 		"Authorization": "Bearer " + req.AuthUser.AccessToken,
@@ -127,7 +130,12 @@ func (c *TMFClient) TMFPatch(req *Request, patchMap repository.TMFObjectMap) (re
 		return nil, []error{errl.Errorf("failed to marshall object: %w", err)}
 	}
 
-	path := fmt.Sprintf("/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, req.ID)
+	pathPrefix, err := config.ExternalUpstreamTMFPath(req.ResourceName)
+	if err != nil {
+		return nil, []error{errl.Errorf("failed to get path prefix: %w", err)}
+	}
+
+	path := fmt.Sprintf("%s/%s", pathPrefix, req.ID)
 
 	headers := map[string]string{
 		"Authorization": "Bearer " + req.AuthUser.AccessToken,

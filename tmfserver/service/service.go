@@ -189,27 +189,6 @@ func NewTMFService(cnf *config.Config, storage TMFStorage, ruleEngine *pdp.PDP) 
 		}
 	}
 
-	// // Create the server operator identity, in case it is not yet in the database
-	// org := &repository.Organization{
-	// 	CommonName:             svc.ServerOperatorName,
-	// 	Country:                svc.ServerOperatorCountry,
-	// 	EmailAddress:           svc.ServerEmailAddress,
-	// 	Organization:           svc.ServerOperatorName,
-	// 	OrganizationIdentifier: svc.ServerOperatorOrganizationIdentifier,
-	// }
-	// obj, _ := repository.TMFRecordFromOrganizationAndToken(org, nil)
-
-	// if err := svc.UpsertObject(obj); err != nil {
-	// 	if errors.Is(err, &ErrObjectExists{}) {
-	// 		slog.Debug("server operator organization already exists", "organizationIdentifier", svc.ServerOperatorOrganizationIdentifier)
-	// 	} else {
-	// 		err = errl.Errorf("error creating server operator organization: %w", err)
-	// 		panic(err)
-	// 	}
-	// } else {
-	// 	slog.Info("server operator organization created", "obj_id", obj.ID)
-	// }
-
 	// Retrieve the OpenId configuration of the Verifier server
 	oid, err := NewOpenIDConfig(svc.verifierServer)
 	if err != nil {

@@ -50,7 +50,9 @@ type Config struct {
 
 	// Dbname is the name of the database file where the local TMForum data is stored
 	// It is used to store the data in a local SQLite database, the best SQL database for this purpose.
-	Dbname         string
+	Dbname string
+
+	// Set to true to disable the automatic backups of the database
 	BackupDisabled bool
 
 	// The power required by a caller to be considered LEAR
@@ -61,7 +63,7 @@ type Config struct {
 	ProductUpdatePower types.OnePower
 	ProductDeletePower types.OnePower
 
-	// PolicyFileName is the name of the file where the policies are stored.
+	// PolicyFileName is the name of the file where the user-defined policies are stored.
 	// It can specify a local file or a remote URL.
 	PolicyFileName string
 
@@ -71,10 +73,9 @@ type Config struct {
 	// Debug mode, more logs and less caching
 	Debug bool
 
-	// TODO: this is temporary for testing
-	FakeClaims bool
-
 	// The admin token used to authenticate the superadmin
+	// The admin token does not have to be based on a LEARCredential.
+	// This is a special token defined in the configuration and has superadmin powers.
 	AdminToken string
 
 	// Enable synchronization with the remote server in background
@@ -94,16 +95,23 @@ type Config struct {
 	// Hour and minute of the day when the server will automatically restart (each day). Hour=-1 disables restart.
 	RestartHour, RestartMinute int
 
-	// The features of the environment
+	// The special features of the environment
 	Features Features
 }
 
 // Features defines a set of feature flags which may depend on the environment at a given time
 type Features struct {
+	// Only the server operator admin can launch an offering.
 	OfferingLaunchOnlyByAdmin bool
-	GenerateIDOnCreate        bool
-	AllowIDInBody             bool
-	VerifyJWTSignature        bool
+
+	// GenerateIDOnCreate forces the server to generate an ID for the object on POST.
+	GenerateIDOnCreate bool
+
+	// AllowIDInBody allows the client to specify the ID of the object on POST.
+	AllowIDInBody bool
+
+	// VerifyJWTSignature verifies the signature of the JWT.
+	VerifyJWTSignature bool
 }
 
 // LoadConfig initializes and returns a Config struct based on the provided parameters.

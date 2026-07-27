@@ -87,27 +87,3 @@ func InternalUpstreamURL(resourceName string) (string, error) {
 	url := fmt.Sprintf("http://%s:%d%s", entry.Host, entry.Port, entry.Path)
 	return url, nil
 }
-
-// InternalOrigin returns a url of the form: "http://hostname:port"
-// for the TMF server running as a sidecar.
-func InternalOrigin(resourceName string) (string, error) {
-
-	// 	Parse the proxy yaml content only once at first time
-	if len(internalUpstreamEntries) == 0 {
-		err := yaml.Unmarshal(internalUpstreamYAMLContent, &internalUpstreamEntries)
-		if err != nil {
-			return "", errl.Errorf("error parsing proxy yaml content: %s", err)
-		}
-	}
-
-	// Get the entry for the resource name
-	entry, ok := internalUpstreamEntries[resourceName]
-	if !ok {
-		return "", errl.Errorf("unknown resource type: %s", resourceName)
-	}
-
-	// the url is like: http://hostname:port
-	url := fmt.Sprintf("http://%s:%d", entry.Host, entry.Port)
-	return url, nil
-
-}

@@ -21,6 +21,7 @@ import (
 // For convenience of the policies, some calculated fields are created and returned in the 'user' object.
 func (svc *Service) ProcessAccessToken(accessToken string) (user *types.AuthUser, err error) {
 
+	// The zero AuthUser is a valid guest user.
 	authUser := &types.AuthUser{}
 
 	// An empty token is not considered an error, and the caller should enforce its existence if needed
@@ -28,9 +29,10 @@ func (svc *Service) ProcessAccessToken(accessToken string) (user *types.AuthUser
 		return authUser, nil
 	}
 
-	// This is for testing purposes only. It allows to simulate a LEAR user without a real token.
+	// If we receive a superadmin token, create an AuthUser will all powers
 	if accessToken == svc.adminToken {
 
+		// The user is the server operator
 		authUser.CommonName = svc.ServerOperatorName
 		authUser.Country = svc.ServerOperatorCountry
 		authUser.EmailAddress = svc.ServerEmailAddress
@@ -38,6 +40,7 @@ func (svc *Service) ProcessAccessToken(accessToken string) (user *types.AuthUser
 		authUser.OrganizationIdentifier = svc.ServerOperatorOrganizationIdentifier
 		authUser.SerialNumber = svc.ServerOperatorOrganizationIdentifier
 
+		// With all powers and owning all objects
 		authUser.IsAuthenticated = true
 		authUser.IsLEAR = true
 		authUser.IsOwner = true
@@ -67,15 +70,19 @@ func (svc *Service) ProcessAccessToken(accessToken string) (user *types.AuthUser
 
 	if svc.Features.VerifyJWTSignature {
 
-		// This is called by the JWT signature verifier to retrieve the verification key
+		// This is called by ParseWithClaims to retrieve the verification key
 		verifierPublicKeyFunc := func(tok *jwt.Token) (any, error) {
+
+			// Check that the configuration for retrieving the JWK is present.
 			if svc.oid == nil {
 				return nil, errl.Errorf("openid support not initialized")
 			}
+			// The key ID is used to retrieve the verification key from the OpenID Provider
 			keyID, ok := tok.Header["kid"].(string)
 			if !ok {
 				return nil, errl.Errorf("invalid access token: kid not found in header")
 			}
+			// Get the verification key from the OpenID Provider (it is cached locally)
 			vk, err := svc.oid.VerificationJWKKey(keyID)
 			if err != nil {
 				return nil, errl.Error(err)

@@ -47,8 +47,7 @@ func (svc *Service) createRemoteOrLocalObject(req *Request, objMap repo.TMFObjec
 
 	// With the proxy enabled, first create the object in the remote server and then locally
 	// We do not have to worry about transaction integrity, because if the remote server fails, we do not create the object locally
-	// If the local server fails, we do not have to do anything, because the object is already in the remote server and our cache will
-	// be updated later on the next call from the user
+	// If the local server fails, the object will be eventually updated in our cache later, for other operations against the object.
 
 	remoteObjectMap, errs := svc.tmfClient.TMFPost(req, objMap)
 	if len(errs) > 0 {
@@ -414,7 +413,12 @@ func (svc *Service) getRemoteObject(req *Request) (*repo.TMFRecord, error) {
 	}
 
 	// Build the path for the request according to TMForum specs
-	path := fmt.Sprintf("/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, req.ID)
+	pathPrefix, err := config.ExternalUpstreamTMFPath(req.ResourceName)
+	if err != nil {
+		return nil, errl.Errorf("failed to get path prefix: %w", err)
+	}
+
+	path := fmt.Sprintf("%s/%s", pathPrefix, req.ID)
 
 	// Send the request to the remote with our HTTP Client
 	resp, body, err := svc.tmfClient.Get(path, headers)
