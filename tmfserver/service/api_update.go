@@ -16,7 +16,7 @@ func (svc *Service) UpdateTMFObject(ctx context.Context, req *Request) *Response
 	}
 
 	// Parse request body
-	incomingObjectMap, errorResponse := svc.parseRequestBody(req)
+	incomingObjectMap, errorResponse := svc.parseUpdateRequestBody(req)
 	if errorResponse != nil {
 		return errorResponse
 	}

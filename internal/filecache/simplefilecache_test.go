@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -148,3 +150,75 @@ func TestGetURL(t *testing.T) {
 	_, err = cache.Get(url500)
 	assert.Error(t, err)
 }
+
+func TestSimpleFileCacheConcurrentAccess(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "filecache-concurrent-test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	fileName := filepath.Join(tmpDir, "concurrent.txt")
+	err = os.WriteFile(fileName, []byte("initial-data"), 0644)
+	require.NoError(t, err)
+
+	opts := &FileCacheOptions{
+		FreshnessForDiskFiles: 10 * time.Millisecond,
+	}
+	cache := NewSimpleFileCache(opts)
+
+	var wg sync.WaitGroup
+	const goroutines = 20
+	const iterations = 50
+
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				entry, err := cache.Get(fileName)
+				if assert.NoError(t, err) && assert.NotNil(t, entry) {
+					_ = entry.Name
+					_ = len(entry.Content)
+					_ = entry.Expires
+				}
+				time.Sleep(2 * time.Millisecond)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+}
+
+func TestSingleFlightCoalescing(t *testing.T) {
+	var requestCount int32
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&requestCount, 1)
+		time.Sleep(50 * time.Millisecond)
+		w.Header().Set("Etag", "etag-sf")
+		w.Write([]byte("coalesced-content"))
+	}))
+	defer server.Close()
+
+	opts := &FileCacheOptions{
+		HTTPClient: server.Client(),
+	}
+	cache := NewSimpleFileCache(opts)
+	url := server.URL + "/slow-file"
+
+	var wg sync.WaitGroup
+	const concurrentCallers = 20
+
+	for i := 0; i < concurrentCallers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			entry, err := cache.Get(url)
+			require.NoError(t, err)
+			assert.Equal(t, []byte("coalesced-content"), entry.Content)
+		}()
+	}
+
+	wg.Wait()
+	assert.Equal(t, int32(1), atomic.LoadInt32(&requestCount), "expected singleflight to coalesce all 20 calls into 1 HTTP request")
+}
+
+

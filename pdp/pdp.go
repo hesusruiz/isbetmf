@@ -56,7 +56,7 @@ type PDP struct {
 
 	// The file cache to read the policy and other files. Modifications to the original file
 	// are picked up automatically according to a freshness policy.
-	fileCache *filecache.SimpleFileCache
+	fileCache filecache.FileCache
 
 	// The pool of instances of the policy execution engines, to minimize startup
 	// and teardown overheads.

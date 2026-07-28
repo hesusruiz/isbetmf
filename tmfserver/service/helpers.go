@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hesusruiz/isbetmf/internal/errl"
+	"github.com/hesusruiz/isbetmf/internal/jsone"
 	repo "github.com/hesusruiz/isbetmf/tmfserver/repository"
 	"github.com/hesusruiz/isbetmf/types"
 )
@@ -24,8 +25,8 @@ func (svc *Service) requiresAuthentication(req *Request) *Response {
 	return nil
 }
 
-// parseRequestBody parses the JSON body from the request into a TMFObjectMap.
-func (svc *Service) parseRequestBody(req *Request) (repo.TMFObjectMap, *Response) {
+// parseCreateRequestBody parses the JSON body from the CREATE request into a TMFObjectMap.
+func (svc *Service) parseCreateRequestBody(req *Request) (repo.TMFObjectMap, *Response) {
 
 	// Make sure the resource is supported
 	res := types.GetResourceDefinition(req.ResourceName)
@@ -37,6 +38,25 @@ func (svc *Service) parseRequestBody(req *Request) (repo.TMFObjectMap, *Response
 	if err != nil {
 		return nil, ErrorResponsef(http.StatusBadRequest, "failed to bind request body: %w", errl.Error(err))
 	}
+	return incomingObjectMap, nil
+}
+
+// parseUpdateRequestBody parses the JSON body from the UPDATE request into a TMFObjectMap.
+func (svc *Service) parseUpdateRequestBody(req *Request) (repo.TMFObjectMap, *Response) {
+
+	// Make sure the resource is supported
+	res := types.GetResourceDefinition(req.ResourceName)
+	if res == nil {
+		return nil, ErrorResponsef(http.StatusBadRequest, "resource type %s not supported", req.ResourceName)
+	}
+
+	var incomingObjectMap repo.TMFObjectMap
+	err := jsone.Unmarshal(req.Body, &incomingObjectMap)
+	if err != nil {
+		return nil, ErrorResponsef(http.StatusBadRequest, "failed to bind request body: %w", errl.Error(err))
+	}
+
+	// TODO: check that the non-patchable fields are not specified in the request body
 	return incomingObjectMap, nil
 }
 
@@ -226,8 +246,12 @@ func (svc *Service) verifyObjectOnCreate(req *Request, incomingObjMap repo.TMFOb
 // verifyObjectOnUpdate handles the validation and updates of metadata fields during an update operation.
 func (svc *Service) verifyObjectOnUpdate(req *Request, incomingObjMap repo.TMFObjectMap) *Response {
 
-	// Set the @type, even if the user specified it, to make sure it matches the resource name
-	incomingObjMap.SetType(req.ResourceName)
+	// Check the non-patchable fields are not specified: id, href, lastUpdate, @type, @baseType
+	for _, field := range []string{"id", "href", "lastUpdate", "@type", "@baseType"} {
+		if _, ok := incomingObjMap[field]; ok {
+			return ErrorResponsef(http.StatusBadRequest, "non-patchable field %s cannot be specified in the incoming object", field)
+		}
+	}
 
 	// Check if the caller is trying to set the lifecycleStatus of a ProductOffering to "Launched"
 	if svc.Features.OfferingLaunchOnlyByAdmin {
@@ -236,20 +260,6 @@ func (svc *Service) verifyObjectOnUpdate(req *Request, incomingObjMap repo.TMFOb
 			if !repo.SameOrganizations(caller.OrganizationIdentifier, svc.ServerOperatorDid) {
 				return ErrorResponsef(http.StatusForbidden, "offering launch is only allowed by admin")
 			}
-		}
-	}
-
-	// If the 'id' is present in the body, ensure it matches the 'id' in the URL
-	if !svc.Features.AllowIDInBody {
-		id := incomingObjMap.ID()
-		if id != "" && id != req.ID {
-			err := errl.Errorf("ID in body must match ID in URL")
-			return ErrorResponsef(http.StatusBadRequest,
-				"invalid object, request id: %s, id in body: %s, error: %w",
-				req.ID,
-				id,
-				err,
-			)
 		}
 	}
 

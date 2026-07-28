@@ -87,10 +87,10 @@ type Service struct {
 	adminToken string
 
 	// Pluggable storage backend
-	storage TMFStorage
+	storage TMFStorer
 
 	// The rules engine interface
-	ruleEngine RuleEngine
+	ruleEngine Authorizer
 
 	// The url of theVerifier server which signs the Access Tokens,
 	// and the PDP retrieves the JWKS from it to verify the signatures.
@@ -141,7 +141,7 @@ type Service struct {
 }
 
 // NewTMFService creates a new service.
-func NewTMFService(cnf *config.Config, storage TMFStorage, ruleEngine RuleEngine) (*Service, error) {
+func NewTMFService(cnf *config.Config, storage TMFStorer, ruleEngine Authorizer) (*Service, error) {
 
 	// Parse the YAML definition
 	types.ParseActionDefinitions()
