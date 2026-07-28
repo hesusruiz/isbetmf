@@ -564,3 +564,61 @@ func TestEmptyList(t *testing.T) {
 		t.Fatalf("empty list should have 0 items, got %d", len(items))
 	}
 }
+
+type mockRuleEngine struct {
+	authorizeFunc func(input pdp.StarTMFMap) (bool, error)
+}
+
+func (m *mockRuleEngine) Authorize(input pdp.StarTMFMap) (bool, error) {
+	if m.authorizeFunc != nil {
+		return m.authorizeFunc(input)
+	}
+	return true, nil
+}
+
+func TestServiceWithMockRuleEngine(t *testing.T) {
+
+	configuration, err := config.LoadConfig(string(config.LOCAL), false)
+	if err != nil {
+		t.Fatalf("create test config: %v", err)
+	}
+
+	dbLayer, err := repository.NewDBService(":memory:")
+	if err != nil {
+		t.Fatalf("create test db: %v", err)
+	}
+
+	called := false
+	mockPDP := &mockRuleEngine{
+		authorizeFunc: func(input pdp.StarTMFMap) (bool, error) {
+			called = true
+			return true, nil
+		},
+	}
+
+	tmfService, err := NewTMFService(configuration, dbLayer, mockPDP)
+	if err != nil {
+		t.Fatalf("create test service: %v", err)
+	}
+
+	if tmfService.ruleEngine == nil {
+		t.Fatalf("ruleEngine should not be nil")
+	}
+
+	req := &Request{
+		Method:       "GET",
+		Action:       READ,
+		APIfamily:    "productCatalogManagement",
+		APIVersion:   "v4",
+		ResourceName: "productOffering",
+	}
+
+	err = tmfService.userPolicies(tmfService.ruleEngine, req, nil, nil)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	if !called {
+		t.Fatalf("expected mock PDP Authorize to be called")
+	}
+}

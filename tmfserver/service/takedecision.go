@@ -29,7 +29,7 @@ import (
 // 1. Evaluates hardcoded policies first - if these fail, denies access immediately
 // 2. If hardcoded policies pass, evaluates user-defined policies through the PDP engine
 func (svc *Service) checkAuthorization(
-	ruleEngine *pdp.PDP,
+	ruleEngine RuleEngine,
 	req *Request,
 	objectMap repo.TMFObjectMap,
 ) (authorized bool, err error) {
@@ -348,7 +348,7 @@ func (svc *Service) hardcodedPolicies(req *Request, obj repo.TMFObjectMap) (reas
 //   - nil when the request is authorized.
 //   - non-nil error when the rules engine rejects the request or an internal error occurs.
 func (svc *Service) userPolicies(
-	ruleEngine *pdp.PDP,
+	ruleEngine RuleEngine,
 	req *Request,
 	tokenClaims map[string]any,
 	objectMap repo.TMFObjectMap,

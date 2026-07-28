@@ -9,7 +9,6 @@ import (
 
 	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
-	pdp "github.com/hesusruiz/isbetmf/pdp"
 	"github.com/hesusruiz/isbetmf/tmfserver/notifications"
 	"github.com/hesusruiz/isbetmf/types"
 )
@@ -90,8 +89,8 @@ type Service struct {
 	// Pluggable storage backend
 	storage TMFStorage
 
-	// The rules engine implemented using Starlark
-	ruleEngine *pdp.PDP
+	// The rules engine interface
+	ruleEngine RuleEngine
 
 	// The url of theVerifier server which signs the Access Tokens,
 	// and the PDP retrieves the JWKS from it to verify the signatures.
@@ -142,7 +141,7 @@ type Service struct {
 }
 
 // NewTMFService creates a new service.
-func NewTMFService(cnf *config.Config, storage TMFStorage, ruleEngine *pdp.PDP) (*Service, error) {
+func NewTMFService(cnf *config.Config, storage TMFStorage, ruleEngine RuleEngine) (*Service, error) {
 
 	// Parse the YAML definition
 	types.ParseActionDefinitions()
