@@ -89,12 +89,8 @@ type Service struct {
 	// Pluggable storage backend
 	storage TMFStorer
 
-	// The rules engine interface
+	// Pluggable PDP interface
 	ruleEngine Authorizer
-
-	// The url of theVerifier server which signs the Access Tokens,
-	// and the PDP retrieves the JWKS from it to verify the signatures.
-	verifierServer string
 
 	// The OpenID configuration to use the Verifier Server
 	oid *OpenIDConfig
@@ -112,9 +108,6 @@ type Service struct {
 	// When not enabled, the service is a standard TMF Server, local only.
 	// When enabled, the service is a proxy to a remote TMF Server.
 	proxyEnabled bool
-
-	// The paging service to help process remote TMForum objects when retrieving large quantities.
-	paging *ClientWithPaging
 
 	// Information about us (the server operator)
 	ServerOperatorOrganizationIdentifier string
@@ -152,7 +145,6 @@ func NewTMFService(cnf *config.Config, storage TMFStorer, ruleEngine Authorizer)
 	svc.adminToken = cnf.AdminToken
 	svc.storage = storage
 	svc.ruleEngine = ruleEngine
-	svc.verifierServer = cnf.VerifierServer
 	svc.Features = cnf.Features
 
 	// Information about us (the server operator)
@@ -189,16 +181,11 @@ func NewTMFService(cnf *config.Config, storage TMFStorer, ruleEngine Authorizer)
 	}
 
 	// Retrieve the OpenId configuration of the Verifier server
-	oid, err := NewOpenIDConfig(svc.verifierServer)
+	oid, err := NewOpenIDConfig(cnf.VerifierServer)
 	if err != nil {
 		return nil, errl.Errorf("failed to retrieve OpenID configuration: %w", err)
 	}
 	svc.oid = oid
-
-	// Create the paging service
-	pagingConfig := DefaultPagingConfig()
-	pagingConfig.PageSize = 10
-	svc.paging = NewClientWithPaging(pagingConfig)
 
 	// Initialize notifications with in-memory store and HTTP delivery
 	store := notifications.NewMemoryStore()
