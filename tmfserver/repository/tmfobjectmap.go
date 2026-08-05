@@ -441,7 +441,7 @@ func (obj TMFObjectMap) ToMap() map[string]any {
 
 // Utility methods for well-known top-level attributes
 
-func (obj TMFObjectMap) IsPublic() bool {
+func (obj TMFObjectMap) IsPotentiallyPublic() bool {
 	resourceDefinition := types.GetResourceDefinition(obj.Type())
 	if resourceDefinition == nil {
 		return false
@@ -1059,10 +1059,6 @@ func (obj TMFObjectMap) GetSellerInfo(apiVersion string) (sellerDid string, sell
 }
 
 func (obj TMFObjectMap) GetBuyerInfo(apiVersion string) (sellerDid string, sellerOperatorDid string, err error) {
-	if !obj.RequiresBuyerInfo() {
-		return
-	}
-
 	switch apiVersion {
 	case "v4":
 		return getUserAndUserOperatorInfoV4(obj, "Buyer", "BuyerOperator")
