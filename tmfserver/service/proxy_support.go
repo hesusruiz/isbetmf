@@ -95,6 +95,11 @@ func (svc *Service) updateRemoteOrLocalObject(ctx context.Context, req *Request,
 	if svc.proxyEnabled {
 		remoteObjectMap, errs := svc.tmfClient.TMFPatch(ctx, req, patch)
 		if len(errs) > 0 {
+			if svc.LogLevel() >= 3 {
+				// Pretty-pring the path object
+				patchJSON, _ := json.MarshalIndent(patch, "", "  ")
+				fmt.Println("Path object:", string(patchJSON))
+			}
 			return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", errs[0])
 		}
 
@@ -369,10 +374,11 @@ func (svc *Service) getLocalOrRemoteObject(ctx context.Context, req *Request) (*
 	objectID := req.ID
 
 	// For organization resources in local database, the objectID is the organization identifier.
-	// TODO: this logic is only for ISBE
-	if req.ResourceName == "organization" {
-		if strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:") && !strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:did:elsi:") {
-			objectID = "urn:ngsi-ld:organization:did:elsi:" + strings.TrimPrefix(req.ID, "urn:ngsi-ld:organization:")
+	if svc.IsISBE() {
+		if req.ResourceName == "organization" {
+			if strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:") && !strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:did:elsi:") {
+				objectID = "urn:ngsi-ld:organization:did:elsi:" + strings.TrimPrefix(req.ID, "urn:ngsi-ld:organization:")
+			}
 		}
 	}
 
