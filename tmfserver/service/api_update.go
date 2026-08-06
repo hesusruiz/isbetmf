@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 )
@@ -19,6 +21,11 @@ func (svc *Service) UpdateTMFObject(ctx context.Context, req *Request) *Response
 	incomingObjectMap, errorResponse := svc.parseUpdateRequestBody(req)
 	if errorResponse != nil {
 		return errorResponse
+	}
+
+	if svc.LogLevel() >= 3 {
+		data, _ := json.MarshalIndent(incomingObjectMap, "", "  ")
+		fmt.Println(string(data))
 	}
 
 	// Ensure update metadata

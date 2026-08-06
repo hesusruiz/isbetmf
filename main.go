@@ -196,6 +196,7 @@ func runNormalProcess(configuration *config.Config) {
 	// Serve the OpenAPI UI. We support V4 and V5
 	webServer.Static("/oapiv5", "./www/oapiv5")
 	webServer.Static("/oapiv4", "./www/oapiv4")
+	webServer.Static("/assets", "./www/assets")
 
 	// Create handler and set the routes for the APIs
 	fiberhandler.NewHandler(webServer, tmfService)

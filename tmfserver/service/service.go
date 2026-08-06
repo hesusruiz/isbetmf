@@ -83,6 +83,9 @@ type Service struct {
 	// The environment where we are running
 	environment config.Environment
 
+	// The logging level
+	logLevel int
+
 	// The admin token used to authenticate the superadmin. Handle as a secret.
 	adminToken string
 
@@ -192,7 +195,25 @@ func NewTMFService(cnf *config.Config, storage TMFStorer, ruleEngine Authorizer)
 	deliver := notifications.NewHTTPDelivery(5 * time.Second)
 	svc.notif = notifications.NewManager(store, deliver)
 
+	svc.SetLogLevel(3)
+
 	return svc, nil
+}
+
+func (s *Service) AdminToken() string {
+	return s.adminToken
+}
+
+func (s *Service) Environment() config.Environment {
+	return s.environment
+}
+
+func (s *Service) LogLevel() int {
+	return s.logLevel
+}
+
+func (s *Service) SetLogLevel(logLevel int) {
+	s.logLevel = logLevel
 }
 
 func (s *Service) IsDOME() bool {

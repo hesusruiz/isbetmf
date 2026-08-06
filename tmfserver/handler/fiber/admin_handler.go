@@ -2,10 +2,15 @@ package fiber
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,8 +18,10 @@ import (
 	"github.com/hesusruiz/isbetmf/tmfserver/service"
 )
 
-//go:embed templates/*.html
+//go:embed templates/*
 var templatesFS embed.FS
+
+const adminSessionCookieName = "admin_session"
 
 type AdminHandler struct {
 	service      *service.Service
@@ -23,7 +30,7 @@ type AdminHandler struct {
 
 func NewAdminHandler(app *fiber.App, s *service.Service) *AdminHandler {
 
-	htmlRenderer, err := html.NewRenderer(true, &templatesFS, "templates", "internal/admin/templates", ".html")
+	htmlRenderer, err := html.NewRenderer(true, &templatesFS, "templates", "tmfserver/handler/fiber/templates", ".html")
 	if err != nil {
 		panic(fmt.Errorf("failed to create admin templates renderer: %w", err))
 	}
@@ -42,13 +49,132 @@ func NewAdminHandler(app *fiber.App, s *service.Service) *AdminHandler {
 func (h *AdminHandler) registerRoutes(app *fiber.App) {
 	admin := app.Group("/admin")
 
+	admin.Get("/login", h.ShowLogin)
+	admin.Post("/login", h.ProcessLogin)
+	admin.Get("/logout", h.Logout)
+
+	admin.Use(h.RequireAuth)
+
 	admin.Get("/", h.Dashboard)
+	admin.Get("/pages/:pageName", h.ShowPage)
 	admin.Get("/:resourceName", h.ListObjects)
 	admin.Get("/:resourceName/:id", h.ViewObject)
 }
 
 func (h *AdminHandler) Dashboard(c *fiber.Ctx) error {
-	return h.render(c, "dashboard", nil)
+	data := map[string]any{
+		"settings": "active",
+		"service":  h.service,
+	}
+	return h.render(c, "settings", data)
+}
+
+func (h *AdminHandler) ShowPage(c *fiber.Ctx) error {
+	pageName := c.Params("pageName")
+	data := map[string]any{
+		pageName:  "active",
+		"service": h.service,
+	}
+	return h.render(c, pageName, data)
+}
+
+func (h *AdminHandler) RequireAuth(c *fiber.Ctx) error {
+	path := c.Path()
+	if path == "/admin/login" || path == "/admin/logout" {
+		return c.Next()
+	}
+
+	cookie := c.Cookies(adminSessionCookieName)
+	if cookie == "" || !h.isValidSession(cookie) {
+		return c.Redirect("/admin/login")
+	}
+
+	return c.Next()
+}
+
+func (h *AdminHandler) ShowLogin(c *fiber.Ctx) error {
+	cookie := c.Cookies(adminSessionCookieName)
+	if cookie != "" && h.isValidSession(cookie) {
+		return c.Redirect("/admin/")
+	}
+	return h.render(c, "login", map[string]any{})
+}
+
+func (h *AdminHandler) ProcessLogin(c *fiber.Ctx) error {
+	email := c.FormValue("email")
+	password := c.FormValue("password")
+
+	adminToken := h.service.AdminToken()
+	if adminToken == "" || password != adminToken {
+		data := map[string]any{
+			"Error": "Invalid password",
+			"Email": email,
+		}
+		return h.render(c, "login", data)
+	}
+
+	sessionToken := h.createSessionToken()
+	c.Cookie(&fiber.Cookie{
+		Name:     adminSessionCookieName,
+		Value:    sessionToken,
+		Path:     "/admin",
+		Expires:  time.Now().Add(24 * time.Hour),
+		HTTPOnly: true,
+		SameSite: "Lax",
+	})
+
+	return c.Redirect("/admin/")
+}
+
+func (h *AdminHandler) Logout(c *fiber.Ctx) error {
+	c.Cookie(&fiber.Cookie{
+		Name:     adminSessionCookieName,
+		Value:    "",
+		Path:     "/admin",
+		Expires:  time.Now().Add(-1 * time.Hour),
+		HTTPOnly: true,
+		SameSite: "Lax",
+	})
+	return c.Redirect("/admin/login")
+}
+
+func (h *AdminHandler) isValidSession(tokenStr string) bool {
+	adminToken := h.service.AdminToken()
+	if adminToken == "" {
+		return false
+	}
+
+	parts := strings.Split(tokenStr, ".")
+	if len(parts) != 2 {
+		return false
+	}
+
+	expStr, sig := parts[0], parts[1]
+	expUnix, err := strconv.ParseInt(expStr, 10, 64)
+	if err != nil {
+		return false
+	}
+
+	if time.Now().Unix() > expUnix {
+		return false
+	}
+
+	expectedSig := h.computeSessionHMAC(adminToken, expStr)
+	return hmac.Equal([]byte(sig), []byte(expectedSig))
+}
+
+func (h *AdminHandler) createSessionToken() string {
+	adminToken := h.service.AdminToken()
+	exp := time.Now().Add(24 * time.Hour).Unix()
+	expStr := strconv.FormatInt(exp, 10)
+	sig := h.computeSessionHMAC(adminToken, expStr)
+	return fmt.Sprintf("%s.%s", expStr, sig)
+}
+
+func (h *AdminHandler) computeSessionHMAC(adminToken string, expStr string) string {
+	mac := hmac.New(sha256.New, []byte(adminToken))
+	mac.Write([]byte("admin_session:" + expStr))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 func (h *AdminHandler) ListObjects(c *fiber.Ctx) error {
@@ -71,15 +197,6 @@ func (h *AdminHandler) ListObjects(c *fiber.Ctx) error {
 		ResourceName: resourceName,
 		QueryParams:  url.Values{"limit": []string{"20"}}, // Default limit
 	}
-
-	// We need to bypass auth for admin screens or implement a proper admin login.
-	// For now, assuming the service layer allows internal calls or we mock the token if needed.
-	// However, the service layer checks for tokens.
-	// Let's assume for this task we are running in a trusted environment or the service allows it.
-	// Actually, the service.ListGenericObjects checks for permissions.
-	// We might need to inject a "superuser" token or context if the admin is internal.
-	// For now, let's try calling it directly. The service layer might fail if no token is present
-	// and the policy requires it.
 
 	// Create a context with a timeout of 30 seconds
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
