@@ -56,7 +56,6 @@ func (svc *Service) parseUpdateRequestBody(req *Request) (repo.TMFObjectMap, *Re
 		return nil, ErrorResponsef(http.StatusBadRequest, "failed to bind request body: %w", errl.Error(err))
 	}
 
-	// TODO: check that the non-patchable fields are not specified in the request body
 	return incomingObjectMap, nil
 }
 

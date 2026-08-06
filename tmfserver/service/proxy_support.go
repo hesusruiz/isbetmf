@@ -114,10 +114,11 @@ func (svc *Service) updateRemoteOrLocalObject(ctx context.Context, req *Request,
 	objectID := req.ID
 
 	// For organization resources in local database, the objectID is the organization identifier.
-	// TODO: this logic is only for ISBE
-	if req.ResourceName == "organization" {
-		if strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:") && !strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:did:elsi:") {
-			objectID = "urn:ngsi-ld:organization:did:elsi:" + strings.TrimPrefix(req.ID, "urn:ngsi-ld:organization:")
+	if svc.IsISBE() {
+		if req.ResourceName == "organization" {
+			if strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:") && !strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:did:elsi:") {
+				objectID = "urn:ngsi-ld:organization:did:elsi:" + strings.TrimPrefix(req.ID, "urn:ngsi-ld:organization:")
+			}
 		}
 	}
 
