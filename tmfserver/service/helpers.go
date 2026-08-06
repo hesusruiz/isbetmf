@@ -171,7 +171,7 @@ func (svc *Service) verifyObjectOnCreate(req *Request, incomingObjMap repo.TMFOb
 		}
 	}
 
-	if incomingObjMap.RequiresSellerInfo() {
+	if incomingObjMap.RequiresSellerInfo(req.ResourceName) {
 		objSeller, objSellerOperator, _ := incomingObjMap.GetSellerInfo("v4")
 		if objSeller == "" && objSellerOperator == "" {
 			// Set default seller info from caller and server operator
@@ -270,7 +270,7 @@ func (svc *Service) verifyObjectOnUpdate(req *Request, incomingObjMap repo.TMFOb
 		}
 	}
 
-	if incomingObjMap.RequiresSellerInfo() {
+	if incomingObjMap.RequiresSellerInfo(req.ResourceName) {
 		objSeller, objSellerOperator, _ := incomingObjMap.GetSellerInfo("v4")
 		if objSeller == "" && objSellerOperator == "" {
 			// Set default seller info from caller and server operator

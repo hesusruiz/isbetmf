@@ -211,7 +211,7 @@ func (obj TMFObjectMap) validateRequiredFields(resourceName string, result *Vali
 func (obj TMFObjectMap) validateRelatedParty(result *ValidationResult) {
 
 	// Return if the object does not require Seller nor Buyer info
-	if !obj.RequiresSellerInfo() {
+	if !obj.RequiresSellerInfo("") {
 		return
 	}
 
@@ -1025,8 +1025,13 @@ func setSellerInfoV5(tmfObjectMap map[string]any, serverOperatorDid string, orga
 
 }
 
-func (obj TMFObjectMap) RequiresSellerInfo() bool {
-	objType := obj.Type()
+func (obj TMFObjectMap) RequiresSellerInfo(resourceName string) bool {
+	var objType string
+	if len(resourceName) > 0 {
+		objType = resourceName
+	} else {
+		objType = obj.Type()
+	}
 	objType = strings.ToLower(objType)
 	return !slices.Contains(types.DoNotRequireRelatedParties, objType)
 }
@@ -1043,7 +1048,7 @@ func (obj TMFObjectMap) RequiresBuyerInfo() bool {
 // So, even if the returned error is not nil, the caller may check the sellerDid and the sellerOperatorDid.
 // This is useful if the caller has logic to handle cases where only one of the values is found.
 func (obj TMFObjectMap) GetSellerInfo(apiVersion string) (sellerDid string, sellerOperatorDid string, err error) {
-	if !obj.RequiresSellerInfo() {
+	if !obj.RequiresSellerInfo("") {
 		return
 	}
 
