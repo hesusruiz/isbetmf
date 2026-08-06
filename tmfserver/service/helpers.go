@@ -246,10 +246,17 @@ func (svc *Service) verifyObjectOnCreate(req *Request, incomingObjMap repo.TMFOb
 // verifyObjectOnUpdate handles the validation and updates of metadata fields during an update operation.
 func (svc *Service) verifyObjectOnUpdate(req *Request, incomingObjMap repo.TMFObjectMap) *Response {
 
+	// Follow Postel’s Law: be liberal in what you accept, conservative in what you send.
+	// We will not reject the update if the user specifies a field that is not allowed in the incoming object.
+	// However, we should reject the update if the user specifies an invalid field that could cause problems
+	// for the local or remote servers or clients.
+
 	// Check the non-patchable fields are not specified: id, href, lastUpdate, @type, @baseType
 	for _, field := range []string{"id", "href", "lastUpdate", "@type", "@baseType"} {
 		if _, ok := incomingObjMap[field]; ok {
-			return ErrorResponsef(http.StatusBadRequest, "non-patchable field %s cannot be specified in the incoming object", field)
+			slog.Warn("non-patchable field", "field", field)
+			// Remove the field from the incoming object
+			delete(incomingObjMap, field)
 		}
 	}
 
