@@ -45,7 +45,7 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 
 	cReq := &Request{
 		Method:       "POST",
-		Action:       HttpActions["POST"],
+		Action:       ActionCREATE,
 		APIfamily:    apiFamily,
 		APIVersion:   "v4",
 		ResourceName: resourceName,
@@ -69,7 +69,7 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 
 	gReq := &Request{
 		Method:       "GET",
-		Action:       HttpActions["GET"],
+		Action:       ActionREAD,
 		APIfamily:    apiFamily,
 		APIVersion:   "v4",
 		ResourceName: resourceName,
@@ -180,7 +180,7 @@ func TestBadISBECreate(t *testing.T) {
 
 	cReq := &Request{
 		Method:       "POST",
-		Action:       HttpActions["POST"],
+		Action:       ActionCREATE,
 		APIfamily:    apiFamily,
 		APIVersion:   "v4",
 		ResourceName: resourceName,
@@ -607,7 +607,7 @@ func TestServiceWithMockRuleEngine(t *testing.T) {
 
 	req := &Request{
 		Method:       "GET",
-		Action:       READ,
+		Action:       ActionREAD,
 		APIfamily:    "productCatalogManagement",
 		APIVersion:   "v4",
 		ResourceName: "productOffering",

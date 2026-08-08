@@ -16,7 +16,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	"github.com/hesusruiz/isbetmf/internal/sqlogger"
@@ -38,12 +37,44 @@ func main() {
 	envHelp := fmt.Sprintf("Environment where run: %s, %s, %s, %s, %s, %s, %s", config.ISBE_DEV, config.ISBE_PRE, config.ISBE_PRO, config.DOME_DEV, config.DOME_PRE, config.DOME_PRO, config.LOCAL)
 
 	// Parse command-line flags
-	flag.BoolVar(&debugFlag, "d", true, "Enable debug logging")
+	flag.BoolVar(&debugFlag, "d", false, "Enable debug logging")
 	flag.BoolVar(&init, "init", false, "Run as init process")
 	flag.StringVar(&environment, "run", string(config.LOCAL), envHelp)
 	flag.IntVar(&restartHour, "rh", 3, "Restart program every day at this hour")
 	flag.IntVar(&restartMinute, "rm", 0, "Restart program every day at this minute")
 	flag.Parse()
+
+	// Configure the slog logger
+	var logLevel = new(slog.LevelVar)
+	if debugFlag {
+		logLevel.Set(slog.LevelDebug)
+	} else {
+		logLevel.Set(slog.LevelInfo)
+	}
+
+	// Initialize the custom SQLogHandler
+	logOptions := &sqlogger.Options{
+		Level:  logLevel,
+		LogDir: "data/logs",
+	}
+
+	// Check if the logs should be colored:
+	// - If the process is running in a container (pid=1) then do not color the logs
+	// - If the environment variable ISBETMF_LOGS_NOCOLOR is set to "true" then do not color the logs
+	ourpid := os.Getpid()
+	if ourpid == 1 || os.Getenv("ISBETMF_LOGS_NOCOLOR") == "true" {
+		logOptions.NoColor = true
+	}
+
+	// Initialize the logging system
+	sqlog, err := sqlogger.NewSQLogHandler(logOptions)
+	if err != nil {
+		slog.Error("failed to initialize SQLogHandler, exiting", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	// And set the default logging system for all components
+	slog.SetDefault(slog.New(sqlog))
 
 	// Generate a default configuration suitable for the environment
 	// The approach is that instead of many configurable parameters, we have a set of profiles, with "hardcoded"
@@ -55,6 +86,8 @@ func main() {
 	}
 	defer configuration.Close()
 	slog.Info("Configuration loaded", "environment", configuration.Environment, "debug", configuration.Debug, "proxy", configuration.ProxyEnabled)
+
+	configuration.LogHandler = sqlog
 
 	// Set restart schedule
 	configuration.RestartHour = restartHour
@@ -168,12 +201,7 @@ func runNormalProcess(configuration *config.Config) {
 	}))
 
 	// 2. Request ID middleware - for tracing requests
-	webServer.Use(requestid.New(requestid.Config{
-		Header: "X-Request-Id",
-		Generator: func() string {
-			return "req_" + time.Now().Format("20060102150405") + "_" + os.Getenv("HOSTNAME")
-		},
-	}))
+	webServer.Use(fiberhandler.RequestID)
 
 	// 3. CORS middleware - enable cross-origin requests
 	webServer.Use(cors.New(cors.Config{

@@ -124,6 +124,71 @@ func (c *TMFClient) TMFPost(ctx context.Context, req *Request, objMap repository
 
 }
 
+// TMFPut is used to forward PUT requests to the remote server.
+// req is the incoming request and objMap is the object to be sent to the remote server.
+func (c *TMFClient) TMFPut(ctx context.Context, req *Request, objMap repository.TMFObjectMap) (repository.TMFObjectMap, []error) {
+
+	requestBody, err := json.Marshal(objMap)
+	if err != nil {
+		return nil, []error{errl.Errorf("failed to marshall object: %w", err)}
+	}
+
+	path, err := config.ExternalUpstreamTMFPath(req.ResourceName)
+	if err != nil {
+		return nil, []error{errl.Errorf("failed to get path prefix: %w", err)}
+	}
+
+	headers := map[string]string{
+		"Authorization": "Bearer " + req.AuthUser.AccessToken,
+		"Content-Type":  "application/json",
+	}
+
+	resp, responseBody, err := c.Put(ctx, path, requestBody, headers)
+	if err != nil {
+		return nil, []error{errl.Errorf("remote server returned error: %w", err)}
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		slog.Error("unexpected status code from remote server", slog.Int("status_code", resp.StatusCode), slog.String("response_body", string(responseBody)), slog.String("path", path))
+
+		var errs []error
+		// Try to parse the response body as a TMF error format or generic map
+		var errorResponse map[string]any
+		if jsonErr := json.Unmarshal(responseBody, &errorResponse); jsonErr == nil {
+			if reason, ok := errorResponse["reason"].(string); ok {
+				errs = append(errs, errl.Errorf("remote server returned status %d: %s", resp.StatusCode, reason))
+			}
+			if message, ok := errorResponse["message"].(string); ok {
+				errs = append(errs, errl.Errorf("remote server message: %s", message))
+			}
+		}
+
+		if len(errs) == 0 {
+			errs = append(errs, errl.Errorf("unexpected status code: %d, response body: %s", resp.StatusCode, string(responseBody)))
+		}
+		return nil, errs
+	}
+
+	obj, err := repository.NewTMFObjectMapFromBytes(req.ResourceName, responseBody)
+	if err != nil {
+		return nil, []error{errl.Errorf("failed to bind request body: %w", err)}
+	}
+
+	validation := obj.Validate(req.ResourceName)
+	if len(validation.Errors) > 0 {
+		var errs []error
+		for _, vErr := range validation.Errors {
+			errs = append(errs, errl.Errorf("validation error on field '%s': %s (code: %s)", vErr.Field, vErr.Message, vErr.Code))
+		}
+		return nil, errs
+	}
+
+	return obj, nil
+
+}
+
+// TMFPatch is used to forward PATCH requests to the remote server.
+// req is the incoming request and patchMap is the object to be sent to the remote server.
 func (c *TMFClient) TMFPatch(ctx context.Context, req *Request, patchMap repository.TMFObjectMap) (repository.TMFObjectMap, []error) {
 
 	requestBody, err := json.Marshal(patchMap)
@@ -131,6 +196,8 @@ func (c *TMFClient) TMFPatch(ctx context.Context, req *Request, patchMap reposit
 		return nil, []error{errl.Errorf("failed to marshall object: %w", err)}
 	}
 
+	// Get the resource path to the remote server
+	// TODO: add support for requests internal to the DOME server, which go to the kubernetes pods
 	pathPrefix, err := config.ExternalUpstreamTMFPath(req.ResourceName)
 	if err != nil {
 		return nil, []error{errl.Errorf("failed to get path prefix: %w", err)}
@@ -164,16 +231,19 @@ func (c *TMFClient) TMFPatch(ctx context.Context, req *Request, patchMap reposit
 		}
 
 		if len(errs) == 0 {
+			// Otherwise, just create a generic error
 			errs = append(errs, errl.Errorf("unexpected status code: %d, response body: %s", resp.StatusCode, string(responseBody)))
 		}
 		return nil, errs
 	}
 
+	// Build an object from the reply
 	obj, err := repository.NewTMFObjectMapFromBytes(req.ResourceName, responseBody)
 	if err != nil {
 		return nil, []error{errl.Errorf("failed to bind request body: %w", err)}
 	}
 
+	// And validate the object
 	validation := obj.Validate(req.ResourceName)
 	if len(validation.Errors) > 0 {
 		var errs []error
@@ -283,6 +353,11 @@ func (c *TMFClient) Get(ctx context.Context, path string, headers map[string]str
 // Post sends a POST request to the remote server.
 func (c *TMFClient) Post(ctx context.Context, path string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
 	return c.do(ctx, "POST", path, body, headers)
+}
+
+// Put sends a PUT request to the remote server.
+func (c *TMFClient) Put(ctx context.Context, path string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
+	return c.do(ctx, "PUT", path, body, headers)
 }
 
 // Patch sends a PATCH request to the remote server.

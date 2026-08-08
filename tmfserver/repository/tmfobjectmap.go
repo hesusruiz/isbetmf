@@ -62,22 +62,8 @@ func NewTMFObjectMapFromBytes(resourceName string, data []byte) (TMFObjectMap, e
 
 }
 
-// NewTMFObjectMapFromUpstream creates a new TMFObjectMap from a map.
-// It is intended to be used with data received from a remote TMF server vs. the data from our local data base.
-// The type of the object must match with the resourceName passed by the caller.
-func NewTMFObjectMapFromUpstream(resourceName string, data map[string]any) (TMFObjectMap, ValidationResult) {
-	obj := TMFObjectMap(data)
-	validations := obj.Validate(resourceName)
-
-	return obj, validations
-}
-
-// NewTMFObjectFromMap creates a new TMFObject from an existing map
-func NewTMFObjectFromMap(data map[string]any) TMFObjectMap {
-	obj := TMFObjectMap(maps.Clone(data))
-	return obj
-}
-
+// Validate checks if the object is valid, and returns as many errors as it can find.
+// It does not stop after finding the first error, and results are accumulated in the ValidationResult.
 func (obj TMFObjectMap) Validate(resourceName string) ValidationResult {
 	result := ValidationResult{
 		ObjectID:   obj.ID(),
@@ -211,6 +197,7 @@ func (obj TMFObjectMap) validateRequiredFields(resourceName string, result *Vali
 func (obj TMFObjectMap) validateRelatedParty(result *ValidationResult) {
 
 	// Return if the object does not require Seller nor Buyer info
+	// It is enough to check Seller info, as it is impossible to have Buyer info without it
 	if !obj.RequiresSellerInfo("") {
 		return
 	}
@@ -389,6 +376,8 @@ func (obj TMFObjectMap) validateRelatedParty(result *ValidationResult) {
 
 }
 
+// ToTMFRecord converts the object to its storage representation to save it in the local database
+// It gets some keys to make efficient SQL queries, and the object is stored as JSON
 func (obj TMFObjectMap) ToTMFRecord(resourceName string) *TMFRecord {
 
 	id := obj.ID()
@@ -402,22 +391,24 @@ func (obj TMFObjectMap) ToTMFRecord(resourceName string) *TMFRecord {
 	lastUpdate := obj.LastUpdate()
 	content := obj.ToJSONSimple()
 
-	seller, _, _ := obj.GetSellerInfo("v4")
-	buyer, _, _ := obj.GetBuyerInfo("v4")
+	seller, sellerOperator, _ := obj.GetSellerInfo("v4")
+	buyer, buyerOperator, _ := obj.GetBuyerInfo("v4")
 
 	now := time.Now().Unix()
 
 	o := &TMFRecord{
-		ID:         id,
-		Type:       objectType,
-		Version:    version,
-		APIVersion: apiVersion,
-		Seller:     seller,
-		Buyer:      buyer,
-		LastUpdate: lastUpdate,
-		Content:    content,
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		ID:             id,
+		Type:           objectType,
+		Version:        version,
+		APIVersion:     apiVersion,
+		Seller:         seller,
+		SellerOperator: sellerOperator,
+		Buyer:          buyer,
+		BuyerOperator:  buyerOperator,
+		LastUpdate:     lastUpdate,
+		Content:        content,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 	return o
 }
@@ -1033,7 +1024,7 @@ func getUserAndUserOperatorInfoV4(tmfObjectMap map[string]any, userRole string, 
 		}
 	}
 
-	// Set the error depending on what we have found
+	// Return an error if one or both fields are not set, indicating the condition is not met
 	if sellerDid == "" && sellerOperatorDid == "" {
 		err = errl.Errorf("no %s or %s", userRole, userOperatorRole)
 	} else if sellerDid == "" {

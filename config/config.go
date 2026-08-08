@@ -150,38 +150,6 @@ func LoadConfig(
 		}
 	}
 
-	// Configure the slog logger
-	var logLevel slog.Level
-	if debug {
-		logLevel = slog.LevelDebug
-	} else {
-		logLevel = slog.LevelInfo
-	}
-
-	// Initialize the custom SQLogHandler
-	logOptions := &sqlogger.Options{
-		Level:  &logLevel,
-		LogDir: "data/logs",
-	}
-
-	// Check if the logs should be colored:
-	// - If the process is running in a container (pid=1) then do not color the logs
-	// - If the environment variable ISBETMF_LOGS_NOCOLOR is set to "true" then do not color the logs
-	ourpid := os.Getpid()
-	if ourpid == 1 || os.Getenv("ISBETMF_LOGS_NOCOLOR") == "true" {
-		logOptions.NoColor = true
-	}
-
-	// Initialize the logging system
-	sqlog, err := sqlogger.NewSQLogHandler(logOptions)
-	if err != nil {
-		slog.Error("failed to initialize SQLogHandler, exiting", slog.Any("error", err))
-		os.Exit(1)
-	}
-
-	// And set the default logging system for all components
-	slog.SetDefault(slog.New(sqlog))
-
 	// Choose the profile from the environment passed
 	switch environment {
 	case DOME_PRO:
@@ -211,7 +179,6 @@ func LoadConfig(
 	}
 
 	conf.Debug = debug
-	conf.LogHandler = sqlog
 	conf.AdminToken = adminToken
 
 	// Check for overrides with environment variables

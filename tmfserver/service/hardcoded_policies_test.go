@@ -94,7 +94,7 @@ func makeSpecialObject(objType, orgOrIssuingId string) repo.TMFObjectMap {
 func TestHardcodedPolicies_AttributeIntegrity(t *testing.T) {
 	svc := newTestServiceForPolicies()
 	req := &Request{
-		Action:   READ,
+		Action:   ActionREAD,
 		AuthUser: makeUser(testServerOp, true, true, true, true, true),
 	}
 
@@ -131,27 +131,27 @@ func TestHardcodedPolicies_Create(t *testing.T) {
 	svc := newTestServiceForPolicies()
 
 	// 2a. Unauthenticated CREATE must fail
-	unauthReq := &Request{Action: CREATE, AuthUser: makeUser("", false, false, false, false, false)}
+	unauthReq := &Request{Action: ActionCREATE, AuthUser: makeUser("", false, false, false, false, false)}
 	pubObj := makePublicOffering(testSeller, testServerOp)
 	if _, err := svc.hardcodedPolicies(unauthReq, pubObj); err == nil {
 		t.Errorf("unauthenticated CREATE should fail")
 	}
 
 	// 2b. ServerOperator CREATE (with power & LEAR)
-	soLearReq := &Request{Action: CREATE, AuthUser: makeUser(testServerOp, true, true, true, true, true)}
+	soLearReq := &Request{Action: ActionCREATE, AuthUser: makeUser(testServerOp, true, true, true, true, true)}
 	if _, err := svc.hardcodedPolicies(soLearReq, pubObj); err != nil {
 		t.Errorf("ServerOperator LEAR CREATE failed: %v", err)
 	}
 
 	// 2c. Non-ServerOperator CREATE without ProductCreatePower must fail
-	noPwrSellerReq := &Request{Action: CREATE, AuthUser: makeUser(testSeller, true, false, false, true, true)}
+	noPwrSellerReq := &Request{Action: ActionCREATE, AuthUser: makeUser(testSeller, true, false, false, true, true)}
 	if _, err := svc.hardcodedPolicies(noPwrSellerReq, pubObj); err == nil {
 		t.Errorf("CREATE without ProductCreatePower should fail")
 	}
 
 	// 2d. Seller CREATE public object auto-populates Seller/SellerOperator when missing
 	emptySellerObj := makePublicOffering("", "")
-	sellerReq := &Request{Action: CREATE, AuthUser: makeUser(testSeller, true, false, true, true, true)}
+	sellerReq := &Request{Action: ActionCREATE, AuthUser: makeUser(testSeller, true, false, true, true, true)}
 	if _, err := svc.hardcodedPolicies(sellerReq, emptySellerObj); err != nil {
 		t.Errorf("Seller CREATE with omitted Seller info failed: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestHardcodedPolicies_Create(t *testing.T) {
 	if _, err := svc.hardcodedPolicies(sellerReq, indObj); err != nil {
 		t.Errorf("matching mandator CREATE Individual failed: %v", err)
 	}
-	otherOrgReq := &Request{Action: CREATE, AuthUser: makeUser(testOtherOrg, true, false, true, true, true)}
+	otherOrgReq := &Request{Action: ActionCREATE, AuthUser: makeUser(testOtherOrg, true, false, true, true, true)}
 	if _, err := svc.hardcodedPolicies(otherOrgReq, indObj); err == nil {
 		t.Errorf("non-mandator CREATE Individual should fail")
 	}
@@ -203,9 +203,9 @@ func TestHardcodedPolicies_Create(t *testing.T) {
 func TestHardcodedPolicies_ReadList(t *testing.T) {
 	svc := newTestServiceForPolicies()
 
-	unauthReq := &Request{Action: READ, Method: "GET", AuthUser: makeUser("", false, false, false, false, false)}
-	authBuyerReq := &Request{Action: READ, Method: "GET", AuthUser: makeUser(testBuyer, true, false, false, false, false)}
-	authOtherReq := &Request{Action: READ, Method: "GET", AuthUser: makeUser(testOtherOrg, true, false, false, false, false)}
+	unauthReq := &Request{Action: ActionREAD, Method: "GET", AuthUser: makeUser("", false, false, false, false, false)}
+	authBuyerReq := &Request{Action: ActionREAD, Method: "GET", AuthUser: makeUser(testBuyer, true, false, false, false, false)}
+	authOtherReq := &Request{Action: ActionREAD, Method: "GET", AuthUser: makeUser(testOtherOrg, true, false, false, false, false)}
 
 	pubObj := makePublicOffering(testSeller, testServerOp)
 	privObj := makePrivateOffering(testSeller, testServerOp, testBuyer, testServerOp)
@@ -248,7 +248,7 @@ func TestHardcodedPolicies_ReadList(t *testing.T) {
 	}
 
 	// 3f. Individual READ by mandator vs uninvolved party
-	authSellerReq := &Request{Action: READ, Method: "GET", AuthUser: makeUser(testSeller, true, false, false, false, false)}
+	authSellerReq := &Request{Action: ActionREAD, Method: "GET", AuthUser: makeUser(testSeller, true, false, false, false, false)}
 	if _, err := svc.hardcodedPolicies(authSellerReq, indObj); err != nil {
 		t.Errorf("mandator READ Individual failed: %v", err)
 	}
@@ -264,9 +264,9 @@ func TestHardcodedPolicies_ReadList(t *testing.T) {
 func TestHardcodedPolicies_Update(t *testing.T) {
 	svc := newTestServiceForPolicies()
 
-	unauthReq := &Request{Action: UPDATE, AuthUser: makeUser("", false, false, false, false, false)}
-	sellerReq := &Request{Action: UPDATE, AuthUser: makeUser(testSeller, true, false, false, true, true)}
-	sellerNoPwrReq := &Request{Action: UPDATE, AuthUser: makeUser(testSeller, true, false, true, false, true)}
+	unauthReq := &Request{Action: ActionUPDATE, AuthUser: makeUser("", false, false, false, false, false)}
+	sellerReq := &Request{Action: ActionUPDATE, AuthUser: makeUser(testSeller, true, false, false, true, true)}
+	sellerNoPwrReq := &Request{Action: ActionUPDATE, AuthUser: makeUser(testSeller, true, false, true, false, true)}
 
 	pubObj := makePublicOffering(testSeller, testServerOp)
 	catObj := makeSpecialObject("category", "")
@@ -307,10 +307,10 @@ func TestHardcodedPolicies_Update(t *testing.T) {
 func TestHardcodedPolicies_Delete(t *testing.T) {
 	svc := newTestServiceForPolicies()
 
-	soLearReq := &Request{Action: DELETE, AuthUser: makeUser(testServerOp, true, true, true, true, true)}
-	sellerReq := &Request{Action: DELETE, AuthUser: makeUser(testSeller, true, false, true, true, true)}
-	buyerReq := &Request{Action: DELETE, AuthUser: makeUser(testBuyer, true, false, true, true, true)}
-	buyerOpReq := &Request{Action: DELETE, AuthUser: makeUser(testServerOp, true, false, true, true, true)}
+	soLearReq := &Request{Action: ActionDELETE, AuthUser: makeUser(testServerOp, true, true, true, true, true)}
+	sellerReq := &Request{Action: ActionDELETE, AuthUser: makeUser(testSeller, true, false, true, true, true)}
+	buyerReq := &Request{Action: ActionDELETE, AuthUser: makeUser(testBuyer, true, false, true, true, true)}
+	buyerOpReq := &Request{Action: ActionDELETE, AuthUser: makeUser(testServerOp, true, false, true, true, true)}
 
 	pubObj := makePublicOffering(testSeller, testServerOp)
 	privObj := makePrivateOffering(testSeller, testServerOp, testBuyer, testServerOp)

@@ -32,7 +32,7 @@ func (h *testHandler) ListGenericObjects(c *fiber.Ctx) error {
 	queryParams, _ := url.ParseQuery(string(c.Request().URI().QueryString()))
 	req := &svc.Request{
 		Method:       c.Method(),
-		Action:       "LIST",
+		Action:       svc.ActionLIST,
 		ResourceName: c.Params("resourceName"),
 		QueryParams:  queryParams,
 		AuthUser: types.AuthUser{

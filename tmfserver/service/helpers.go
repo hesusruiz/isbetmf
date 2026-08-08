@@ -25,8 +25,8 @@ func (svc *Service) requiresAuthentication(req *Request) *Response {
 	return nil
 }
 
-// parseCreateRequestBody parses the JSON body from the CREATE request into a TMFObjectMap.
-func (svc *Service) parseCreateRequestBody(req *Request) (repo.TMFObjectMap, *Response) {
+// parseCreateAndPutRequestBody parses the JSON body from the CREATE request into a TMFObjectMap.
+func (svc *Service) parseCreateAndPutRequestBody(req *Request) (repo.TMFObjectMap, *Response) {
 
 	// Make sure the resource is supported
 	res := types.GetResourceDefinition(req.ResourceName)
@@ -138,16 +138,18 @@ func (svc *Service) verifyObjectOnCreate(req *Request, incomingObjMap repo.TMFOb
 	id := incomingObjMap.ID()
 	version := incomingObjMap.Version()
 
-	// In general, the user can not specify the 'id' of the new object in the body,
-	// as it is generated automatically
-	if id != "" {
-		if !svc.Features.AllowIDInBody {
-			return ErrorResponsef(http.StatusBadRequest, "id not allowed in body")
-		}
+	if req.Method == http.MethodPost {
+		// In general, the user can not specify the 'id' of the new object in the body,
+		// as it is generated automatically
+		if id != "" {
+			if !svc.Features.AllowIDInBody {
+				return ErrorResponsef(http.StatusBadRequest, "id not allowed in body")
+			}
 
-		// If the incoming object specifies an 'id', this is only possible if it creates a new version.
-		if version == "" {
-			return ErrorResponsef(http.StatusBadRequest, "id specified but version is missing")
+			// If the incoming object specifies an 'id', this is only possible if it creates a new version.
+			if version == "" {
+				return ErrorResponsef(http.StatusBadRequest, "id specified but version is missing")
+			}
 		}
 	}
 
@@ -172,7 +174,7 @@ func (svc *Service) verifyObjectOnCreate(req *Request, incomingObjMap repo.TMFOb
 
 	if incomingObjMap.RequiresSellerInfo(req.ResourceName) {
 		objSeller, objSellerOperator, _ := incomingObjMap.GetSellerInfo("v4")
-		if objSeller == "" && objSellerOperator == "" {
+		if objSeller == "" || objSellerOperator == "" {
 			// Set default seller info from caller and server operator
 			if err := incomingObjMap.SetSellerInfo(svc.ServerOperatorDid, req.AuthUser.OrganizationIdentifier, "v4"); err != nil {
 				return ErrorResponsef(http.StatusInternalServerError, "failed to set default seller info: %w", err)
@@ -271,7 +273,7 @@ func (svc *Service) verifyObjectOnUpdate(req *Request, incomingObjMap repo.TMFOb
 
 	if incomingObjMap.RequiresSellerInfo(req.ResourceName) {
 		objSeller, objSellerOperator, _ := incomingObjMap.GetSellerInfo("v4")
-		if objSeller == "" && objSellerOperator == "" {
+		if objSeller == "" || objSellerOperator == "" {
 			// Set default seller info from caller and server operator
 			if err := incomingObjMap.SetSellerInfo(svc.ServerOperatorDid, req.AuthUser.OrganizationIdentifier, "v4"); err != nil {
 				return ErrorResponsef(http.StatusInternalServerError, "failed to set default seller info: %w", err)

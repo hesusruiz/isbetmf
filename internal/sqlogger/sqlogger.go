@@ -15,7 +15,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/requestid"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -60,16 +59,16 @@ type groupOrAttrs struct {
 }
 
 type SQLogHandler struct {
-	mutex         *sync.Mutex
-	db            *sql.DB
-	opts          Options
-	goas          []groupOrAttrs
-	currentName   string
-	currentLogId  int
-	lastInsertId  int64
-	stdLogHandler slog.Handler
-	cwd           string
-	logDir        string
+	mutex        *sync.Mutex
+	writeToDB    bool
+	db           *sql.DB
+	opts         Options
+	goas         []groupOrAttrs
+	currentName  string
+	currentLogId int
+	lastInsertId int64
+	cwd          string
+	logDir       string
 }
 
 type SQLogHandlerInterface interface {
@@ -88,6 +87,8 @@ type Options struct {
 	// LogDir specifies the directory where log files will be stored.
 	// If empty, the current working directory is used.
 	LogDir string
+
+	WriteToDB bool
 }
 
 func NewSQLogHandler(opts *Options) (*SQLogHandler, error) {
@@ -98,58 +99,62 @@ func NewSQLogHandler(opts *Options) (*SQLogHandler, error) {
 		h.opts = *opts
 	}
 
+	h.mutex = &sync.Mutex{}
+
+	color.NoColor = h.opts.NoColor
+	h.writeToDB = h.opts.WriteToDB
+
 	// Use Info level by default if not set
 	if h.opts.Level == nil {
 		h.opts.Level = slog.LevelInfo
 	}
 
-	// The log files are stored in the current working directory
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get the working directory: %w", err)
-	}
-	h.cwd = cwd
+	if h.writeToDB {
 
-	h.stdLogHandler = slog.Default().Handler()
-
-	// Determine the log directory
-	logDir := h.opts.LogDir
-	if logDir == "" {
-		logDir = h.cwd
-	} else {
-		// If a relative path is provided, join it with the current working directory
-		if !filepath.IsAbs(logDir) {
-			logDir = filepath.Join(h.cwd, logDir)
+		// The log files are stored in the current working directory
+		cwd, err := os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get the working directory: %w", err)
 		}
+		h.cwd = cwd
+
+		// Determine the log directory
+		logDir := h.opts.LogDir
+		if logDir == "" {
+			logDir = h.cwd
+		} else {
+			// If a relative path is provided, join it with the current working directory
+			if !filepath.IsAbs(logDir) {
+				logDir = filepath.Join(h.cwd, logDir)
+			}
+		}
+
+		// Ensure the log directory exists
+		if err := os.MkdirAll(logDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create log directory: %w", err)
+		}
+		h.logDir = logDir
+
+		// Look at the current directory and determine the current log file name
+		currentName, err := determineCurrentNameOnStartup(h.logDir)
+		if err != nil {
+			return nil, err
+		}
+		h.currentName = currentName
+
+		db, err := sql.Open("sqlite3", filepath.Join(h.logDir, h.currentName))
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = db.Exec(openLogSQL)
+		if err != nil {
+			return nil, err
+		}
+
+		h.db = db
+
 	}
-
-	// Ensure the log directory exists
-	if err := os.MkdirAll(logDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create log directory: %w", err)
-	}
-	h.logDir = logDir
-
-	// Look at the current directory and determine the current log file name
-	currentName, err := determineCurrentNameOnStartup(h.logDir)
-	if err != nil {
-		return nil, err
-	}
-	h.currentName = currentName
-
-	db, err := sql.Open("sqlite3", filepath.Join(h.logDir, h.currentName))
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = db.Exec(openLogSQL)
-	if err != nil {
-		return nil, err
-	}
-
-	h.db = db
-	h.mutex = &sync.Mutex{}
-
-	color.NoColor = h.opts.NoColor
 
 	return h, nil
 
@@ -429,8 +434,12 @@ func (h *SQLogHandler) Handle(c context.Context, r slog.Record) error {
 	os.Stdout.Write(bufColor)
 
 	// *************************************************************
-	// We now insert a record in the database
+	// We now insert a record in the database if enabled
 	// *************************************************************
+
+	if !h.writeToDB {
+		return nil
+	}
 
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
@@ -605,17 +614,23 @@ var noLoggingFor = map[string]bool{
 
 // FiberRequestLogger logs HTTP requests on entry and exit
 func FiberRequestLogger(c *fiber.Ctx) error {
+	var reqId string
 
 	// Log entry, except the /health request, to keep logs clean
 	if _, found := noLoggingFor[c.Path()]; !found {
-		reqId, _ := c.Locals(requestid.ConfigDefault.ContextKey).(string)
-		slog.Debug("=> "+c.Method()+" "+c.Path(), slog.String("ip", c.IP()), slog.String("request_id", reqId))
+		reqId, _ = c.Locals("requestid").(string)
+		slog.Debug("=> "+c.Method()+" "+c.Path(), slog.String("request_id", reqId), slog.String("ip", c.IP()))
 	}
+
+	start := time.Now()
 
 	// Go to next middleware
 	if err := c.Next(); err != nil {
 		return err
 	}
+
+	end := time.Now()
+	latency := end.Sub(start)
 
 	// Log exit
 	code := c.Response().StatusCode()
@@ -623,16 +638,16 @@ func FiberRequestLogger(c *fiber.Ctx) error {
 	if code >= 500 {
 		// Internal server errors
 		meth := fmt.Sprintf("<= %s %d %s", c.Method(), code, c.Path())
-		slog.Error(meth, slog.Int("status", code), slog.String("ip", c.IP()))
+		slog.Error(meth, slog.Int("status", code), slog.String("request_id", reqId), slog.String("ip", c.IP()), slog.Duration("latency", latency))
 	} else if code >= 400 {
 		// Caller errors
 		meth := fmt.Sprintf("<= %s %d %s", c.Method(), code, c.Path())
-		slog.Warn(meth, slog.Int("status", code), slog.String("ip", c.IP()))
+		slog.Warn(meth, slog.Int("status", code), slog.String("request_id", reqId), slog.String("ip", c.IP()), slog.Duration("latency", latency))
 	} else {
 		// The rest
 		if _, found := noLoggingFor[c.Path()]; !found {
 			meth := fmt.Sprintf("<= %s %d %s", c.Method(), code, c.Path())
-			slog.Debug(meth, slog.Int("status", code), slog.String("ip", c.IP()))
+			slog.Debug(meth, slog.Int("status", code), slog.String("request_id", reqId), slog.String("ip", c.IP()), slog.Duration("latency", latency))
 		}
 	}
 

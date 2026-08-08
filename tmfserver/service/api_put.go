@@ -8,9 +8,9 @@ import (
 	"net/http"
 )
 
-// CreateTMFObject creates a new TMF object using generalized parameters.
-func (svc *Service) CreateTMFObject(ctx context.Context, req *Request) *Response {
-	slog.Debug("CreateTMFObject called", slog.String("apiFamily", req.APIfamily), slog.String("resourceName", req.ResourceName))
+// PutTMFObject is like CreateTMFObject but allows an id to be specified by the caller.
+func (svc *Service) PutTMFObject(ctx context.Context, req *Request) *Response {
+	slog.Debug("PutTMFObject called", slog.String("apiFamily", req.APIfamily), slog.String("resourceName", req.ResourceName))
 
 	// Authentication is required for create operations
 	if errorResponse := svc.requiresAuthentication(req); errorResponse != nil {
@@ -23,7 +23,7 @@ func (svc *Service) CreateTMFObject(ctx context.Context, req *Request) *Response
 		return errorResponse
 	}
 
-	if slog.Default().Enabled(context.Background(), slog.LevelDebug) {
+	if svc.LogLevel() >= 3 {
 		data, _ := json.MarshalIndent(incomingObjectMap, "", "  ")
 		fmt.Println(string(data))
 	}

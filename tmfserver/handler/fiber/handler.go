@@ -9,9 +9,11 @@ package fiber
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"encoding/json"
@@ -58,12 +60,42 @@ func (h *Handler) registerRoutes(app *fiber.App) {
 	// Collection operations (List and Create)
 	tmfApi.Get("/:resourceName", h.ListTMFObjects)
 	tmfApi.Post("/:resourceName", h.CreateTMFObject)
+	tmfApi.Put("/:resourceName", h.PutTMFObject)
 
 	// Individual resource operations (Get, Update, Delete)
 	tmfApi.Get("/:resourceName/:id", h.GetTMFObject)
 	tmfApi.Patch("/:resourceName/:id", h.UpdateTMFObject)
 	tmfApi.Delete("/:resourceName/:id", h.DeleteGenericObject)
 
+}
+
+const HeaderXRequestID = "X-Request-ID"
+const ContextKeyRequestID = "requestid"
+
+var requestCounter atomic.Uint64
+
+// generateRequestID generates a new request ID.
+func generateRequestID() string {
+	rid := requestCounter.Add(1)
+	return fmt.Sprintf("TMFGo-%d", rid)
+}
+
+func RequestID(c *fiber.Ctx) error {
+
+	// Get id from request, else we generate one
+	rid := c.Get(HeaderXRequestID)
+	if rid == "" {
+		rid = generateRequestID()
+	}
+
+	// Set new id to response header
+	c.Set(HeaderXRequestID, rid)
+
+	// Add the request ID to locals
+	c.Locals(ContextKeyRequestID, rid)
+
+	// Next handler will take care of the request
+	return c.Next()
 }
 
 // Health is a simple hello world handler.
@@ -75,7 +107,7 @@ func (h *Handler) Health(c *fiber.Ctx) error {
 	req := &svc.Request{
 		HealthRequest: true,
 		Method:        "GET",
-		Action:        svc.HttpActions["LIST"],
+		Action:        svc.ActionLIST,
 		APIfamily:     "productCatalogManagement",
 		APIVersion:    "v4",
 		ResourceName:  "catalog",
@@ -154,6 +186,23 @@ func (h *Handler) CreateTMFObject(c *fiber.Ctx) error {
 	defer cancel()
 
 	resp := h.service.CreateTMFObject(ctx, req)
+	return SendResponse(c, resp)
+}
+
+// PutTMFObject is like a CreateTMFObject but allows an id to be specified by the caller
+func (h *Handler) PutTMFObject(c *fiber.Ctx) error {
+
+	req, err := h.parseRequest(c)
+	if err != nil {
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "error parsing request: %w", errl.Error(err))
+		return SendResponse(c, resp)
+	}
+
+	// Create a context with a timeout of 30 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	resp := h.service.PutTMFObject(ctx, req)
 	return SendResponse(c, resp)
 }
 
@@ -289,8 +338,17 @@ func ParseTMFRequestQuery(c *fiber.Ctx) (url.Values, error) {
 // The service Request allows the service layer to be used for any framework (http, grpc, etc) and any transport.
 func (h *Handler) parseRequest(c *fiber.Ctx) (*svc.Request, error) {
 
+	// resourceName is compulsory in all requests
+	resourceName := c.Params("resourceName")
+	if resourceName == "" {
+		return nil, errl.Errorf("resourceName is compulsory")
+	}
+
 	// Extract API version from the path parameter
 	apiVersion := strings.ToLower(c.Params("apiVersion"))
+	if apiVersion == "" {
+		return nil, errl.Errorf("apiVersion is compulsory")
+	}
 
 	// Extract the JWT token from the Authorization header
 	jwtToken := ExtractJWTToken(c.Get("Authorization"))
@@ -316,12 +374,18 @@ func (h *Handler) parseRequest(c *fiber.Ctx) (*svc.Request, error) {
 		return nil, errl.Errorf("error parsing the id parameter: %w", err)
 	}
 
+	method := c.Method()
+	action := svc.HttpActions[method]
+	if idParam == "" && method == fiber.MethodGet {
+		action = svc.ActionLIST
+	}
+
 	req := &svc.Request{
-		Method:       c.Method(),
-		Action:       svc.HttpActions[c.Method()],
+		Method:       method,
+		Action:       action,
 		APIfamily:    c.Params("apiFamily"),
 		APIVersion:   apiVersion,
-		ResourceName: c.Params("resourceName"),
+		ResourceName: resourceName,
 		ID:           idParam,
 		QueryParams:  queryParams,
 		AuthUser:     *authUser,

@@ -333,13 +333,13 @@ func (svc *Service) hardcodedPolicies(req *Request, obj repo.TMFObjectMap) (reas
 
 	// Dispatch by operation top-down
 	switch req.Action {
-	case CREATE:
+	case ActionCREATE:
 		return svc.evalCreatePolicy(req, obj)
-	case READ, LIST:
+	case ActionREAD, ActionLIST:
 		return svc.evalReadListPolicy(req, obj)
-	case UPDATE:
+	case ActionUPDATE:
 		return svc.evalUpdatePolicy(req, obj)
-	case DELETE:
+	case ActionDELETE:
 		return svc.evalDeletePolicy(req, obj)
 	default:
 		return "", errl.Errorf("unsupported action %s", req.Action)
@@ -362,19 +362,19 @@ func (svc *Service) checkServerOperatorAccess(req *Request) (bool, string, error
 	}
 
 	switch req.Action {
-	case READ, LIST:
+	case ActionREAD, ActionLIST:
 		return true, fmt.Sprintf("caller %s is server operator (read/list)", caller.OrganizationIdentifier), nil
-	case CREATE:
+	case ActionCREATE:
 		if svc.IsDOME() && !caller.ProductCreatePower {
 			return false, "", errl.Errorf("caller %s is server operator but lacks create power", caller.OrganizationIdentifier)
 		}
 		return true, fmt.Sprintf("caller %s is server operator with create power", caller.OrganizationIdentifier), nil
-	case UPDATE:
+	case ActionUPDATE:
 		if !caller.ProductUpdatePower {
 			return false, "", errl.Errorf("caller %s is server operator but lacks update power", caller.OrganizationIdentifier)
 		}
 		return true, fmt.Sprintf("caller %s is server operator with update power", caller.OrganizationIdentifier), nil
-	case DELETE:
+	case ActionDELETE:
 		if !caller.ProductDeletePower {
 			return false, "", errl.Errorf("caller %s is server operator but lacks delete power", caller.OrganizationIdentifier)
 		}

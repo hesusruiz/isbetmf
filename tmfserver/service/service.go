@@ -45,21 +45,32 @@ func (r *Request) ToMap() map[string]any {
 
 type HttpAction string
 
+func HttpActionFromRequest(httpRequest string, idParam string) HttpAction {
+	method := strings.ToUpper(httpRequest)
+	action := HttpActions[method]
+	if idParam == "" && method == "GET" {
+		action = ActionLIST
+	}
+	return action
+}
+
 const (
-	READ   HttpAction = "READ"
-	CREATE HttpAction = "CREATE"
-	UPDATE HttpAction = "UPDATE"
-	DELETE HttpAction = "DELETE"
-	LIST   HttpAction = "LIST"
+	ActionREAD   HttpAction = "READ"
+	ActionCREATE HttpAction = "CREATE"
+	ActionPUT    HttpAction = "PUT"
+	ActionUPDATE HttpAction = "UPDATE"
+	ActionDELETE HttpAction = "DELETE"
+	ActionLIST   HttpAction = "LIST"
 )
 
 // These are more friendly names for the writers of policy rules and can be used interchangeably
 var HttpActions = map[string]HttpAction{
-	"GET":    READ,
-	"POST":   CREATE,
-	"PATCH":  UPDATE,
-	"DELETE": DELETE,
-	"LIST":   LIST,
+	"GET":    ActionREAD,
+	"POST":   ActionCREATE,
+	"PUT":    ActionPUT,
+	"PATCH":  ActionUPDATE,
+	"DELETE": ActionDELETE,
+	"LIST":   ActionLIST,
 }
 
 // Response represents a generic HTTP response.

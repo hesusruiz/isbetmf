@@ -191,7 +191,7 @@ func (h *AdminHandler) ListObjects(c *fiber.Ctx) error {
 
 	req := &service.Request{
 		Method:       "GET",
-		Action:       service.HttpActions["LIST"],
+		Action:       service.ActionLIST,
 		APIfamily:    apiFamily,
 		APIVersion:   "v4",
 		ResourceName: resourceName,
@@ -230,7 +230,7 @@ func (h *AdminHandler) ViewObject(c *fiber.Ctx) error {
 
 	req := &service.Request{
 		Method:       "GET",
-		Action:       service.HttpActions["READ"],
+		Action:       service.ActionREAD,
 		APIfamily:    apiFamily,
 		APIVersion:   "v4",
 		ResourceName: resourceName,

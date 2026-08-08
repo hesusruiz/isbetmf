@@ -24,10 +24,11 @@ import (
 // Othewise, it just creates the object in the local database.
 func (svc *Service) createRemoteOrLocalObject(ctx context.Context, req *Request, objMap repo.TMFObjectMap) *Response {
 
-	repoObject := objMap.ToTMFRecord(req.ResourceName)
-
 	// Create the object only in the local database if the proxy is not enabled
 	if !svc.proxyEnabled {
+		// Convert object to storage representation
+		repoObject := objMap.ToTMFRecord(req.ResourceName)
+
 		if err := svc.CreateObject(repoObject); err != nil {
 			if errors.Is(err, &ErrObjectExists{}) {
 				return ErrorResponsef(http.StatusBadRequest, "object %s already exists: %w", objMap.ID(), err)
