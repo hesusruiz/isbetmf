@@ -72,6 +72,7 @@ func main() {
 		slog.Error("failed to initialize SQLogHandler, exiting", slog.Any("error", err))
 		os.Exit(1)
 	}
+	defer sqlog.Close()
 
 	// And set the default logging system for all components
 	slog.SetDefault(slog.New(sqlog))
@@ -84,7 +85,6 @@ func main() {
 		slog.Error("Failed to load configuration", slog.Any("error", err))
 		panic(err)
 	}
-	defer configuration.Close()
 	slog.Info("Configuration loaded", "environment", configuration.Environment, "debug", configuration.Debug, "proxy", configuration.ProxyEnabled)
 
 	configuration.LogHandler = sqlog
