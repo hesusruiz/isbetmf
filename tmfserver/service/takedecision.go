@@ -33,15 +33,13 @@ func (svc *Service) checkAuthorization(
 	req *Request,
 	objectMap repo.TMFObjectMap,
 ) (authorized bool, err error) {
-	var reason string
 
 	// Evaluate the hardcoded policies, if they fail return immediately.
 	// Otherwise, continue to see if the user policies allow access
-	reason, err = svc.hardcodedPolicies(req, objectMap)
+	_, err = svc.hardcodedPolicies(req, objectMap)
 	if err != nil {
-		return false, err
+		return false, errl.Error(err)
 	}
-	slog.Info("hardcoded policies OK", slog.String("reason", reason))
 
 	// The caller is the owner, at least according to hardcoded policies.
 	// The user policies will determine the final decision.

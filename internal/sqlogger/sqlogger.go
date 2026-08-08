@@ -619,7 +619,7 @@ func FiberRequestLogger(c *fiber.Ctx) error {
 	// Log entry, except the /health request, to keep logs clean
 	if _, found := noLoggingFor[c.Path()]; !found {
 		reqId, _ = c.Locals("requestid").(string)
-		slog.Debug("=> "+c.Method()+" "+c.Path(), slog.String("request_id", reqId), slog.String("ip", c.IP()))
+		slog.Info("=> "+c.Method()+" "+c.Path(), slog.String("request_id", reqId), slog.String("ip", c.IP()))
 	}
 
 	start := time.Now()
@@ -647,7 +647,7 @@ func FiberRequestLogger(c *fiber.Ctx) error {
 		// The rest
 		if _, found := noLoggingFor[c.Path()]; !found {
 			meth := fmt.Sprintf("<= %s %d %s", c.Method(), code, c.Path())
-			slog.Debug(meth, slog.Int("status", code), slog.String("request_id", reqId), slog.String("ip", c.IP()), slog.Duration("latency", latency))
+			slog.Info(meth, slog.Int("status", code), slog.String("request_id", reqId), slog.String("ip", c.IP()), slog.Duration("latency", latency))
 		}
 	}
 

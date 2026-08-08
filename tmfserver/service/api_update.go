@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 )
@@ -23,9 +22,9 @@ func (svc *Service) UpdateTMFObject(ctx context.Context, req *Request) *Response
 		return errorResponse
 	}
 
-	if svc.LogLevel() >= 3 {
+	if slog.Default().Enabled(ctx, slog.LevelDebug) {
 		data, _ := json.MarshalIndent(incomingObjectMap, "", "  ")
-		fmt.Println(string(data))
+		slog.Debug(string(data))
 	}
 
 	// Ensure update metadata

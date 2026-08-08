@@ -23,7 +23,8 @@ func (svc *Service) PutTMFObject(ctx context.Context, req *Request) *Response {
 		return errorResponse
 	}
 
-	if svc.LogLevel() >= 3 {
+	if slog.Default().Enabled(ctx, slog.LevelDebug) {
+		slog.Debug("Incoming object")
 		data, _ := json.MarshalIndent(incomingObjectMap, "", "  ")
 		fmt.Println(string(data))
 	}

@@ -96,7 +96,7 @@ func (d *Database) CreateObject(obj *repo.TMFRecord) error {
 		return errl.Errorf("failed to create object id=%s type=%s: %w", obj.ID, obj.Type, err)
 	}
 
-	slog.Info("Object created successfully", slog.String("id", obj.ID), slog.String("type", obj.Type))
+	slog.Debug("Object created successfully", slog.String("id", obj.ID), slog.String("type", obj.Type))
 	return nil
 }
 
@@ -124,7 +124,7 @@ func (d *Database) UpdateObject(obj *repo.TMFRecord) error {
 		return fmt.Errorf("object not found: id=%s type=%s", obj.ID, obj.Type)
 	}
 
-	slog.Info("Object updated successfully", slog.String("id", obj.ID), slog.String("type", obj.Type))
+	slog.Debug("Object updated successfully", slog.String("id", obj.ID), slog.String("type", obj.Type))
 	return nil
 }
 
@@ -219,7 +219,7 @@ func (d *Database) DeleteObject(id, objectType string) error {
 		return fmt.Errorf("object not found: id=%s type=%s", id, objectType)
 	}
 
-	slog.Info("Object deleted successfully", slog.String("id", id), slog.String("type", objectType))
+	slog.Debug("Object deleted successfully", slog.String("id", id), slog.String("type", objectType))
 	return nil
 }
 

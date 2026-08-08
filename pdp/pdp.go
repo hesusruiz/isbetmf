@@ -95,7 +95,7 @@ func NewPDPService(
 	m.threadPool = sync.Pool{
 		New: func() any {
 			threadPoolCounter++
-			slog.Info("Creating a new thread entry in the PDP pool", slog.Int("count", threadPoolCounter))
+			slog.Debug("Creating a new thread entry in the PDP pool", slog.Int("count", threadPoolCounter))
 			te, err := m.bufferedParseAndCompileFile(m.scriptname)
 			if err != nil {
 				slog.Error("Error creating a new thread entry in the PDP pool", slog.String("error", err.Error()))

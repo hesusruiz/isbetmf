@@ -89,7 +89,7 @@ func (svc *Service) DeleteTMFObject(ctx context.Context, req *Request) *Response
 			}
 		}
 
-		slog.Info("Object deleted from remote server successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+		slog.Debug("Object deleted from remote server successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
 	}
 
@@ -98,7 +98,7 @@ func (svc *Service) DeleteTMFObject(ctx context.Context, req *Request) *Response
 		return ErrorResponsef(http.StatusInternalServerError, "failed to delete object %s from service: %w", req.ID, err)
 	}
 
-	slog.Info("Object deleted successfully from local database", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+	slog.Debug("Object deleted successfully from local database", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
 	// Send TMForum notification
 	eventType := toEventType(req.ResourceName, "DeleteEvent")

@@ -109,6 +109,6 @@ func (svc *Service) GetTMFObject(ctx context.Context, req *Request) *Response {
 		existingObjectMap = filteredObject
 	}
 
-	slog.Info("Object retrieved successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+	slog.Debug("Object retrieved successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 	return &Response{StatusCode: http.StatusOK, Body: existingObjectMap}
 }

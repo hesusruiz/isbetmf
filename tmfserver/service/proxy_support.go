@@ -41,7 +41,7 @@ func (svc *Service) createRemoteOrLocalObject(ctx context.Context, req *Request,
 		headers := map[string]string{
 			"Location": objMap.Href(),
 		}
-		slog.Info("Object created successfully", slog.String("id", objMap.ID()), slog.String("resourceName", req.ResourceName), slog.String("location", objMap.Href()))
+		slog.Debug("Object created successfully", slog.String("id", objMap.ID()), slog.String("resourceName", req.ResourceName), slog.String("location", objMap.Href()))
 
 		return &Response{StatusCode: http.StatusCreated, Headers: headers, Body: objMap}
 
@@ -74,7 +74,7 @@ func (svc *Service) createRemoteOrLocalObject(ctx context.Context, req *Request,
 	headers := map[string]string{
 		"Location": remoteObjectMap.Href(),
 	}
-	slog.Info("Object created successfully", slog.String("id", remoteObjectMap.ID()), slog.String("resourceName", req.ResourceName), slog.String("location", remoteObjectMap.Href()))
+	slog.Debug("Object created successfully", slog.String("id", remoteObjectMap.ID()), slog.String("resourceName", req.ResourceName), slog.String("location", remoteObjectMap.Href()))
 
 	return &Response{StatusCode: http.StatusCreated, Headers: headers, Body: remoteObjectMap}
 
@@ -413,6 +413,11 @@ func (svc *Service) getLocalOrRemoteObject(ctx context.Context, req *Request) (*
 		return nil, errl.Errorf("failed to get object %s from remote service: %w", req.ID, err)
 	}
 
+	if remoteObj == nil {
+		slog.Debug("object not found in remote service", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+		return nil, nil
+	}
+
 	// Store the object locally and return it to caller
 	if err := svc.CreateObject(remoteObj); err != nil {
 		slog.Error("failed to cache object", slog.Any("error", err))
@@ -420,7 +425,7 @@ func (svc *Service) getLocalOrRemoteObject(ctx context.Context, req *Request) (*
 		return remoteObj, nil
 	}
 
-	slog.Info("Object retrieved from remote and cached successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+	slog.Debug("Object retrieved from remote and cached successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 	return remoteObj, nil
 
 }
