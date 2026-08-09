@@ -204,7 +204,7 @@ func runNormalProcess(configuration *config.Config) error {
 	}))
 
 	// 5. Logger middleware - log requests and replies
-	webServer.Use(sqlogger.FiberRequestLogger)
+	webServer.Use(fiberhandler.FiberRequestLogger)
 
 	// Serve the OpenAPI UI. We support V4 and V5
 	webServer.Static("/oapiv5", "./www/oapiv5")

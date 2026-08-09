@@ -9,11 +9,9 @@ package fiber
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"encoding/json"
@@ -67,35 +65,6 @@ func (h *Handler) registerRoutes(app *fiber.App) {
 	tmfApi.Patch("/:resourceName/:id", h.UpdateTMFObject)
 	tmfApi.Delete("/:resourceName/:id", h.DeleteGenericObject)
 
-}
-
-const HeaderXRequestID = "X-Request-ID"
-const ContextKeyRequestID = "requestid"
-
-var requestCounter atomic.Uint64
-
-// generateRequestID generates a new request ID.
-func generateRequestID() string {
-	rid := requestCounter.Add(1)
-	return fmt.Sprintf("TMFGo-%d", rid)
-}
-
-func RequestID(c *fiber.Ctx) error {
-
-	// Get id from request, else we generate one
-	rid := c.Get(HeaderXRequestID)
-	if rid == "" {
-		rid = generateRequestID()
-	}
-
-	// Set new id to response header
-	c.Set(HeaderXRequestID, rid)
-
-	// Add the request ID to locals
-	c.Locals(ContextKeyRequestID, rid)
-
-	// Next handler will take care of the request
-	return c.Next()
 }
 
 // Health is a simple hello world handler.

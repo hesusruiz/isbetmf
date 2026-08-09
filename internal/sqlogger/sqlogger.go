@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/gofiber/fiber/v2"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -605,54 +604,6 @@ func (h *SQLogHandler) appendAttr(buf []byte, a slog.Attr, keyColor *color.Color
 		buf = fmt.Appendf(buf, "%s%s ", keyColor.Sprint(a.Key+"="), a.Value)
 	}
 	return buf
-}
-
-var noLoggingFor = map[string]bool{
-	"/health":      true,
-	"/favicon.ico": true,
-}
-
-// FiberRequestLogger logs HTTP requests on entry and exit
-func FiberRequestLogger(c *fiber.Ctx) error {
-	var reqId string
-
-	// Log entry, except the /health request, to keep logs clean
-	if _, found := noLoggingFor[c.Path()]; !found {
-		reqId, _ = c.Locals("requestid").(string)
-		slog.Info("=> "+c.Method()+" "+c.Path(), slog.String("request_id", reqId), slog.String("ip", c.IP()))
-	}
-
-	start := time.Now()
-
-	// Go to next middleware
-	if err := c.Next(); err != nil {
-		return err
-	}
-
-	end := time.Now()
-	latency := end.Sub(start)
-
-	// Log exit
-	code := c.Response().StatusCode()
-
-	if code >= 500 {
-		// Internal server errors
-		meth := fmt.Sprintf("<= %s %d %s", c.Method(), code, c.Path())
-		slog.Error(meth, slog.Int("status", code), slog.String("request_id", reqId), slog.String("ip", c.IP()), slog.Duration("latency", latency))
-	} else if code >= 400 {
-		// Caller errors
-		meth := fmt.Sprintf("<= %s %d %s", c.Method(), code, c.Path())
-		slog.Warn(meth, slog.Int("status", code), slog.String("request_id", reqId), slog.String("ip", c.IP()), slog.Duration("latency", latency))
-	} else {
-		// The rest
-		if _, found := noLoggingFor[c.Path()]; !found {
-			meth := fmt.Sprintf("<= %s %d %s", c.Method(), code, c.Path())
-			slog.Info(meth, slog.Int("status", code), slog.String("request_id", reqId), slog.String("ip", c.IP()), slog.Duration("latency", latency))
-		}
-	}
-
-	return nil
-
 }
 
 var bufPool = sync.Pool{
