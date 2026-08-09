@@ -84,7 +84,23 @@ func main() {
 	if runAsInit {
 		runAsInitProcess(os.Args)
 	} else {
-		err := runNormalProcess(sqlog, environment, debugFlag, restartHour, restartMinute)
+		slog.Info("We are the NORMAL process!", "environment", environment, "debug", debugFlag, "restartHour", restartHour, "restartMinute", restartMinute)
+
+		// Generate a default configuration suitable for the environment
+		configuration, err := config.LoadConfig(environment, debugFlag)
+		if err != nil {
+			slog.Error("Failed to load configuration", slog.Any("error", err))
+			panic(err)
+		}
+		slog.Info("Configuration loaded", "environment", configuration.Environment, "debug", configuration.Debug, "proxy", configuration.ProxyEnabled)
+
+		configuration.LogHandler = sqlog
+
+		// Set restart schedule
+		configuration.RestartHour = restartHour
+		configuration.RestartMinute = restartMinute
+
+		err = runNormalProcess(configuration)
 		if err != nil {
 			slog.Error("failed to run normal process", slog.Any("error", err))
 			os.Exit(1)
@@ -106,23 +122,7 @@ func cleanup(db *repository.DBService) {
 
 // runNormalProcess starts the TMF API server and handles its lifecycle,
 // including database connection, rules engine initialization, and graceful shutdown.
-func runNormalProcess(sqlog *sqlogger.SQLogHandler, envir string, debug bool, restartHour int, restartMinute int) error {
-
-	slog.Info("We are the NORMAL process!", "environment", envir, "debug", debug, "restartHour", restartHour, "restartMinute", restartMinute)
-
-	// Generate a default configuration suitable for the environment
-	configuration, err := config.LoadConfig(envir, debug)
-	if err != nil {
-		slog.Error("Failed to load configuration", slog.Any("error", err))
-		panic(err)
-	}
-	slog.Info("Configuration loaded", "environment", configuration.Environment, "debug", configuration.Debug, "proxy", configuration.ProxyEnabled)
-
-	configuration.LogHandler = sqlog
-
-	// Set restart schedule
-	configuration.RestartHour = restartHour
-	configuration.RestartMinute = restartMinute
+func runNormalProcess(configuration *config.Config) error {
 
 	// Set TABLEFLIP for seamless restarts and upgrades
 	upg, err := tableflip.New(tableflip.Options{
