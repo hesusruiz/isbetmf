@@ -61,8 +61,8 @@ func main() {
 	// Check if the logs should be colored:
 	// - If the process is running in a container (pid=1) then do not color the logs
 	// - If the environment variable ISBETMF_LOGS_NOCOLOR is set to "true" then do not color the logs
-	ourpid := os.Getpid()
-	if ourpid == 1 || os.Getenv("ISBETMF_LOGS_NOCOLOR") == "true" {
+	ourPid := os.Getpid()
+	if ourPid == 1 || os.Getenv("ISBETMF_LOGS_NOCOLOR") == "true" {
 		logOptions.NoColor = true
 	}
 
@@ -77,10 +77,41 @@ func main() {
 	// And set the default logging system for all components
 	slog.SetDefault(slog.New(sqlog))
 
+	// Detect if we are running as PID=1 (an init process in a container),
+	// and act accordingly.
+	runAsInit := init || ourPid == 1
+
+	if runAsInit {
+		runAsInitProcess(os.Args)
+	} else {
+		err := runNormalProcess(sqlog, environment, debugFlag, restartHour, restartMinute)
+		if err != nil {
+			slog.Error("failed to run normal process", slog.Any("error", err))
+			os.Exit(1)
+		}
+	}
+
+}
+
+func cleanup(db *repository.DBService) {
+	// This deferred function will run!
+	fmt.Println("Running deferred cleanup functions...")
+
+	// Close database connection (triggers WAL cleanup)
+	fmt.Println("Closing database connection and exiting...")
+	_ = db.Close()
+
+	fmt.Println("Database connections closed.")
+}
+
+// runNormalProcess starts the TMF API server and handles its lifecycle,
+// including database connection, rules engine initialization, and graceful shutdown.
+func runNormalProcess(sqlog *sqlogger.SQLogHandler, envir string, debug bool, restartHour int, restartMinute int) error {
+
+	slog.Info("We are the NORMAL process!", "environment", envir, "debug", debug, "restartHour", restartHour, "restartMinute", restartMinute)
+
 	// Generate a default configuration suitable for the environment
-	// The approach is that instead of many configurable parameters, we have a set of profiles, with "hardcoded"
-	// parameters for each environment, but that can be easity extended for other purposes.
-	configuration, err := config.LoadConfig(environment, debugFlag)
+	configuration, err := config.LoadConfig(envir, debug)
 	if err != nil {
 		slog.Error("Failed to load configuration", slog.Any("error", err))
 		panic(err)
@@ -93,63 +124,19 @@ func main() {
 	configuration.RestartHour = restartHour
 	configuration.RestartMinute = restartMinute
 
-	// Get the PID and name of our executable
-	ourPid := os.Getpid()
-	ourExecPath, err := os.Executable()
-	if err != nil {
-		slog.Error("Failed to get executable path", slog.Any("error", err))
-		panic(err)
-	}
-
-	// Exclude the name of the program from the list of arguments
-	args := os.Args[1:]
-
-	// ******************************************************
-	// ******************************************************
-	// The initial section is for when we are the init process in a container
-	// Detect if we are running as PID=1 (most probably as init process in a container),
-	// and act accordingly.
-	runAsInit := init || ourPid == 1
-
-	if runAsInit {
-		slog.Info("We are the INIT process!", "PID", ourPid, "executable", ourExecPath, "args", args)
-		runAsInitProcess(ourExecPath, args)
-	} else {
-		slog.Info("TMF API server starting", "PID", ourPid, "executable", ourExecPath, "args", args)
-		runNormalProcess(configuration)
-	}
-
-}
-
-func cleanup(db *repository.DBService) {
-	// This deferred function will run!
-	fmt.Println("Running deferred cleanup functions...")
-
-	// Close database connection (triggers WAL cleanup)
-	fmt.Println("Closing database connection and exiting...")
-	db.Close()
-
-	fmt.Println("Database connections closed.")
-}
-
-// runNormalProcess starts the TMF API server and handles its lifecycle,
-// including database connection, rules engine initialization, and graceful shutdown.
-func runNormalProcess(configuration *config.Config) {
-
-	// TABLEFLIP for seamless restarts and upgrades
+	// Set TABLEFLIP for seamless restarts and upgrades
 	upg, err := tableflip.New(tableflip.Options{
 		PIDFile: "isbetmf.pid",
 	})
 	if err != nil {
-		slog.Error("failed to create tableflip upgrader, exiting", slog.Any("error", err))
-		panic(err)
+		return errl.Errorf("failed to create tableflip upgrader: %w", err)
 	}
+	defer upg.Stop()
 
 	// Connect to the database and create tables if they do not exist
 	dbService, err := repository.NewDBService(configuration.Dbname)
 	if err != nil {
-		slog.Error("failed to connect to database", slog.Any("error", err))
-		return
+		return errl.Errorf("failed to connect to database: %w", err)
 	}
 	defer cleanup(dbService)
 
@@ -159,15 +146,13 @@ func runNormalProcess(configuration *config.Config) {
 		Debug:          configuration.Debug,
 	})
 	if err != nil {
-		slog.Error("failed to create rules engine", slog.Any("error", err))
-		return
+		return errl.Errorf("failed to create rules engine: %w", err)
 	}
 
 	// Create the service, which will use the database and the rules engine
 	tmfService, err := service.NewTMFService(configuration, dbService, rulesEngine)
 	if err != nil {
-		slog.Error("failed to create service", slog.Any("error", err))
-		return
+		return errl.Errorf("failed to create service: %w", err)
 	}
 
 	// Create Fiber web server with custom configuration
@@ -291,14 +276,13 @@ func runNormalProcess(configuration *config.Config) {
 	fmt.Println("CHILD: Tableflip exit received")
 
 	// Wait for connections to drain for a maximum of 30 seconds
-	fmt.Println("CHILD: Waiting for connections to drain...")
+	fmt.Println("CHILD: Waiting 30 seconds for connections to drain...")
 	err = webServer.ShutdownWithTimeout(30 * time.Second)
 	if err != nil {
-		fmt.Println("CHILD: Exiting with error", errl.Error(err))
-		os.Exit(1)
-	} else {
-		fmt.Println("CHILD: Exiting without error")
+		return errl.Errorf("failed to shutdown web server: %w", err)
 	}
+	fmt.Println("CHILD: Exiting without error")
+	return nil
 
 }
 
@@ -310,9 +294,21 @@ func runNormalProcess(configuration *config.Config) {
 // process group, and captures system signals (SIGINT, SIGTERM, SIGHUP) to
 // gracefully relay them to the child.
 //
-//   - ourExecPath: The path to the executable to run as the child process.
 //   - args: Command-line arguments to pass to the child process.
-func runAsInitProcess(ourExecPath string, args []string) {
+func runAsInitProcess(args []string) {
+	// Exclude the name of the program from the list of arguments
+	args = os.Args[1:]
+
+	ourPid := os.Getpid()
+
+	// Get the name of our executable, to be able to restart it automatically
+	ourExecPath, err := os.Executable()
+	if err != nil {
+		slog.Error("Failed to get executable path", slog.Any("error", err))
+		panic(err)
+	}
+
+	slog.Info("We are the INIT process!", "PID", ourPid, "executable", ourExecPath, "args", args)
 
 	// Pass to child all arguments except the "-init" flag, so the child runs as a normal process.
 	childArgs := make([]string, 0, len(args))
@@ -352,7 +348,7 @@ func runAsInitProcess(ourExecPath string, args []string) {
 				slog.Error("INIT: failed to forward signal to child process", "signal", sig, "PID", cmd.Process.Pid, "error", err)
 			}
 
-			// If we receive a SIGTERM or SIGINT, wait 10 seconds for the child to terminate and send a KILL signal
+			// If the signal was SIGTERM or SIGINT, wait 10 seconds for the child to terminate and send a KILL signal
 			if sig == syscall.SIGTERM || sig == syscall.SIGINT {
 
 				go func() {
