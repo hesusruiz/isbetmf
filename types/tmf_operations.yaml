@@ -1,4 +1,5 @@
 agreement:
+    basepath: /tmf-api/agreementManagement/v4/
     public: false
     actions:
         CREATE:
@@ -58,6 +59,7 @@ agreement:
                 - '@schemaLocation'
                 - '@type'
 agreementSpecification:
+    basepath: /tmf-api/agreementManagement/v4/
     public: false
     actions:
         CREATE:
@@ -106,6 +108,7 @@ agreementSpecification:
                 - '@schemaLocation'
                 - '@type'
 billFormat:
+    basepath: /tmf-api/accountManagement/v4/
     public: false
     actions:
         CREATE:
@@ -132,6 +135,7 @@ billFormat:
                 - '@schemaLocation'
                 - '@type'
 billPresentationMedia:
+    basepath: /tmf-api/accountManagement/v4/
     public: false
     actions:
         CREATE:
@@ -158,6 +162,7 @@ billPresentationMedia:
                 - '@schemaLocation'
                 - '@type'
 billingAccount:
+    basepath: /tmf-api/accountManagement/v4/
     public: false
     actions:
         CREATE:
@@ -212,6 +217,7 @@ billingAccount:
                 - '@schemaLocation'
                 - '@type'
 billingCycleSpecification:
+    basepath: /tmf-api/accountManagement/v4/
     public: false
     actions:
         CREATE:
@@ -254,6 +260,7 @@ billingCycleSpecification:
                 - '@schemaLocation'
                 - '@type'
 cancelProductOrder:
+    basepath: /tmf-api/productOrderingManagement/v4/
     public: false
     actions:
         CREATE:
@@ -270,6 +277,7 @@ cancelProductOrder:
                 - '@schemaLocation'
                 - '@type'
 cancelResourceOrder:
+    basepath: /tmf-api/resourceOrderingManagement/v4/
     public: false
     actions:
         CREATE:
@@ -286,6 +294,7 @@ cancelResourceOrder:
                 - '@schemaLocation'
                 - '@type'
 cancelServiceOrder:
+    basepath: /tmf-api/serviceOrdering/v4
     public: false
     actions:
         CREATE:
@@ -302,6 +311,7 @@ cancelServiceOrder:
                 - '@schemaLocation'
                 - '@type'
 catalog:
+    basepath: /tmf-api/productCatalogManagement/v4/
     public: true
     actions:
         CREATE:
@@ -338,6 +348,7 @@ catalog:
                 - validFor
                 - '@schemaLocation'
 category:
+    basepath: /tmf-api/productCatalogManagement/v4/
     public: true
     actions:
         CREATE:
@@ -375,6 +386,7 @@ category:
                 - validFor
                 - '@schemaLocation'
 customer:
+    basepath: /tmf-api/customerManagement/v4/
     public: false
     actions:
         CREATE:
@@ -422,6 +434,7 @@ customer:
                 - '@schemaLocation'
                 - '@type'
 customerBill:
+    basepath: /tmf-api/customerBillManagement/v4/
     public: false
     actions:
         UPDATE:
@@ -434,6 +447,7 @@ customerBill:
                 - '@schemaLocation'
                 - '@type'
 customerBillOnDemand:
+    basepath: /tmf-api/customerBillManagement/v4/
     public: false
     actions:
         CREATE:
@@ -453,6 +467,7 @@ customerBillOnDemand:
                 - '@schemaLocation'
                 - '@type'
 financialAccount:
+    basepath: /tmf-api/accountManagement/v4/
     public: false
     actions:
         CREATE:
@@ -496,6 +511,7 @@ financialAccount:
                 - '@schemaLocation'
                 - '@type'
 heal:
+    basepath: /tmf-api/resourceFunctionActivation/v4/
     public: false
     actions:
         CREATE:
@@ -520,6 +536,7 @@ heal:
                 - '@schemaLocation'
                 - '@type'
 individual:
+    basepath: /tmf-api/party/v4/
     public: false
     actions:
         CREATE:
@@ -603,6 +620,7 @@ individual:
                 - '@schemaLocation'
                 - '@type'
 migrate:
+    basepath: /tmf-api/resourceFunctionActivation/v4/
     public: false
     actions:
         CREATE:
@@ -629,6 +647,7 @@ migrate:
                 - '@schemaLocation'
                 - '@type'
 organization:
+    basepath: /tmf-api/party/v4/
     public: true
     actions:
         CREATE:
@@ -685,6 +704,7 @@ organization:
                 - '@schemaLocation'
                 - '@type'
 partyAccount:
+    basepath: /tmf-api/accountManagement/v4/
     public: false
     actions:
         CREATE:
@@ -739,6 +759,7 @@ partyAccount:
                 - '@schemaLocation'
                 - '@type'
 partyRole:
+    basepath: /tmf-api/partyRoleManagement/v4/
     public: true
     actions:
         CREATE:
@@ -784,6 +805,7 @@ partyRole:
                 - '@schemaLocation'
                 - '@type'
 product:
+    basepath: /tmf-api/productInventory/v4/
     public: false
     actions:
         CREATE:
@@ -851,6 +873,7 @@ product:
                 - '@schemaLocation'
                 - '@type'
 productOffering:
+    basepath: /tmf-api/productCatalogManagement/v4/
     public: true
     actions:
         CREATE:
@@ -917,6 +940,7 @@ productOffering:
                 - validFor
                 - '@schemaLocation'
 productOfferingPrice:
+    basepath: /tmf-api/productCatalogManagement/v4/
     public: true
     actions:
         CREATE:
@@ -977,6 +1001,7 @@ productOfferingPrice:
                 - validFor
                 - '@schemaLocation'
 productOrder:
+    basepath: /tmf-api/productOrderingManagement/v4/
     public: false
     actions:
         CREATE:
@@ -1040,6 +1065,7 @@ productOrder:
                 - '@schemaLocation'
                 - '@type'
 productSpecification:
+    basepath: /tmf-api/productCatalogManagement/v4/
     public: true
     actions:
         CREATE:
@@ -1092,6 +1118,7 @@ productSpecification:
                 - validFor
                 - '@schemaLocation'
 quote:
+    basepath: /tmf-api/quoteManagement/v4/
     public: false
     actions:
         CREATE:
@@ -1150,6 +1177,7 @@ quote:
                 - '@schemaLocation'
                 - '@type'
 resource:
+    basepath: /tmf-api/resourceInventoryManagement/v4/
     public: false
     actions:
         CREATE:
@@ -1211,6 +1239,7 @@ resource:
                 - '@schemaLocation'
                 - '@type'
 resourceCandidate:
+    basepath: /tmf-api/resourceCatalog/v4/
     public: true
     actions:
         CREATE:
@@ -1248,6 +1277,7 @@ resourceCandidate:
                 - '@schemaLocation'
                 - '@type'
 resourceCatalog:
+    basepath: /tmf-api/resourceCatalog/v4/
     public: true
     actions:
         CREATE:
@@ -1285,6 +1315,7 @@ resourceCatalog:
                 - '@schemaLocation'
                 - '@type'
 resourceCategory:
+    basepath: /tmf-api/resourceCatalog/v4/
     public: true
     actions:
         CREATE:
@@ -1328,6 +1359,7 @@ resourceCategory:
                 - '@schemaLocation'
                 - '@type'
 resourceFunction:
+    basepath: /tmf-api/resourceFunctionActivation/v4/
     public: false
     actions:
         CREATE:
@@ -1402,6 +1434,7 @@ resourceFunction:
                 - '@schemaLocation'
                 - '@type'
 resourceOrder:
+    basepath: /tmf-api/resourceOrderingManagement/v4/
     public: false
     actions:
         CREATE:
@@ -1454,6 +1487,7 @@ resourceOrder:
                 - '@schemaLocation'
                 - '@type'
 resourceSpecification:
+    basepath: /tmf-api/resourceCatalog/v4/
     public: true
     actions:
         CREATE:
@@ -1503,6 +1537,7 @@ resourceSpecification:
                 - '@schemaLocation'
                 - '@type'
 scale:
+    basepath: /tmf-api/resourceFunctionActivation/v4/
     public: false
     actions:
         CREATE:
@@ -1525,6 +1560,7 @@ scale:
                 - '@schemaLocation'
                 - '@type'
 service:
+    basepath: /tmf-api/serviceInventory/v4
     public: false
     actions:
         CREATE:
@@ -1588,6 +1624,7 @@ service:
                 - supportingResource
                 - supportingService
 serviceCandidate:
+    basepath: /tmf-api/serviceCatalogManagement/v4/
     public: true
     actions:
         CREATE:
@@ -1625,6 +1662,7 @@ serviceCandidate:
                 - '@schemaLocation'
                 - '@type'
 serviceCatalog:
+    basepath: /tmf-api/serviceCatalogManagement/v4/
     public: true
     actions:
         CREATE:
@@ -1661,6 +1699,7 @@ serviceCatalog:
                 - '@schemaLocation'
                 - '@type'
 serviceCategory:
+    basepath: /tmf-api/serviceCatalogManagement/v4/
     public: true
     actions:
         CREATE:
@@ -1701,6 +1740,7 @@ serviceCategory:
                 - '@schemaLocation'
                 - '@type'
 serviceOrder:
+    basepath: /tmf-api/serviceOrdering/v4
     public: false
     actions:
         CREATE:
@@ -1746,6 +1786,7 @@ serviceOrder:
                 - serviceOrderItem
                 - state
 serviceSpecification:
+    basepath: /tmf-api/serviceCatalogManagement/v4/
     public: true
     actions:
         CREATE:
@@ -1800,6 +1841,7 @@ serviceSpecification:
                 - '@schemaLocation'
                 - '@type'
 settlementAccount:
+    basepath: /tmf-api/accountManagement/v4/
     public: false
     actions:
         CREATE:
@@ -1854,6 +1896,7 @@ settlementAccount:
                 - '@schemaLocation'
                 - '@type'
 usage:
+    basepath: /tmf-api/usageManagement/v4/
     public: false
     actions:
         CREATE:
@@ -1890,6 +1933,7 @@ usage:
                 - '@schemaLocation'
                 - '@type'
 usageSpecification:
+    basepath: /tmf-api/usageManagement/v4/
     public: false
     actions:
         CREATE:

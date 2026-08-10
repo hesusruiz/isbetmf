@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -63,16 +64,16 @@ func (c *TMFClient) PageSize() int {
 	return c.config.PageSize
 }
 
-func (c *TMFClient) TMFPost(ctx context.Context, req *Request, objMap repository.TMFObjectMap) (repository.TMFObjectMap, []error) {
+func (c *TMFClient) TMFPost(ctx context.Context, req *Request, objMap repository.TMFObjectMap) (repository.TMFObjectMap, error) {
 
 	requestBody, err := json.Marshal(objMap)
 	if err != nil {
-		return nil, []error{errl.Errorf("failed to marshall object: %w", err)}
+		return nil, errl.Errorf("failed to marshall object: %w", err)
 	}
 
 	path, err := config.ExternalUpstreamTMFPath(req.ResourceName)
 	if err != nil {
-		return nil, []error{errl.Errorf("failed to get path prefix: %w", err)}
+		return nil, errl.Errorf("failed to get path prefix: %w", err)
 	}
 
 	headers := map[string]string{
@@ -82,33 +83,34 @@ func (c *TMFClient) TMFPost(ctx context.Context, req *Request, objMap repository
 
 	resp, responseBody, err := c.Post(ctx, path, requestBody, headers)
 	if err != nil {
-		return nil, []error{errl.Errorf("remote server returned error: %w", err)}
+		return nil, errl.Errorf("remote server returned error: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		slog.Error("unexpected status code from remote server", slog.Int("status_code", resp.StatusCode), slog.String("response_body", string(responseBody)), slog.String("path", path))
+		responseString := string(responseBody)
+		slog.Error("unexpected status code from remote server",
+			slog.Int("status_code", resp.StatusCode),
+			slog.String("response_body", responseString),
+			slog.String("path", path))
 
-		var errs []error
-		// Try to parse the response body as a TMF error format or generic map
-		var errorResponse map[string]any
-		if jsonErr := json.Unmarshal(responseBody, &errorResponse); jsonErr == nil {
-			if reason, ok := errorResponse["reason"].(string); ok {
-				errs = append(errs, errl.Errorf("remote server returned status %d: %s", resp.StatusCode, reason))
-			}
-			if message, ok := errorResponse["message"].(string); ok {
-				errs = append(errs, errl.Errorf("remote server message: %s", message))
-			}
+		reqBodyJSON, _ := json.MarshalIndent(objMap, "", "  ")
+		slog.Error(string(reqBodyJSON))
+
+		// Unmarshall response as APIError
+		apiError := &ApiError{}
+		if jsonErr := json.Unmarshal(responseBody, apiError); jsonErr != nil {
+			_, code, reason := getHTTPStatusInfo(resp.StatusCode)
+			return nil, NewApiError(resp.StatusCode, code, reason, string(responseBody), resp.Status, "")
 		}
 
-		if len(errs) == 0 {
-			errs = append(errs, errl.Errorf("unexpected status code: %d, response body: %s", resp.StatusCode, string(responseBody)))
-		}
-		return nil, errs
+		apiError.statusCode = resp.StatusCode
+		return nil, apiError
+
 	}
 
 	obj, err := repository.NewTMFObjectMapFromBytes(req.ResourceName, responseBody)
 	if err != nil {
-		return nil, []error{errl.Errorf("failed to bind request body: %w", err)}
+		return nil, errl.Errorf("failed to bind request body: %w", err)
 	}
 
 	validation := obj.Validate(req.ResourceName)
@@ -117,7 +119,7 @@ func (c *TMFClient) TMFPost(ctx context.Context, req *Request, objMap repository
 		for _, vErr := range validation.Errors {
 			errs = append(errs, errl.Errorf("validation error on field '%s': %s (code: %s)", vErr.Field, vErr.Message, vErr.Code))
 		}
-		return nil, errs
+		return nil, errors.Join(errs...)
 	}
 
 	return obj, nil
@@ -126,16 +128,16 @@ func (c *TMFClient) TMFPost(ctx context.Context, req *Request, objMap repository
 
 // TMFPut is used to forward PUT requests to the remote server.
 // req is the incoming request and objMap is the object to be sent to the remote server.
-func (c *TMFClient) TMFPut(ctx context.Context, req *Request, objMap repository.TMFObjectMap) (repository.TMFObjectMap, []error) {
+func (c *TMFClient) TMFPut(ctx context.Context, req *Request, objMap repository.TMFObjectMap) (repository.TMFObjectMap, error) {
 
 	requestBody, err := json.Marshal(objMap)
 	if err != nil {
-		return nil, []error{errl.Errorf("failed to marshall object: %w", err)}
+		return nil, errl.Errorf("failed to marshall object: %w", err)
 	}
 
 	path, err := config.ExternalUpstreamTMFPath(req.ResourceName)
 	if err != nil {
-		return nil, []error{errl.Errorf("failed to get path prefix: %w", err)}
+		return nil, errl.Errorf("failed to get path prefix: %w", err)
 	}
 
 	headers := map[string]string{
@@ -145,33 +147,33 @@ func (c *TMFClient) TMFPut(ctx context.Context, req *Request, objMap repository.
 
 	resp, responseBody, err := c.Put(ctx, path, requestBody, headers)
 	if err != nil {
-		return nil, []error{errl.Errorf("remote server returned error: %w", err)}
+		return nil, errl.Errorf("remote server returned error: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		slog.Error("unexpected status code from remote server", slog.Int("status_code", resp.StatusCode), slog.String("response_body", string(responseBody)), slog.String("path", path))
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		responseString := string(responseBody)
+		slog.Error("unexpected status code from remote server",
+			slog.Int("status_code", resp.StatusCode),
+			slog.String("response_body", responseString),
+			slog.String("path", path))
 
-		var errs []error
-		// Try to parse the response body as a TMF error format or generic map
-		var errorResponse map[string]any
-		if jsonErr := json.Unmarshal(responseBody, &errorResponse); jsonErr == nil {
-			if reason, ok := errorResponse["reason"].(string); ok {
-				errs = append(errs, errl.Errorf("remote server returned status %d: %s", resp.StatusCode, reason))
-			}
-			if message, ok := errorResponse["message"].(string); ok {
-				errs = append(errs, errl.Errorf("remote server message: %s", message))
-			}
+		reqBodyJSON, _ := json.MarshalIndent(objMap, "", "  ")
+		slog.Error(string(reqBodyJSON))
+
+		// Unmarshall response as APIError
+		apiError := &ApiError{}
+		if jsonErr := json.Unmarshal(responseBody, apiError); jsonErr != nil {
+			_, code, reason := getHTTPStatusInfo(resp.StatusCode)
+			return nil, NewApiError(resp.StatusCode, code, reason, string(responseBody), resp.Status, "")
 		}
 
-		if len(errs) == 0 {
-			errs = append(errs, errl.Errorf("unexpected status code: %d, response body: %s", resp.StatusCode, string(responseBody)))
-		}
-		return nil, errs
+		apiError.statusCode = resp.StatusCode
+		return nil, apiError
 	}
 
 	obj, err := repository.NewTMFObjectMapFromBytes(req.ResourceName, responseBody)
 	if err != nil {
-		return nil, []error{errl.Errorf("failed to bind request body: %w", err)}
+		return nil, errl.Errorf("failed to bind request body: %w", err)
 	}
 
 	validation := obj.Validate(req.ResourceName)
@@ -180,7 +182,7 @@ func (c *TMFClient) TMFPut(ctx context.Context, req *Request, objMap repository.
 		for _, vErr := range validation.Errors {
 			errs = append(errs, errl.Errorf("validation error on field '%s': %s (code: %s)", vErr.Field, vErr.Message, vErr.Code))
 		}
-		return nil, errs
+		return nil, errors.Join(errs...)
 	}
 
 	return obj, nil
@@ -189,18 +191,18 @@ func (c *TMFClient) TMFPut(ctx context.Context, req *Request, objMap repository.
 
 // TMFPatch is used to forward PATCH requests to the remote server.
 // req is the incoming request and patchMap is the object to be sent to the remote server.
-func (c *TMFClient) TMFPatch(ctx context.Context, req *Request, patchMap repository.TMFObjectMap) (repository.TMFObjectMap, []error) {
+func (c *TMFClient) TMFPatch(ctx context.Context, req *Request, patchMap repository.TMFObjectMap) (repository.TMFObjectMap, error) {
 
 	requestBody, err := json.Marshal(patchMap)
 	if err != nil {
-		return nil, []error{errl.Errorf("failed to marshall object: %w", err)}
+		return nil, errl.Errorf("failed to marshall object: %w", err)
 	}
 
 	// Get the resource path to the remote server
 	// TODO: add support for requests internal to the DOME server, which go to the kubernetes pods
 	pathPrefix, err := config.ExternalUpstreamTMFPath(req.ResourceName)
 	if err != nil {
-		return nil, []error{errl.Errorf("failed to get path prefix: %w", err)}
+		return nil, errl.Errorf("failed to get path prefix: %w", err)
 	}
 
 	path := fmt.Sprintf("%s/%s", pathPrefix, req.ID)
@@ -212,35 +214,34 @@ func (c *TMFClient) TMFPatch(ctx context.Context, req *Request, patchMap reposit
 
 	resp, responseBody, err := c.Patch(ctx, path, requestBody, headers)
 	if err != nil {
-		return nil, []error{errl.Errorf("remote server returned error: %w", err)}
+		return nil, errl.Errorf("remote server returned error: %w", err)
 	}
 
 	if resp.StatusCode >= 300 {
-		slog.Error("unexpected status code from remote server", slog.Int("status_code", resp.StatusCode), slog.String("response_body", string(responseBody)), slog.String("path", path))
+		responseString := string(responseBody)
+		slog.Error("unexpected status code from remote server",
+			slog.Int("status_code", resp.StatusCode),
+			slog.String("response_body", responseString),
+			slog.String("path", path))
 
-		var errs []error
-		// Try to parse the response body as a TMF error format or generic map
-		var errorResponse map[string]any
-		if jsonErr := json.Unmarshal(responseBody, &errorResponse); jsonErr == nil {
-			if reason, ok := errorResponse["reason"].(string); ok {
-				errs = append(errs, errl.Errorf("remote server returned status %d: %s", resp.StatusCode, reason))
-			}
-			if message, ok := errorResponse["message"].(string); ok {
-				errs = append(errs, errl.Errorf("remote server message: %s", message))
-			}
+		reqBodyJSON, _ := json.MarshalIndent(patchMap, "", "  ")
+		slog.Error(string(reqBodyJSON))
+
+		// Unmarshall response as APIError
+		apiError := &ApiError{}
+		if jsonErr := json.Unmarshal(responseBody, apiError); jsonErr != nil {
+			_, code, reason := getHTTPStatusInfo(resp.StatusCode)
+			return nil, NewApiError(resp.StatusCode, code, reason, string(responseBody), resp.Status, "")
 		}
 
-		if len(errs) == 0 {
-			// Otherwise, just create a generic error
-			errs = append(errs, errl.Errorf("unexpected status code: %d, response body: %s", resp.StatusCode, string(responseBody)))
-		}
-		return nil, errs
+		apiError.statusCode = resp.StatusCode
+		return nil, apiError
 	}
 
 	// Build an object from the reply
 	obj, err := repository.NewTMFObjectMapFromBytes(req.ResourceName, responseBody)
 	if err != nil {
-		return nil, []error{errl.Errorf("failed to bind request body: %w", err)}
+		return nil, errl.Errorf("failed to bind request body: %w", err)
 	}
 
 	// And validate the object
@@ -250,7 +251,7 @@ func (c *TMFClient) TMFPatch(ctx context.Context, req *Request, patchMap reposit
 		for _, vErr := range validation.Errors {
 			errs = append(errs, errl.Errorf("validation error on field '%s': %s (code: %s)", vErr.Field, vErr.Message, vErr.Code))
 		}
-		return nil, errs
+		return nil, errors.Join(errs...)
 	}
 
 	return obj, nil

@@ -51,9 +51,15 @@ func (svc *Service) createRemoteOrLocalObject(ctx context.Context, req *Request,
 	// We do not have to worry about transaction integrity, because if the remote server fails, we do not create the object locally
 	// If the local server fails, the object will be eventually updated in our cache later, for other operations against the object.
 
-	remoteObjectMap, errs := svc.tmfClient.TMFPost(ctx, req, objMap)
-	if len(errs) > 0 {
-		return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", errs[0])
+	remoteObjectMap, err := svc.tmfClient.TMFPost(ctx, req, objMap)
+	if err != nil {
+
+		var apiErr *ApiError
+		if errors.As(err, &apiErr) {
+			return &Response{StatusCode: apiErr.StatusCode(), Body: apiErr}
+		}
+
+		return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", err)
 	}
 
 	// Prepare the object for the database
@@ -94,14 +100,14 @@ func (svc *Service) updateRemoteOrLocalObject(ctx context.Context, req *Request,
 	}
 
 	if svc.proxyEnabled {
-		remoteObjectMap, errs := svc.tmfClient.TMFPatch(ctx, req, patch)
-		if len(errs) > 0 {
+		remoteObjectMap, err := svc.tmfClient.TMFPatch(ctx, req, patch)
+		if err != nil {
 			if svc.LogLevel() >= 3 {
 				// Pretty-pring the path object
 				patchJSON, _ := json.MarshalIndent(patch, "", "  ")
 				fmt.Println("Path object:", string(patchJSON))
 			}
-			return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", errs[0])
+			return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", err)
 		}
 
 		// Set the existingObjectMap to the remoteObjectMap, so we store the object as it was received from the remote server

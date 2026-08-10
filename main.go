@@ -178,7 +178,7 @@ func runNormalProcess(configuration *config.Config) error {
 		},
 	})
 
-	// Add middleware in order (order matters!)
+	// Add middleware in proper order
 
 	// 1. Recovery middleware - should be first to catch panics
 	webServer.Use(recover.New(recover.Config{

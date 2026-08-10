@@ -19,6 +19,7 @@ func (svc *Service) UpdateTMFObject(ctx context.Context, req *Request) *Response
 	// Parse request body
 	incomingObjectMap, errorResponse := svc.parseUpdateRequestBody(req)
 	if errorResponse != nil {
+		slog.Error(string(req.Body))
 		return errorResponse
 	}
 
@@ -29,6 +30,8 @@ func (svc *Service) UpdateTMFObject(ctx context.Context, req *Request) *Response
 
 	// Ensure update metadata
 	if errorResponse := svc.verifyObjectOnUpdate(req, incomingObjectMap); errorResponse != nil {
+		data, _ := json.MarshalIndent(incomingObjectMap, "", "  ")
+		slog.Error(string(data))
 		return errorResponse
 	}
 

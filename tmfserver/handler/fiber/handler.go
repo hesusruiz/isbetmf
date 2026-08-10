@@ -363,6 +363,9 @@ func (h *Handler) parseRequest(c *fiber.Ctx) (*svc.Request, error) {
 	// Set the Body if the request potentially has one (POST, PATCH, PUT)
 	if c.Method() == fiber.MethodPost || c.Method() == fiber.MethodPatch || c.Method() == fiber.MethodPut {
 		req.Body = c.Body()
+		bodyString := string(req.Body)
+		_ = bodyString
+
 	}
 
 	return req, nil

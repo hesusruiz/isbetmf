@@ -19,12 +19,12 @@ import (
 // It assumes the Swagger files are in the format used by the TMForum APIs.
 // It will print the mapping and the routes to the standard output in JSON format.
 
+const updateFile = true
+
 func main() {
 
 	// Visit all the JSON files in the "swagger" directory
 	swaggerDir := "./www/oapiv4/oapiv4"
-
-	// processOneFile("www/oapiv4/oapiv4/TMF620-productCatalogManagement.json")
 
 	// Read the directory entries
 	dirEntries, err := os.ReadDir(swaggerDir)
@@ -36,7 +36,7 @@ func main() {
 	// This is the map where we will accumulate the information for generation of code
 	resources := make(types.Resources)
 
-	// Process each file in the directory
+	// Process each file in the directory (we assume all files are in the same directory)
 	for _, dirEntry := range dirEntries {
 		if !dirEntry.IsDir() {
 			// Process the file
@@ -64,12 +64,15 @@ func processOneFile(filePath string, resources types.Resources) types.Resources 
 		panic(err)
 	}
 
+	// Build a Swagger 2.0 model from the document
 	v2Model, err := document.BuildV2Model()
 	if err != nil {
 		panic(err)
 	}
 
+	// We will iterate through the paths, which are the routes and actions in our server
 	pathItems := v2Model.Model.Paths.PathItems
+	basePath := v2Model.Model.BasePath
 
 	for path, pathItem := range pathItems.FromNewest() {
 
@@ -78,16 +81,17 @@ func processOneFile(filePath string, resources types.Resources) types.Resources 
 			continue
 		}
 
-		var op *v2.Operation
+		// For each path, we are interested only in the CREATE and UPDATE operations,
+		// which are the ones sending some data in the body of the request.
 
-		op = pathItem.Post
+		op := pathItem.Post
 		if op != nil {
-			resources = processCREATEorUPDATE("CREATE", path, op, resources)
+			resources = processCREATEorUPDATE("CREATE", path, op, resources, basePath)
 		}
 
 		op = pathItem.Patch
 		if op != nil {
-			resources = processCREATEorUPDATE("UPDATE", path, op, resources)
+			resources = processCREATEorUPDATE("UPDATE", path, op, resources, basePath)
 		}
 
 	}
@@ -96,7 +100,7 @@ func processOneFile(filePath string, resources types.Resources) types.Resources 
 
 }
 
-func processCREATEorUPDATE(action string, path string, op *v2.Operation, resources types.Resources) types.Resources {
+func processCREATEorUPDATE(action string, path string, op *v2.Operation, resources types.Resources, basePath string) types.Resources {
 	if op != nil {
 
 		// We skip the operations that we do not have to implement
@@ -120,6 +124,10 @@ func processCREATEorUPDATE(action string, path string, op *v2.Operation, resourc
 			if paramIn == "body" {
 
 				resourceName = paramName
+				if resourceName == "agreement" {
+					fmt.Println("found agreement")
+				}
+
 				bodySchemaProxy := param.Schema
 				if bodySchemaProxy != nil {
 					bodySchema := bodySchemaProxy.Schema()
@@ -163,8 +171,9 @@ func processCREATEorUPDATE(action string, path string, op *v2.Operation, resourc
 
 		if resources[resourceName] == nil {
 			resources[resourceName] = &types.Resource{
-				Actions: make(map[string]*types.Action),
-				Public:  IsPublicResource(resourceName),
+				BasePath: basePath,
+				Actions:  make(map[string]*types.Action),
+				Public:   IsPublicResource(resourceName),
 			}
 		}
 
@@ -182,9 +191,14 @@ func generateDefinitions(resources types.Resources) {
 		panic(err)
 	}
 
-	err = os.WriteFile("./tmf_operations.yaml", b, 0644)
-	if err != nil {
-		panic(err)
+	if updateFile {
+
+		err = os.WriteFile("./tmf_operations.yaml", b, 0644)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		fmt.Println(string(b))
 	}
 }
 

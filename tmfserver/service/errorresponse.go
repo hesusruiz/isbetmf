@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -10,8 +11,8 @@ import (
 
 // ApiError represents a standardized TMForum API error response.
 type ApiError struct {
-	Type string `json:"@type,omitempty"`
-
+	statusCode     int    `json:"-"`
+	Type           string `json:"@type,omitempty"`
 	Code           string `json:"code"`
 	Reason         string `json:"reason"`
 	Message        string `json:"message,omitempty"`
@@ -19,9 +20,21 @@ type ApiError struct {
 	ReferenceError string `json:"referenceError,omitempty"`
 }
 
+// Implement the error interface
+func (e *ApiError) Error() string {
+	data, _ := json.Marshal(e)
+	return string(data)
+}
+
+// StatusCode returns the HTTP status code associated with the error.
+func (e *ApiError) StatusCode() int {
+	return e.statusCode
+}
+
 // NewApiError creates a new ApiError instance.
-func NewApiError(code, reason, message, status, referenceError string) *ApiError {
+func NewApiError(statusCode int, code, reason, message, status, referenceError string) *ApiError {
 	return &ApiError{
+		statusCode:     statusCode,
 		Code:           code,
 		Reason:         reason,
 		Message:        message,
@@ -49,7 +62,7 @@ func ErrorResponse(err error, statusCode int) *Response {
 		slog.Warn("client error", slog.String("error", message))
 	}
 
-	apiErr := NewApiError(code, reason, message, "", "")
+	apiErr := NewApiError(statusCode, code, reason, message, "", "")
 	return &Response{StatusCode: statusCode, Body: apiErr}
 }
 
@@ -66,7 +79,7 @@ func ErrorResponsef(statusCode int, format string, args ...any) *Response {
 		slog.Warn("client error", slog.String("error", message))
 	}
 
-	apiErr := NewApiError(code, reason, message, "", "")
+	apiErr := NewApiError(statusCode, code, reason, message, "", "")
 	return &Response{StatusCode: statusCode, Body: apiErr}
 }
 

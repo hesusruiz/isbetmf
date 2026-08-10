@@ -17,8 +17,9 @@ type Action struct {
 }
 
 type Resource struct {
-	Public  bool
-	Actions map[string]*Action
+	BasePath string
+	Public   bool
+	Actions  map[string]*Action
 }
 
 type Resources map[string]*Resource

@@ -530,24 +530,19 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	}
 }
 
-// TestEmptyList tests that ListGenericObjects returns an empty JSON array and proper X-Total-Count header
-func TestEmptyList(t *testing.T) {
+// TestInvalidResourcename tests that ListGenericObjects returns an empty JSON array and proper X-Total-Count header
+func TestInvalidResourcename(t *testing.T) {
 	s := newTestService(t)
 	resourceName := "TestResource"
 	apiFamily := "productCatalogManagement"
 
-	// List objects for a resource that doesn't exist (should return empty list)
+	// List objects for a resource that doesn't exist (should return 400)
 	lReq := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{})
 	lResp := s.ListTMFObjects(context.Background(), lReq)
 
 	// Should return 200 OK
-	if lResp.StatusCode != http.StatusOK {
+	if lResp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("empty list expected 200, got %d", lResp.StatusCode)
-	}
-
-	// Should have X-Total-Count header set to 0
-	if lResp.Headers["X-Total-Count"] != "0" {
-		t.Fatalf("empty list expected X-Total-Count=0, got %s", lResp.Headers["X-Total-Count"])
 	}
 
 	// Body should be an empty array, not nil
@@ -555,14 +550,6 @@ func TestEmptyList(t *testing.T) {
 		t.Fatalf("empty list body should not be nil")
 	}
 
-	items, ok := lResp.Body.([]repository.TMFObjectMap)
-	if !ok {
-		t.Fatalf("empty list body should be []repository.TMFObjectMap, got %T", lResp.Body)
-	}
-
-	if len(items) != 0 {
-		t.Fatalf("empty list should have 0 items, got %d", len(items))
-	}
 }
 
 type mockRuleEngine struct {

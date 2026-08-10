@@ -75,10 +75,8 @@ func FiberRequestLogger(c *fiber.Ctx) error {
 	code := c.Response().StatusCode()
 
 	logLevel := slog.LevelInfo
-	if code >= 500 {
+	if code >= 400 {
 		logLevel = slog.LevelError
-	} else if code >= 400 {
-		logLevel = slog.LevelWarn
 	}
 
 	// Log all replies, except those in the noLoggingFor map
