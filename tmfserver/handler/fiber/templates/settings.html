@@ -15,6 +15,7 @@
                 <div class="container-fluid">
                     <div class="row">
                         <div class="col-sm-6">
+
                             <h1 class="mb-0 fs-3">Settings</h1>
                         </div>
                         <div class="col-sm-6">
@@ -33,29 +34,26 @@
 
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">This server: {{ .service.Environment }}</h3>
+                            <h3 class="card-title">Modify server settings</h3>
                         </div>
                         <div class="card-body">
-                            <form class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label" for="settings-vatid"> Organization Identifier </label>
-                                    <input type="text" class="form-control" id="settings-vatid"
-                                        value="{{ .service.ServerOperatorOrganizationIdentifier }}" />
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label" for="settings-name"> Name </label>
-                                    <input type="text" class="form-control" id="settings-name"
-                                        value="{{ .service.ServerOperatorName }}" />
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label" for="settings-tmfserver"> TMF Server </label>
-                                    <input type="text" class="form-control" id="settings-tmfserver"
-                                        value="{{ .service.RemoteTMFServer }}" />
-                                </div>
+                            <form action="/admin/pages/settings" method="post" class="row g-3">
                                 <div class="col-md-6">
                                     <label class="form-label" for="settings-loglevel"> Log Level </label>
-                                    <input type="text" class="form-control" id="settings-loglevel"
-                                        value="{{ .service.LogLevel }}" />
+                                    <select name="logLevel" class="form-select" aria-label="Default select example">
+                                        <option {{ if eq .logLevel.String "DEBUG" }} selected {{ end }} value="DEBUG">
+                                            DEBUG
+                                        </option>
+                                        <option {{ if eq .logLevel.String "INFO" }} selected {{ end }} value="INFO">
+                                            INFO
+                                        </option>
+                                        <option {{ if eq .logLevel.String "WARN" }} selected {{ end }} value="WARN">
+                                            WARN
+                                        </option>
+                                        <option {{ if eq .logLevel.String "ERROR" }} selected {{ end }} value="ERROR">
+                                            ERROR
+                                        </option>
+                                    </select>
                                 </div>
                                 <div class="col-12">
                                     <button type="submit" class="btn btn-primary">Save changes</button>
@@ -63,7 +61,6 @@
                             </form>
                         </div>
                     </div>
-
 
                 </div>
             </div>

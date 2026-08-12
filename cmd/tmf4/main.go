@@ -124,9 +124,6 @@ func processCREATEorUPDATE(action string, path string, op *v2.Operation, resourc
 			if paramIn == "body" {
 
 				resourceName = paramName
-				if resourceName == "agreement" {
-					fmt.Println("found agreement")
-				}
 
 				bodySchemaProxy := param.Schema
 				if bodySchemaProxy != nil {

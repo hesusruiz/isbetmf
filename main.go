@@ -94,8 +94,6 @@ func main() {
 		}
 		slog.Info("Configuration loaded", "environment", configuration.Environment, "debug", configuration.Debug, "proxy", configuration.ProxyEnabled)
 
-		configuration.LogHandler = sqlog
-
 		// Set restart schedule
 		configuration.RestartHour = restartHour
 		configuration.RestartMinute = restartMinute

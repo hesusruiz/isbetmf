@@ -25,9 +25,6 @@ type TMFClientConfig struct {
 	// BaseURL of the remote TMForum server
 	BaseURL string `json:"base_url" yaml:"base_url"`
 
-	// The path prefix to use in all requests to the remote server
-	PathPrefix string `json:"path_prefix" yaml:"path_prefix"`
-
 	// Timeout in seconds for HTTP requests
 	Timeout int `json:"timeout" yaml:"timeout"`
 
@@ -383,7 +380,7 @@ func (c *TMFClient) do(ctx context.Context, method, path string, body []byte, he
 		if err != nil {
 			return nil, nil, errl.Errorf("failed to get upstream URL for %s: %w", path, err)
 		}
-		url = fmt.Sprintf("%s%s%s", origin, c.config.PathPrefix, path)
+		url = fmt.Sprintf("%s%s", origin, path)
 	} else {
 		url = fmt.Sprintf("%s%s", c.config.BaseURL, path)
 	}

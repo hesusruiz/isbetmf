@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/hesusruiz/isbetmf/internal/errl"
-	"github.com/hesusruiz/isbetmf/internal/sqlogger"
 	"github.com/hesusruiz/isbetmf/types"
 )
 
@@ -32,7 +31,7 @@ type Config struct {
 	// The environment for the default configuration profile
 	Environment Environment
 
-	// Server operator information
+	// Information about the organization operating this server
 	ServerOperatorOrganizationIdentifier string
 	ServerOperatorDid                    string
 	ServerOperatorName                   string
@@ -42,18 +41,9 @@ type Config struct {
 	// VerifierServer is the URL of the verifier server, which is used to verify the access tokens.
 	VerifierServer string
 
-	// The domain of the remote TMForum API server when we act as proxy
-	RemoteTMFServer string
-
-	// ProxyEnabled enables the TMF caching proxy functionality.
-	ProxyEnabled bool
-
 	// Dbname is the name of the database file where the local TMForum data is stored
 	// It is used to store the data in a local SQLite database, the best SQL database for this purpose.
 	Dbname string
-
-	// Set to true to disable the automatic backups of the database
-	BackupDisabled bool
 
 	// The power required by a caller to be considered LEAR
 	LEARPower types.OnePower
@@ -67,9 +57,6 @@ type Config struct {
 	// It can specify a local file or a remote URL.
 	PolicyFileName string
 
-	// PDPAddress is the address of the PDP server.
-	PDPAddress string
-
 	// Debug mode, more logs and less caching
 	Debug bool
 
@@ -78,22 +65,21 @@ type Config struct {
 	// This is a special token defined in the configuration and has superadmin powers.
 	AdminToken string
 
-	// Enable synchronization with the remote server in background
-	BackgroudSync bool
-
 	// ClonePeriod is the period in which the reporting tool will clone the TMForum objects from the DOME instance,
 	// to keep the local cache up to date.
 	ClonePeriod time.Duration
 
-	// LogHandler is the handler used to log messages.
-	// It is a custom handler that uses the slog package to log messages both to the console and to a SQLite database.
-	LogHandler *sqlogger.SQLogHandler
-
-	// LogLevel is a slog.LevelVar that can be set to different log levels (e.g. Debug, Info, Warn, Error).
-	LogLevel *slog.LevelVar
-
 	// Hour and minute of the day when the server will automatically restart (each day). Hour=-1 disables restart.
 	RestartHour, RestartMinute int
+
+	// ProxyEnabled enables the TMF caching proxy functionality.
+	ProxyEnabled bool
+
+	// The domain of the remote TMForum API server when we act as proxy
+	RemoteTMFServer string
+
+	// Enable synchronization with the remote server in background
+	BackgroudSync bool
 
 	// The special features of the environment
 	Features Features
@@ -220,10 +206,4 @@ func (c *Config) IsDOME() bool {
 
 func (c *Config) IsISBE() bool {
 	return c.Environment == ISBE_PRE || c.Environment == ISBE_DEV
-}
-
-func (c *Config) Close() {
-	if c.LogHandler != nil {
-		c.LogHandler.Close()
-	}
 }

@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/hesusruiz/isbetmf/internal/html"
+	"github.com/hesusruiz/isbetmf/internal/sqlogger"
 	"github.com/hesusruiz/isbetmf/tmfserver/service"
 )
 
@@ -57,25 +59,101 @@ func (h *AdminHandler) registerRoutes(app *fiber.App) {
 
 	admin.Get("/", h.Dashboard)
 	admin.Get("/pages/:pageName", h.ShowPage)
+	admin.Post("/pages/:pageName", h.ChangePage)
 	admin.Get("/:resourceName", h.ListObjects)
 	admin.Get("/:resourceName/:id", h.ViewObject)
 }
 
 func (h *AdminHandler) Dashboard(c *fiber.Ctx) error {
+	var level slog.Level
+	logger := slog.Default()
+	mylogger, ok := logger.Handler().(*sqlogger.SQLogHandler)
+	if ok {
+		leveler := mylogger.Level()
+		level = leveler.Level()
+		fmt.Printf("Current log level: %d\n", leveler.Level())
+	}
+
 	data := map[string]any{
 		"settings": "active",
 		"service":  h.service,
+		"logLevel": level,
 	}
-	return h.render(c, "settings", data)
+	fmt.Println("Level:", level)
+	return h.render(c, "index", data)
 }
 
 func (h *AdminHandler) ShowPage(c *fiber.Ctx) error {
+
 	pageName := c.Params("pageName")
-	data := map[string]any{
-		pageName:  "active",
-		"service": h.service,
+
+	switch pageName {
+	case "settings":
+		var level slog.Level
+		logger := slog.Default()
+		mylogger, ok := logger.Handler().(*sqlogger.SQLogHandler)
+		if ok {
+			leveler := mylogger.Level()
+			level = leveler.Level()
+			fmt.Printf("Current log level: %d\n", leveler.Level())
+		}
+
+		data := map[string]any{
+			pageName:   "active",
+			"service":  h.service,
+			"logLevel": level,
+		}
+		return h.render(c, pageName, data)
+
+	default:
+		// Redirect to the home admin page
+		return c.Redirect("/admin")
 	}
-	return h.render(c, pageName, data)
+
+}
+
+func (h *AdminHandler) ChangePage(c *fiber.Ctx) error {
+	pageName := c.Params("pageName")
+	slog.Info("Change page request for page: " + pageName)
+
+	switch pageName {
+	case "settings":
+		slog.Info("Processing settings change")
+
+		newLogValue := c.FormValue("logLevel")
+		if newLogValue == "" {
+			slog.Warn("No log level provided in settings change")
+			return c.Redirect("/admin/pages/settings")
+		}
+		slog.Info("Log level changed from " + newLogValue)
+
+		var level slog.Level
+		switch newLogValue {
+		case "DEBUG":
+			level = slog.LevelDebug
+		case "INFO":
+			level = slog.LevelInfo
+		case "WARN":
+			level = slog.LevelWarn
+		case "ERROR":
+			level = slog.LevelError
+		default:
+			slog.Warn("Invalid log level provided: " + newLogValue)
+			return c.Redirect("/admin/pages/settings")
+		}
+
+		logger := slog.Default()
+		mylogger, ok := logger.Handler().(*sqlogger.SQLogHandler)
+		if ok {
+			leveler := mylogger.Level()
+			fmt.Printf("Current log level: %d\n", leveler.Level())
+			leveler.Set(level)
+			fmt.Printf("New log level: %d\n", level)
+		}
+		return c.Redirect("/admin/pages/settings")
+	default:
+		return c.Redirect("/admin")
+	}
 }
 
 func (h *AdminHandler) RequireAuth(c *fiber.Ctx) error {
