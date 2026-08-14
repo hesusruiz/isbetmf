@@ -9,12 +9,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/goccy/go-yaml"
 	"github.com/gofiber/fiber/v2"
+	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/html"
 	"github.com/hesusruiz/isbetmf/internal/sqlogger"
 	"github.com/hesusruiz/isbetmf/tmfserver/service"
@@ -58,8 +61,13 @@ func (h *AdminHandler) registerRoutes(app *fiber.App) {
 	admin.Use(h.RequireAuth)
 
 	admin.Get("/", h.Dashboard)
-	admin.Get("/pages/:pageName", h.ShowPage)
-	admin.Post("/pages/:pageName", h.ChangePage)
+
+	admin.Get("/page/settings", h.Settings)
+	admin.Post("/page/settings", h.Settings)
+
+	admin.Get("/page/upstream", h.Upstream)
+	admin.Post("/page/upstream", h.Upstream)
+
 	admin.Get("/:resourceName", h.ListObjects)
 	admin.Get("/:resourceName/:id", h.ViewObject)
 }
@@ -83,12 +91,17 @@ func (h *AdminHandler) Dashboard(c *fiber.Ctx) error {
 	return h.render(c, "index", data)
 }
 
-func (h *AdminHandler) ShowPage(c *fiber.Ctx) error {
+func (h *AdminHandler) Settings(c *fiber.Ctx) error {
 
-	pageName := c.Params("pageName")
+	pageName := "settings"
 
-	switch pageName {
-	case "settings":
+	pageData := map[string]any{
+		pageName:  "active",
+		"Service": h.service,
+	}
+
+	switch c.Method() {
+	case http.MethodGet:
 		var level slog.Level
 		logger := slog.Default()
 		mylogger, ok := logger.Handler().(*sqlogger.SQLogHandler)
@@ -98,37 +111,22 @@ func (h *AdminHandler) ShowPage(c *fiber.Ctx) error {
 			fmt.Printf("Current log level: %d\n", leveler.Level())
 		}
 
-		data := map[string]any{
-			pageName:   "active",
-			"service":  h.service,
-			"logLevel": level,
+		pageData["LogLevel"] = level
+		if c.Query("ok") == "1" {
+			pageData["Success"] = true
 		}
-		return h.render(c, pageName, data)
+		return h.render(c, pageName, pageData)
 
-	default:
-		// Redirect to the home admin page
-		return c.Redirect("/admin")
-	}
-
-}
-
-func (h *AdminHandler) ChangePage(c *fiber.Ctx) error {
-	pageName := c.Params("pageName")
-	slog.Info("Change page request for page: " + pageName)
-
-	switch pageName {
-	case "settings":
-		slog.Info("Processing settings change")
-
-		newLogValue := c.FormValue("logLevel")
-		if newLogValue == "" {
-			slog.Warn("No log level provided in settings change")
-			return c.Redirect("/admin/pages/settings")
+	case http.MethodPost:
+		newLogLevelValue := c.FormValue("logLevel")
+		if newLogLevelValue == "" {
+			slog.Warn("No log level provided")
+			pageData["Error"] = "No log level provided"
+			return h.render(c, pageName, pageData)
 		}
-		slog.Info("Log level changed from " + newLogValue)
 
 		var level slog.Level
-		switch newLogValue {
+		switch newLogLevelValue {
 		case "DEBUG":
 			level = slog.LevelDebug
 		case "INFO":
@@ -138,8 +136,9 @@ func (h *AdminHandler) ChangePage(c *fiber.Ctx) error {
 		case "ERROR":
 			level = slog.LevelError
 		default:
-			slog.Warn("Invalid log level provided: " + newLogValue)
-			return c.Redirect("/admin/pages/settings")
+			slog.Warn("Invalid log level provided: " + newLogLevelValue)
+			pageData["Error"] = "Invalid log level provided: " + newLogLevelValue
+			return h.render(c, pageName, pageData)
 		}
 
 		logger := slog.Default()
@@ -150,10 +149,128 @@ func (h *AdminHandler) ChangePage(c *fiber.Ctx) error {
 			leveler.Set(level)
 			fmt.Printf("New log level: %d\n", level)
 		}
-		return c.Redirect("/admin/pages/settings")
+
+		return c.Redirect("/admin/page/" + pageName + "?ok=1")
+
 	default:
 		return c.Redirect("/admin")
 	}
+
+}
+
+func (h *AdminHandler) Upstream(c *fiber.Ctx) error {
+
+	pageName := "upstream"
+
+	pageData := map[string]any{
+		pageName:  "active",
+		"Service": h.service,
+	}
+
+	switch c.Method() {
+	case http.MethodGet:
+		if c.Query("ok") == "1" {
+			pageData["Success"] = true
+		}
+		if c.Query("error") == "1" {
+			pageData["Error"] = "Error uploading file"
+		}
+
+		proxyConfig := config.GetProxyConfig()
+		if proxyConfig == nil {
+			pageData["Error"] = "No upstream config found"
+			return h.render(c, pageName, pageData)
+		}
+
+		upstreamEntries := proxyConfig.GetUpstreamEntries()
+		if len(upstreamEntries) == 0 {
+			pageData["Error"] = "No upstream entries found"
+			return h.render(c, pageName, pageData)
+		}
+
+		yamlBytes, err := yaml.Marshal(upstreamEntries)
+		if err != nil {
+			pageData["Error"] = "Error marshaling upstream config"
+			return h.render(c, pageName, pageData)
+		}
+
+		pageData["UpstreamEntries"] = string(yamlBytes)
+
+		return h.render(c, pageName, pageData)
+
+	case http.MethodPost:
+		// Get first fileHeader from form field "document":
+		fileHeader, err := c.FormFile("file")
+		if fileHeader == nil {
+			fileHeader, err = c.FormFile("file[0]")
+		}
+		if err != nil {
+			slog.Error("Error retrieving the file", "filename", fileHeader.Filename, "error", err)
+			return c.Status(fiber.StatusBadRequest).SendString("File not specified in the request")
+		}
+		slog.Info("Uploading new TMF configuration", "filename", fileHeader.Filename, "size", fileHeader.Size)
+
+		// Do not load files bigger than 5MB
+		if fileHeader.Size > 5*1024*1024 {
+			slog.Error("File too big", "filename", fileHeader.Filename, "size", fileHeader.Size)
+			return c.Status(fiber.StatusBadRequest).SendString("File too big")
+		}
+
+		// Read in memory the file
+		f, err := fileHeader.Open()
+		if err != nil {
+			slog.Error("Error opening the file", "filename", fileHeader.Filename, "error", err)
+			return c.Status(fiber.StatusBadRequest).SendString("Error opening the file")
+		}
+		defer f.Close()
+
+		// Read file to buffer
+		buffer := make([]byte, fileHeader.Size)
+		_, err = f.Read(buffer)
+		if err != nil {
+			slog.Error("Error reading the file", "filename", fileHeader.Filename, "error", err)
+			return c.Status(fiber.StatusBadRequest).SendString("Error reading the file")
+		}
+
+		// Parse the contents into the proxy config
+		var newUpstreamEntries config.UpstreamEntries
+		err = yaml.Unmarshal(buffer, &newUpstreamEntries)
+		if err != nil {
+			slog.Error("Error parsing the file", "filename", fileHeader.Filename, "error", err)
+			return c.Status(fiber.StatusBadRequest).SendString("Error parsing the file: " + err.Error())
+		}
+
+		// Make sure that we have at least one routing entry
+		if len(newUpstreamEntries) == 0 {
+			slog.Error("No routing entries found in the file", "filename", fileHeader.Filename)
+			return c.Status(fiber.StatusBadRequest).SendString("No routing entries found in the file")
+		}
+
+		// Loop the entries to check that host, port and path are valid
+		for _, entry := range newUpstreamEntries {
+			if entry.Host == "" {
+				slog.Error("Invalid host in the file", "filename", fileHeader.Filename)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid host in the file")
+			}
+			if entry.Port == 0 {
+				slog.Error("Invalid port in the file", "filename", fileHeader.Filename)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid port in the file")
+			}
+			if entry.Path == "" {
+				slog.Error("Invalid path in the file", "filename", fileHeader.Filename)
+				return c.Status(fiber.StatusBadRequest).SendString("Invalid path in the file")
+			}
+		}
+
+		// Update the global proxy config
+		config.UpdateProxyConfig(newUpstreamEntries)
+
+		return c.Status(fiber.StatusOK).SendString("New TMF configuration uploaded successfully")
+
+	default:
+		return c.Redirect("/admin")
+	}
+
 }
 
 func (h *AdminHandler) RequireAuth(c *fiber.Ctx) error {

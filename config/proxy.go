@@ -3,6 +3,7 @@ package config
 import (
 	_ "embed"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/goccy/go-yaml"
 	"github.com/hesusruiz/isbetmf/internal/errl"
@@ -19,66 +20,47 @@ type UpstreamEntries map[string]UpstreamEntry
 //go:embed proxy.yaml
 var internalUpstreamYAMLContent []byte
 
-var internalUpstreamEntries UpstreamEntries
+type ProxyConfig struct {
+	internalUpstreamEntries UpstreamEntries
+}
 
-//   catalog:
-//     host: tm-forum-api-product-catalog
-//     port: 8080
-//     path: /tmf-api/productCatalogManagement/v4
-//   inventory:
-//     host: tm-forum-api-product-inventory
-//     port: 8080
-//     path: /tmf-api/productInventory/v4
-//   ordering:
-//     host: tm-forum-api-product-ordering-management
-//     port: 8080
-//     path: /tmf-api/productOrderingManagement/v4
-//   billing:
-//     host: tm-forum-api-account
-//     port: 8080
-//     path: /tmf-api/accountManagement/v4
-//   usage:
-//     host: tm-forum-api-usage-management
-//     port: 8080
-//     path: /tmf-api/usageManagement/v4
-//   party:
-//     host: tm-forum-api-party-catalog
-//     port: 8080
-//     path: /tmf-api/party/v4
-//   customer:
-//     host: tm-forum-api-customer-management
-//     port: 8080
-//     path: /tmf-api/customerManagement/v4
-//   resources:
-//     host: tm-forum-api-resource-catalog
-//     port: 8080
-//     path: /tmf-api/resourceCatalog/v4
-//   services:
-//     host: tm-forum-api-service-catalog
-//     port: 8080
-//     path: /tmf-api/serviceCatalogManagement/v4
-//   resourceInventory:
-//     host: tm-forum-api-resource-inventory
-//     port: 8080
-//     path: /tmf-api/resourceInventoryManagement/v4
-//   serviceInventory:
-//     host: tm-forum-api-service-inventory
-//     port: 8080
-//     path: /tmf-api/serviceInventory/v4
+func (p *ProxyConfig) GetUpstreamEntries() UpstreamEntries {
+	return p.internalUpstreamEntries
+}
+
+var proxyConfig atomic.Pointer[ProxyConfig]
+
+// GetProxyConfig returns the current proxy config, loading it from the embedded yaml file if not already loaded.
+func GetProxyConfig() *ProxyConfig {
+	cfg := proxyConfig.Load()
+	// 	Parse the proxy yaml content only once at first time
+	if cfg == nil {
+		var newUpstreamEntries UpstreamEntries
+		err := yaml.Unmarshal(internalUpstreamYAMLContent, &newUpstreamEntries)
+		if err != nil {
+			panic("error parsing proxy yaml content: " + err.Error())
+		}
+		cfg = UpdateProxyConfig(newUpstreamEntries)
+	}
+	return cfg
+}
+
+// UpdateProxyConfig updates in an atomic way the proxy config with new upstream entries.
+func UpdateProxyConfig(newUpstreamEntries UpstreamEntries) *ProxyConfig {
+	cfg := &ProxyConfig{
+		internalUpstreamEntries: newUpstreamEntries,
+	}
+	proxyConfig.Store(cfg)
+	return cfg
+}
 
 // InternalUpstreamURL returns a url of the form: http://hostname:port/path
 func InternalUpstreamURL(resourceName string) (string, error) {
 
-	// 	Parse the proxy yaml content only once at first time
-	if len(internalUpstreamEntries) == 0 {
-		err := yaml.Unmarshal(internalUpstreamYAMLContent, &internalUpstreamEntries)
-		if err != nil {
-			return "", errl.Errorf("error parsing proxy yaml content: %s", err)
-		}
-	}
+	cfg := GetProxyConfig()
 
 	// Get the entry for the resource name
-	entry, ok := internalUpstreamEntries[resourceName]
+	entry, ok := cfg.internalUpstreamEntries[resourceName]
 	if !ok {
 		return "", errl.Errorf("unknown resource type: %s", resourceName)
 	}
