@@ -178,15 +178,15 @@ func runNormalProcess(configuration *config.Config) error {
 
 	// Add middleware in proper order
 
-	// 1. Recovery middleware - should be first to catch panics
+	// Recovery middleware - should be first to catch panics
 	webServer.Use(recover.New(recover.Config{
 		EnableStackTrace: configuration.Debug,
 	}))
 
-	// 2. Request ID middleware - for tracing requests
+	// Request ID middleware - for tracing requests
 	webServer.Use(fiberhandler.RequestID)
 
-	// 3. CORS middleware - enable cross-origin requests
+	// CORS middleware - enable cross-origin requests
 	webServer.Use(cors.New(cors.Config{
 		AllowOrigins:     "*",
 		AllowMethods:     "GET,POST,HEAD,PUT,DELETE,PATCH,OPTIONS",
@@ -196,18 +196,18 @@ func runNormalProcess(configuration *config.Config) error {
 		MaxAge:           86400,
 	}))
 
-	// 4. Compression middleware - compress responses
+	// Compression middleware - compress responses
 	webServer.Use(compress.New(compress.Config{
 		Level: compress.LevelBestSpeed,
 	}))
-
-	// 5. Logger middleware - log requests and replies
-	webServer.Use(fiberhandler.FiberRequestLogger)
 
 	// Serve the OpenAPI UI. We support V4 and V5
 	webServer.Static("/oapiv5", "./www/oapiv5")
 	webServer.Static("/oapiv4", "./www/oapiv4")
 	webServer.Static("/assets", "./www/assets")
+
+	// Logger middleware - log requests and replies
+	webServer.Use(fiberhandler.FiberRequestLogger)
 
 	// Create handler and set the routes for the APIs
 	fiberhandler.NewHandler(webServer, tmfService)
