@@ -17,7 +17,7 @@ func (svc *Service) ReplaceTMFObject(ctx context.Context, req *Request) *Respons
 	}
 
 	// Parse request body
-	incomingObjectMap, errorResponse := svc.parseCreateAndPutRequestBody(req)
+	incomingObjectMap, errorResponse := svc.parseRequestBodyForCreateAndReplace(req)
 	if errorResponse != nil {
 		return errorResponse
 	}

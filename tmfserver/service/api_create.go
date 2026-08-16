@@ -18,7 +18,7 @@ func (svc *Service) CreateTMFObject(ctx context.Context, req *Request) *Response
 	}
 
 	// Parse request body
-	incomingObjectMap, errorResponse := svc.parseCreateAndPutRequestBody(req)
+	incomingObjectMap, errorResponse := svc.parseRequestBodyForCreateAndReplace(req)
 	if errorResponse != nil {
 		slog.Error(string(req.Body))
 		return errorResponse

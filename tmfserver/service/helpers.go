@@ -24,8 +24,8 @@ func (svc *Service) requiresAuthentication(req *Request) *Response {
 	return nil
 }
 
-// parseCreateAndPutRequestBody parses the JSON body from the CREATE request into a TMFObjectMap.
-func (svc *Service) parseCreateAndPutRequestBody(req *Request) (repo.TMFObjectMap, *Response) {
+// parseRequestBodyForCreateAndReplace parses the JSON body from the CREATE request into a TMFObjectMap.
+func (svc *Service) parseRequestBodyForCreateAndReplace(req *Request) (repo.TMFObjectMap, *Response) {
 
 	// Make sure the resource is supported
 	res := types.GetResourceDefinition(req.ResourceName)
@@ -40,8 +40,8 @@ func (svc *Service) parseCreateAndPutRequestBody(req *Request) (repo.TMFObjectMa
 	return incomingObjectMap, nil
 }
 
-// parseUpdateRequestBody parses the JSON body from the UPDATE request into a TMFObjectMap.
-func (svc *Service) parseUpdateRequestBody(req *Request) (repo.TMFObjectMap, *Response) {
+// parseRequestBodyForUpdate parses the JSON body from the UPDATE request into a TMFObjectMap.
+func (svc *Service) parseRequestBodyForUpdate(req *Request) (repo.TMFObjectMap, *Response) {
 
 	// Make sure the resource is supported
 	res := types.GetResourceDefinition(req.ResourceName)
@@ -245,6 +245,11 @@ func (svc *Service) verifyObjectOnPOST(req *Request, incomingObjMap repo.TMFObje
 		}
 	}
 
+	// Set schemaLocation depending on the type of object, if the user did not specify one
+	if incomingObjMap.SchemaLocation() == "" {
+		incomingObjMap.SetDefaultSchemaLocation(actionDefinition)
+	}
+
 	return nil
 }
 
@@ -283,6 +288,11 @@ func (svc *Service) verifyObjectOnREPLACE(req *Request, incomingObjMap repo.TMFO
 
 	// lastUpdate is compulsory in all objects. We do not trust the user and overwrite it with the current time.
 	incomingObjMap.SetLastUpdateNow()
+
+	// Set schemaLocation depending on the type of object, if the user did not specify one
+	if incomingObjMap.SchemaLocation() == "" {
+		incomingObjMap.SetDefaultSchemaLocation(actionDefinition)
+	}
 
 	return nil
 }
@@ -342,6 +352,11 @@ func (svc *Service) verifyObjectOnUpdate(req *Request, incomingObjMap repo.TMFOb
 
 	// lastUpdate is compulsory in all objects. We do not trust the user and overwrite it with the current time.
 	incomingObjMap.SetLastUpdateNow()
+
+	// Set schemaLocation depending on the type of object, if the user did not specify one
+	if incomingObjMap.SchemaLocation() == "" {
+		incomingObjMap.SetDefaultSchemaLocation(actionDefinition)
+	}
 
 	return nil
 }

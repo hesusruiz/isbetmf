@@ -536,6 +536,36 @@ func (obj TMFObjectMap) SetType(objType string) {
 	obj["@type"] = objType
 }
 
+// SchemaLocation returns the object schemaLocation
+func (obj TMFObjectMap) SchemaLocation() string {
+	schemaLocation, _ := obj["@schemaLocation"].(string)
+	return schemaLocation
+}
+
+// SetSchemaLocation sets the object schemaLocation
+func (obj TMFObjectMap) SetSchemaLocation(schemaLocation string) {
+	obj["@schemaLocation"] = schemaLocation
+}
+
+const schemaBothLastUpdateAndRelatedParty = "https://raw.githubusercontent.com/DOME-Marketplace/tmf-api/refs/heads/main/DOME/TrackedShareableEntity.schema.json"
+const schemaRelatedParty = "https://raw.githubusercontent.com/DOME-Marketplace/tmf-api/refs/heads/main/DOME/ShareableEntity.schema.json"
+const schemaLastUpdate = "https://raw.githubusercontent.com/DOME-Marketplace/tmf-api/refs/heads/main/DOME/TrackedEntity.schema.json"
+
+// SetDefaultSchemaLocation sets the object schemaLocation to its default schema location for the given action
+func (obj TMFObjectMap) SetDefaultSchemaLocation(action *types.Action) {
+
+	needsLastUpdate := !action.HasField("lastUpdate")
+	needsRelatedParty := !action.HasField("relatedParty")
+
+	if needsLastUpdate && needsRelatedParty {
+		obj.SetSchemaLocation(schemaBothLastUpdateAndRelatedParty)
+	} else if needsLastUpdate && !needsRelatedParty {
+		obj.SetSchemaLocation(schemaLastUpdate)
+	} else if !needsLastUpdate && needsRelatedParty {
+		obj.SetSchemaLocation(schemaRelatedParty)
+	}
+}
+
 // LifecycleStatus returns the object lifecycleStatus
 func (obj TMFObjectMap) LifecycleStatus() string {
 	if lifecycleStatus, ok := obj["lifecycleStatus"].(string); ok {
