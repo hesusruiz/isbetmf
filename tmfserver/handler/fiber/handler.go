@@ -58,7 +58,7 @@ func (h *Handler) registerRoutes(app *fiber.App) {
 	// Collection operations (List and Create)
 	tmfApi.Get("/:resourceName", h.ListTMFObjects)
 	tmfApi.Post("/:resourceName", h.CreateTMFObject)
-	tmfApi.Put("/:resourceName", h.PutTMFObject)
+	tmfApi.Put("/:resourceName", h.ReplaceTMFObject)
 
 	// Individual resource operations (Get, Update, Delete)
 	tmfApi.Get("/:resourceName/:id", h.GetTMFObject)
@@ -67,8 +67,7 @@ func (h *Handler) registerRoutes(app *fiber.App) {
 
 }
 
-// Health is a simple hello world handler.
-// To exercise the full path as much as possible, we simulate a LIST request with limit = 1
+// Health simulates a LIST request with limit = 1 to exercise the full path as much as possible
 func (h *Handler) Health(c *fiber.Ctx) error {
 
 	// Create a request to list a catalog with limit=1
@@ -150,6 +149,12 @@ func (h *Handler) CreateTMFObject(c *fiber.Ctx) error {
 		return SendResponse(c, resp)
 	}
 
+	// An id in the request is forbidden
+	if req.ID != "" {
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "id is not allowed in the request")
+		return SendResponse(c, resp)
+	}
+
 	// Create a context with a timeout of 30 seconds
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -158,8 +163,9 @@ func (h *Handler) CreateTMFObject(c *fiber.Ctx) error {
 	return SendResponse(c, resp)
 }
 
-// PutTMFObject is like a CreateTMFObject but allows an id to be specified by the caller
-func (h *Handler) PutTMFObject(c *fiber.Ctx) error {
+// ReplaceTMFObject is like a CreateTMFObject but allows an id to be specified by the caller
+// It creates or replaces the object if it exists.
+func (h *Handler) ReplaceTMFObject(c *fiber.Ctx) error {
 
 	req, err := h.parseRequest(c)
 	if err != nil {
@@ -167,20 +173,9 @@ func (h *Handler) PutTMFObject(c *fiber.Ctx) error {
 		return SendResponse(c, resp)
 	}
 
-	// Create a context with a timeout of 30 seconds
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	resp := h.service.PutTMFObject(ctx, req)
-	return SendResponse(c, resp)
-}
-
-// GetTMFObject retrieves a TMF object.
-func (h *Handler) GetTMFObject(c *fiber.Ctx) error {
-
-	req, err := h.parseRequest(c)
-	if err != nil {
-		resp := svc.ErrorResponsef(http.StatusBadRequest, "error parsing request: %w", errl.Error(err))
+	// The request MUST have an id
+	if req.ID == "" {
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "id is required in the request")
 		return SendResponse(c, resp)
 	}
 
@@ -188,7 +183,7 @@ func (h *Handler) GetTMFObject(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	resp := h.service.GetTMFObject(ctx, req)
+	resp := h.service.ReplaceTMFObject(ctx, req)
 	return SendResponse(c, resp)
 }
 
@@ -201,11 +196,40 @@ func (h *Handler) UpdateTMFObject(c *fiber.Ctx) error {
 		return SendResponse(c, resp)
 	}
 
+	// The request MUST have an id
+	if req.ID == "" {
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "id is required in the request")
+		return SendResponse(c, resp)
+	}
+
 	// Create a context with a timeout of 30 seconds
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	resp := h.service.UpdateTMFObject(ctx, req)
+	return SendResponse(c, resp)
+}
+
+// GetTMFObject retrieves a TMF object.
+func (h *Handler) GetTMFObject(c *fiber.Ctx) error {
+
+	req, err := h.parseRequest(c)
+	if err != nil {
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "error parsing request: %w", errl.Error(err))
+		return SendResponse(c, resp)
+	}
+
+	// The request MUST have an id
+	if req.ID == "" {
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "id is required in the request")
+		return SendResponse(c, resp)
+	}
+
+	// Create a context with a timeout of 30 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	resp := h.service.GetTMFObject(ctx, req)
 	return SendResponse(c, resp)
 }
 
@@ -220,6 +244,12 @@ func (h *Handler) DeleteGenericObject(c *fiber.Ctx) error {
 	req, err := h.parseRequest(c)
 	if err != nil {
 		resp := svc.ErrorResponsef(http.StatusBadRequest, "error parsing request: %w", errl.Error(err))
+		return SendResponse(c, resp)
+	}
+
+	// The request MUST have an id
+	if req.ID == "" {
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "id is required in the request")
 		return SendResponse(c, resp)
 	}
 
@@ -240,12 +270,85 @@ func (h *Handler) ListTMFObjects(c *fiber.Ctx) error {
 		return SendResponse(c, resp)
 	}
 
+	// An id in the request is forbidden
+	if req.ID != "" {
+		resp := svc.ErrorResponsef(http.StatusBadRequest, "id is not allowed in the request")
+		return SendResponse(c, resp)
+	}
+
 	// Create a context with a timeout of 30 seconds
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	resp := h.service.ListTMFObjects(ctx, req)
 	return SendResponse(c, resp)
+}
+
+// parseRequest parses the Fiber request and returns a framework-agnostic and transport-agnostic service request.
+// The service Request allows the service layer to be used for any framework (http, grpc, etc) and any transport.
+func (h *Handler) parseRequest(c *fiber.Ctx) (*svc.Request, error) {
+
+	// resourceName is compulsory in all requests
+	resourceName := c.Params("resourceName")
+	if resourceName == "" {
+		return nil, errl.Errorf("resourceName is compulsory")
+	}
+
+	// Extract API version from the path parameter
+	apiVersion := strings.ToLower(c.Params("apiVersion"))
+	if apiVersion == "" {
+		return nil, errl.Errorf("apiVersion is compulsory")
+	}
+
+	// Extract the JWT token from the Authorization header
+	jwtToken := ExtractJWTToken(c.Get("Authorization"))
+
+	// Extract caller info from the token claims in the payload, verifying the signature.
+	// If no token is present, authUser will be theGuestUser.
+	// We do not perform authentication at this step, it is done in the service layer.
+	authUser, err := h.service.ProcessAccessToken(jwtToken)
+	if err != nil {
+		return nil, errl.Errorf("invalid access token: %w", err)
+	}
+
+	// Acondition the query parameters, according to the TMF specs
+	queryParams, err := ParseTMFRequestQuery(c)
+	if err != nil {
+		return nil, errl.Errorf("error parsing the request query: %w", err)
+	}
+
+	// Parses the 'id' in the path of the TMF requests which have it (PATCH, GET, PUT, DELETE)
+	// If the id is not present in the path, 'idParam' is the empty string
+	idParam, err := url.QueryUnescape(c.Params("id"))
+	if err != nil {
+		return nil, errl.Errorf("error parsing the id parameter: %w", err)
+	}
+
+	method := c.Method()
+	action := svc.HttpActionFromMethod(method, idParam)
+
+	req := &svc.Request{
+		Method:       method,
+		Action:       action,
+		APIfamily:    c.Params("apiFamily"),
+		APIVersion:   apiVersion,
+		ResourceName: resourceName,
+		ID:           idParam,
+		QueryParams:  queryParams,
+		AuthUser:     *authUser,
+	}
+
+	// Set the Body if the request potentially has one (POST, PATCH, PUT)
+	if c.Method() == fiber.MethodPost || c.Method() == fiber.MethodPatch || c.Method() == fiber.MethodPut {
+		bodyBytes := c.Body()
+		// Make an immutable copy of the body to be used during processing of the request.
+		immutableBody := make([]byte, len(bodyBytes))
+		copy(immutableBody, bodyBytes)
+		req.Body = immutableBody
+	}
+
+	return req, nil
+
 }
 
 func SendResponse(c *fiber.Ctx, resp *svc.Response) error {
@@ -301,75 +404,6 @@ func ParseTMFRequestQuery(c *fiber.Ctx) (url.Values, error) {
 	ParseTMFParams(queryParams)
 
 	return queryParams, nil
-}
-
-// parseRequest parses the Fiber request and returns a framework-agnostic and transport-agnostic service request.
-// The service Request allows the service layer to be used for any framework (http, grpc, etc) and any transport.
-func (h *Handler) parseRequest(c *fiber.Ctx) (*svc.Request, error) {
-
-	// resourceName is compulsory in all requests
-	resourceName := c.Params("resourceName")
-	if resourceName == "" {
-		return nil, errl.Errorf("resourceName is compulsory")
-	}
-
-	// Extract API version from the path parameter
-	apiVersion := strings.ToLower(c.Params("apiVersion"))
-	if apiVersion == "" {
-		return nil, errl.Errorf("apiVersion is compulsory")
-	}
-
-	// Extract the JWT token from the Authorization header
-	jwtToken := ExtractJWTToken(c.Get("Authorization"))
-
-	// Extract caller info from the token claims in the payload, verifying the signature.
-	// If no token is present, authUser will be theGuestUser.
-	// We do not perform authentication at this step, it is done in the service layer.
-	authUser, err := h.service.ProcessAccessToken(jwtToken)
-	if err != nil {
-		return nil, errl.Errorf("invalid access token: %w", err)
-	}
-
-	// Acondition the query parameters, according to the TMF specs
-	queryParams, err := ParseTMFRequestQuery(c)
-	if err != nil {
-		return nil, errl.Errorf("error parsing the request query: %w", err)
-	}
-
-	// Parses the 'id' in the path of the TMF requests which have it (PATCH, GET, PUT, DELETE)
-	// If the id is not present in the path, 'idParam' is the empty string
-	idParam, err := url.QueryUnescape(c.Params("id"))
-	if err != nil {
-		return nil, errl.Errorf("error parsing the id parameter: %w", err)
-	}
-
-	method := c.Method()
-	action := svc.HttpActions[method]
-	if idParam == "" && method == fiber.MethodGet {
-		action = svc.ActionLIST
-	}
-
-	req := &svc.Request{
-		Method:       method,
-		Action:       action,
-		APIfamily:    c.Params("apiFamily"),
-		APIVersion:   apiVersion,
-		ResourceName: resourceName,
-		ID:           idParam,
-		QueryParams:  queryParams,
-		AuthUser:     *authUser,
-	}
-
-	// Set the Body if the request potentially has one (POST, PATCH, PUT)
-	if c.Method() == fiber.MethodPost || c.Method() == fiber.MethodPatch || c.Method() == fiber.MethodPut {
-		req.Body = c.Body()
-		bodyString := string(req.Body)
-		_ = bodyString
-
-	}
-
-	return req, nil
-
 }
 
 // ExtractJWTToken extracts the JWT token from the Authorization header.

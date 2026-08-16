@@ -169,18 +169,6 @@ func LoadConfig(
 
 	// Check for overrides with environment variables
 
-	verifierServer := os.Getenv("ISBETMF_VERIFIER")
-	if verifierServer != "" {
-		conf.VerifierServer = verifierServer
-	}
-	slog.Info("Verifier", slog.String("url", conf.VerifierServer))
-
-	remoteTMFServer := os.Getenv("ISBETMF_REMOTE_SERVER")
-	if remoteTMFServer != "" {
-		conf.RemoteTMFServer = remoteTMFServer
-	}
-	slog.Info("RemoteTMFServer", slog.String("url", conf.RemoteTMFServer))
-
 	proxyEnabled := os.Getenv("ISBETMF_PROXY_ENABLED")
 	switch proxyEnabled {
 	case "true":
@@ -195,6 +183,20 @@ func LoadConfig(
 		// If there is no proxy, we need to generate the IDs on create
 		conf.Features.GenerateIDOnCreate = true
 	}
+
+	remoteTMFServer := os.Getenv("ISBETMF_REMOTE_SERVER")
+	if remoteTMFServer != "" {
+		conf.RemoteTMFServer = remoteTMFServer
+	}
+	if conf.ProxyEnabled {
+		slog.Info("RemoteTMFServer", slog.String("url", conf.RemoteTMFServer))
+	}
+
+	verifierServer := os.Getenv("ISBETMF_VERIFIER")
+	if verifierServer != "" {
+		conf.VerifierServer = verifierServer
+	}
+	slog.Info("Verifier", slog.String("url", conf.VerifierServer))
 
 	return conf, nil
 

@@ -16,6 +16,10 @@ type Action struct {
 	Fields   []string // A list of all the fields in the body of the request
 }
 
+func (a *Action) HasField(field string) bool {
+	return slices.Contains(a.Fields, field)
+}
+
 type Resource struct {
 	BasePath string
 	Public   bool

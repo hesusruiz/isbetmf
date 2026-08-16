@@ -4,7 +4,6 @@ import (
 	_ "embed"
 	"fmt"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -132,86 +131,62 @@ func (svc *Service) parseFieldsParam(fieldsParam string) map[string]bool {
 	return fieldSet
 }
 
-// verifyObjectOnCreate handles the validation of TMF metadata fields.
-func (svc *Service) verifyObjectOnCreate(req *Request, incomingObjMap repo.TMFObjectMap) *Response {
+// verifyObjectOnPOST handles the validation of TMF metadata fields.
+// We verify that the object includes the required fields as per TM Forum specs,
+// and also the ones that are mandatory in our implementation.
+// Note that we are lenient on accepting objects, in the sense that we accept objects with more fields than in the
+// TMF specification. This is OK, as it does not compromise consistency of the objects.
+func (svc *Service) verifyObjectOnPOST(req *Request, incomingObjMap repo.TMFObjectMap) *Response {
 
-	id := incomingObjMap.ID()
-	version := incomingObjMap.Version()
-
-	if req.Method == http.MethodPost {
-		// In general, the user can not specify the 'id' of the new object in the body,
-		// as it is generated automatically
-		if id != "" {
-			if !svc.Features.AllowIDInBody {
-				return ErrorResponsef(http.StatusBadRequest, "id not allowed in body")
-			}
-
-			// If the incoming object specifies an 'id', this is only possible if it creates a new version.
-			if version == "" {
-				return ErrorResponsef(http.StatusBadRequest, "id specified but version is missing")
-			}
-		}
-	}
-
-	// Set the version if the user did not specify it
-	if version == "" {
-		version = "0.1"
-		incomingObjMap.SetVersion(version)
-	}
-
-	// Set the @type, even if the user specified it, to make sure it matches the resource name
-	incomingObjMap.SetType(req.ResourceName)
-
-	// Check if the caller is trying to set the lifecycleStatus of a ProductOffering to "Launched"
-	if svc.Features.OfferingLaunchOnlyByAdmin {
-		if strings.EqualFold(req.ResourceName, types.ProductOffering) && strings.EqualFold(incomingObjMap.LifecycleStatus(), "Launched") {
-			caller := req.AuthUser
-			if !repo.SameOrganizations(caller.OrganizationIdentifier, svc.ServerOperatorDid) {
-				return ErrorResponsef(http.StatusForbidden, "offering launch is only allowed by admin")
-			}
-		}
-	}
-
-	if incomingObjMap.RequiresSellerInfo(req.ResourceName) {
-		objSeller, objSellerOperator, _ := incomingObjMap.GetSellerInfo("v4")
-		if objSeller == "" || objSellerOperator == "" {
-			// Set default seller info from caller and server operator
-			if err := incomingObjMap.SetSellerInfo(svc.ServerOperatorDid, req.AuthUser.OrganizationIdentifier, "v4"); err != nil {
-				return ErrorResponsef(http.StatusInternalServerError, "failed to set default seller info: %w", err)
-			}
-		}
-	}
-
-	// Verify the required fields depending on the type of object
-	objectAction := types.GetActionDefinition(req.ResourceName, string(req.Action))
-	if objectAction == nil {
+	// Check existence of required fields as per TM Forum specs for this action (CREATE) and this type of object
+	actionDefinition := types.GetActionDefinition(req.ResourceName, string(req.Action))
+	if actionDefinition == nil {
 		return ErrorResponsef(http.StatusBadRequest, "action %s not supported for resource %s", req.Action, req.ResourceName)
 	}
-
-	for _, requiredField := range objectAction.Required {
+	for _, requiredField := range actionDefinition.Required {
 		if _, ok := incomingObjMap[requiredField]; !ok {
 			return ErrorResponsef(http.StatusBadRequest, "missing required field: %s", requiredField)
 		}
 	}
 
-	// If we have to create the id for the new object, the rule is different for Organization objects
-	if svc.Features.GenerateIDOnCreate {
+	// Set the @type, even if the user specified it, to make sure it matches the resource name
+	incomingObjMap.SetType(req.ResourceName)
+
+	// Create an id if needed.
+
+	// If we act as a proxy, the creation of the `id` is done by the remote server.
+	if svc.proxyEnabled {
+		// id can never be specified by the user
+		id := incomingObjMap.ID()
+		if id != "" {
+			return ErrorResponsef(http.StatusBadRequest, "id can never be specified by the user")
+		}
+		// href can never be specified by the user
+		href := incomingObjMap.Href()
+		if href != "" {
+			return ErrorResponsef(http.StatusBadRequest, "href can never be specified by the user")
+		}
+	}
+
+	// Otherwise, we manage directly the database and have to generate the id.
+	if !svc.proxyEnabled {
+
+		var id string
+
+		// If we have to create the id for the new object, the rule is different for Organization objects.
+		// Instead of generating a random identifier, we use the unique official identifier of the organization
 		if incomingObjMap.IsOrganization() {
 
-			if id == "" {
-
-				identificationId, err := incomingObjMap.ELSIOrganizationIdentification()
-				if err != nil {
-					return ErrorResponsef(http.StatusBadRequest, "organizationIdentification is required in organization object")
-				}
-
-				// Make sure that the identificationId has the prefix "did:elsi:"
-				if !strings.HasPrefix(identificationId, "did:elsi:") {
-					incomingObjMap.SetELSIOrganizationIdentification(identificationId)
-				}
-				id = fmt.Sprintf("urn:ngsi-ld:organization:%s", identificationId)
-
+			identificationId, err := incomingObjMap.ELSIOrganizationIdentification()
+			if err != nil {
+				return ErrorResponsef(http.StatusBadRequest, "organizationIdentification is required in organization object")
 			}
+
+			// Make sure that the identificationId has the prefix "did:elsi:"
+			if !strings.HasPrefix(identificationId, "did:elsi:") {
+				incomingObjMap.SetELSIOrganizationIdentification(identificationId)
+			}
+			id = fmt.Sprintf("urn:ngsi-ld:organization:%s", identificationId)
 
 		} else {
 
@@ -219,27 +194,95 @@ func (svc *Service) verifyObjectOnCreate(req *Request, incomingObjMap repo.TMFOb
 
 		}
 
+		// Set both the id and href fields (required in all TMF objects)
 		incomingObjMap.SetID(id)
 		incomingObjMap.SetHref(id)
 
 	}
 
-	if slices.Contains(objectAction.Fields, "lifecycleStatus") {
-		// If the object requires a lifecycleStatus, add it if not specified by the caller
+	// Seller info is compulsory in all objects.
+	// As a convenience, we set the Seller info if the user did not specify it.
+	objSeller, objSellerOperator, _ := incomingObjMap.GetSellerInfo("v4")
+	if objSeller == "" || objSellerOperator == "" {
+		// Set default seller info from caller and server operator
+		if err := incomingObjMap.SetSellerInfo(svc.ServerOperatorDid, req.AuthUser.OrganizationIdentifier, "v4"); err != nil {
+			return ErrorResponsef(http.StatusInternalServerError, "failed to set default seller info: %w", err)
+		}
+	}
+
+	// lastUpdate is compulsory in all objects. We do not trust the user and overwrite it with the current time.
+	incomingObjMap.SetLastUpdateNow()
+
+	// Check if the caller is trying to set the lifecycleStatus of a ProductOffering to "Launched",
+	// and it can only be done by the admin.
+	incomingLifecycleStatus := incomingObjMap.LifecycleStatus()
+	if svc.Features.OfferingLaunchOnlyByAdmin {
+		if strings.EqualFold(req.ResourceName, types.ProductOffering) && strings.EqualFold(incomingLifecycleStatus, "Launched") {
+			caller := req.AuthUser
+			if !repo.SameOrganizations(caller.OrganizationIdentifier, svc.ServerOperatorDid) {
+				return ErrorResponsef(http.StatusForbidden, "offering launch is only allowed by admin")
+			}
+		}
+	}
+
+	// If the object requires a lifecycleStatus, add it if not specified by the caller
+	if actionDefinition.HasField("lifecycleStatus") {
 		if baseStatus, ok := LifecycleStatusMandatory[req.ResourceName]; ok {
-			if lifecycleStatus := incomingObjMap.LifecycleStatus(); lifecycleStatus == "" {
+			if incomingLifecycleStatus == "" {
 				incomingObjMap.SetLifecycleStatus(baseStatus)
 			}
 		}
 	}
 
-	if slices.Contains(objectAction.Fields, "lastModified") {
+	if actionDefinition.HasField("lastModified") {
 		incomingObjMap.SetLastModifiedNow()
 	}
 
-	if slices.Contains(objectAction.Fields, "lastUpdate") {
-		incomingObjMap.SetLastUpdateNow()
+	if actionDefinition.HasField("version") {
+		// Set the version if the user did not specify it
+		if incomingObjMap.Version() == "" {
+			incomingObjMap.SetVersion("0.1")
+		}
 	}
+
+	return nil
+}
+
+// REPLACE is called only by an admin, so we perform less verifications
+func (svc *Service) verifyObjectOnREPLACE(req *Request, incomingObjMap repo.TMFObjectMap) *Response {
+
+	// Check existence of required fields as per TM Forum specs for this action (CREATE) and this type of object
+	actionDefinition := types.GetActionDefinition(req.ResourceName, string(req.Action))
+	if actionDefinition == nil {
+		return ErrorResponsef(http.StatusBadRequest, "action %s not supported for resource %s", req.Action, req.ResourceName)
+	}
+	for _, requiredField := range actionDefinition.Required {
+		if _, ok := incomingObjMap[requiredField]; !ok {
+			return ErrorResponsef(http.StatusBadRequest, "missing required field: %s", requiredField)
+		}
+	}
+
+	// Set the @type, even if the user specified it, to make sure it matches the resource name
+	incomingObjMap.SetType(req.ResourceName)
+
+	// Set the id and href in the object to what the user provided in the request.
+	incomingObjMap.SetID(req.ID)
+	incomingObjMap.SetHref(req.ID)
+
+	// TODO: verify that the id has the proper format for the given resource
+
+	// Seller info is compulsory in all objects.
+	// As a convenience, we set the Seller info if the user did not specify it.
+	objSeller, objSellerOperator, _ := incomingObjMap.GetSellerInfo("v4")
+	if objSeller == "" || objSellerOperator == "" {
+		// Set default seller info from caller and server operator
+		if err := incomingObjMap.SetSellerInfo(svc.ServerOperatorDid, req.AuthUser.OrganizationIdentifier, "v4"); err != nil {
+			return ErrorResponsef(http.StatusInternalServerError, "failed to set default seller info: %w", err)
+		}
+	}
+
+	// lastUpdate is compulsory in all objects. We do not trust the user and overwrite it with the current time.
+	incomingObjMap.SetLastUpdateNow()
 
 	return nil
 }
@@ -252,7 +295,7 @@ func (svc *Service) verifyObjectOnUpdate(req *Request, incomingObjMap repo.TMFOb
 	// However, we should reject the update if the user specifies an invalid field that could cause problems
 	// for the local or remote servers or clients.
 
-	// Check the non-patchable fields are not specified: id, href, lastUpdate, @type, @baseType
+	// Check the non-patchable fields are not specified in the object: id, href, lastUpdate, @type, @baseType
 	for _, field := range []string{"id", "href", "lastUpdate", "@type", "@baseType"} {
 		if _, ok := incomingObjMap[field]; ok {
 			slog.Warn("non-patchable field", "field", field)
@@ -271,6 +314,7 @@ func (svc *Service) verifyObjectOnUpdate(req *Request, incomingObjMap repo.TMFOb
 		}
 	}
 
+	// TODO: review this, as the user may not be able to modify this data once created
 	if incomingObjMap.RequiresSellerInfo(req.ResourceName) {
 		objSeller, objSellerOperator, _ := incomingObjMap.GetSellerInfo("v4")
 		if objSeller == "" || objSellerOperator == "" {
@@ -282,24 +326,22 @@ func (svc *Service) verifyObjectOnUpdate(req *Request, incomingObjMap repo.TMFOb
 	}
 
 	// Verify the required fields depending on the type of object
-	objectAction := types.GetActionDefinition(req.ResourceName, string(req.Action))
-	if objectAction == nil {
+	actionDefinition := types.GetActionDefinition(req.ResourceName, string(req.Action))
+	if actionDefinition == nil {
 		return ErrorResponsef(http.StatusBadRequest, "action %s not supported for resource %s", req.Action, req.ResourceName)
 	}
-
-	for _, requiredField := range objectAction.Required {
+	for _, requiredField := range actionDefinition.Required {
 		if _, ok := incomingObjMap[requiredField]; !ok {
 			return ErrorResponsef(http.StatusBadRequest, "missing required field: %s", requiredField)
 		}
 	}
 
-	if slices.Contains(objectAction.Fields, "lastModified") {
+	if actionDefinition.HasField("lastModified") {
 		incomingObjMap.SetLastModifiedNow()
 	}
 
-	if slices.Contains(objectAction.Fields, "lastUpdate") {
-		incomingObjMap.SetLastUpdateNow()
-	}
+	// lastUpdate is compulsory in all objects. We do not trust the user and overwrite it with the current time.
+	incomingObjMap.SetLastUpdateNow()
 
 	return nil
 }

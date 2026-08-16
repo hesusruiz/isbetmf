@@ -101,9 +101,10 @@ func NewDBService(dbName string) (*DBService, error) {
 	if err != nil {
 		return nil, errl.Errorf("failed to connect to database: %w", err)
 	}
+	slog.Info("db: opened", slog.String("dbName", dbName))
 
 	// Create tables if they do not exist, and run migrations
-	slog.Info("About to create tables if they do not exist")
+	slog.Info("db: About to create tables if they do not exist")
 	err = CreateTables(db)
 	if err != nil {
 		return nil, errl.Error(err)
@@ -301,8 +302,8 @@ func (repo *DBService) UpsertObject(obj *TMFRecord) error {
 	// when the exact same (id, type) already exists.
 	// seller and buyer are excluded from DO UPDATE SET — they are immutable after creation.
 	_, err := repo.db.Exec(`INSERT INTO tmf_object
-		(id, type, version, api_version, seller, buyer, last_update, content, created_at, updated_at)
-		VALUES (:id, :type, :version, :api_version, :seller, :buyer, :last_update, jsonb(:content), :created_at, :updated_at)
+		(id, type, version, api_version, seller, seller_operator, buyer, buyer_operator,last_update, content, created_at, updated_at)
+		VALUES (:id, :type, :version, :api_version, :seller, :seller_operator, :buyer, :buyer_operator, :last_update, jsonb(:content), :created_at, :updated_at)
 		ON CONFLICT(id, type) DO UPDATE SET
 			version     = excluded.version,
 			last_update = excluded.last_update,
@@ -313,7 +314,9 @@ func (repo *DBService) UpsertObject(obj *TMFRecord) error {
 		sql.Named("version", obj.Version),
 		sql.Named("api_version", obj.APIVersion),
 		sql.Named("seller", obj.Seller),
+		sql.Named("seller_operator", obj.SellerOperator),
 		sql.Named("buyer", obj.Buyer),
+		sql.Named("buyer_operator", obj.BuyerOperator),
 		sql.Named("last_update", obj.LastUpdate),
 		sql.Named("content", obj.Content),
 		sql.Named("created_at", obj.CreatedAt),

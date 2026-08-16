@@ -211,6 +211,7 @@ As described above, a private object is one of a private type, or one of a publi
 #### Public objects
 
 **Caller Authentication & Powers:** There is no need for authentication. Any caller can perform a READ or LIST operation on a public object.
+But the lifecycleStatus of the object must be in the "Launched" state to be publicly accessible.
 
 #### Private objects
 

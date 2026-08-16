@@ -10,7 +10,6 @@ agreement:
                 - agreementType
                 - engagedParty
                 - name
-                - relatedParty
             fields:
                 - agreementType
                 - description
@@ -68,7 +67,6 @@ agreementSpecification:
             required:
                 - attachment
                 - name
-                - relatedParty
             fields:
                 - description
                 - isBundle
@@ -116,7 +114,6 @@ billFormat:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - description
                 - name
@@ -143,7 +140,6 @@ billPresentationMedia:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - description
                 - name
@@ -225,7 +221,6 @@ billingCycleSpecification:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - billingDateShift
                 - billingPeriod
@@ -268,7 +263,6 @@ cancelProductOrder:
             action: CREATE
             required:
                 - productOrder
-                - relatedParty
             fields:
                 - cancellationReason
                 - requestedCancellationDate
@@ -285,7 +279,6 @@ cancelResourceOrder:
             action: CREATE
             required:
                 - resourceOrder
-                - relatedParty
             fields:
                 - cancellationReason
                 - requestedCancellationDate
@@ -302,7 +295,6 @@ cancelServiceOrder:
             action: CREATE
             required:
                 - serviceOrder
-                - relatedParty
             fields:
                 - cancellationReason
                 - requestedCancellationDate
@@ -319,7 +311,6 @@ catalog:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - catalogType
                 - description
@@ -395,7 +386,6 @@ customer:
             required:
                 - engagedParty
                 - name
-                - relatedParty
             fields:
                 - name
                 - status
@@ -453,8 +443,7 @@ customerBillOnDemand:
         CREATE:
             resource: customerBillOnDemand
             action: CREATE
-            required:
-                - relatedParty
+            required: []
             fields:
                 - description
                 - lastUpdate
@@ -475,7 +464,6 @@ financialAccount:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - accountType
                 - description
@@ -521,7 +509,6 @@ heal:
                 - cause
                 - degreeOfHealing
                 - resourceFunction
-                - relatedParty
             fields:
                 - cause
                 - degreeOfHealing
@@ -629,7 +616,6 @@ migrate:
             required:
                 - cause
                 - resourceFunction
-                - relatedParty
             fields:
                 - adminStateModification
                 - cause
@@ -760,14 +746,13 @@ partyAccount:
                 - '@type'
 partyRole:
     basepath: /tmf-api/partyRoleManagement/v4/
-    public: true
+    public: false
     actions:
         CREATE:
             resource: partyRole
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - name
                 - status
@@ -813,7 +798,6 @@ product:
             action: CREATE
             required:
                 - status
-                - relatedParty
             fields:
                 - description
                 - isBundle
@@ -881,7 +865,6 @@ productOffering:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - description
                 - isBundle
@@ -948,7 +931,6 @@ productOfferingPrice:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - description
                 - isBundle
@@ -1009,7 +991,6 @@ productOrder:
             action: CREATE
             required:
                 - productOrderItem
-                - relatedParty
             fields:
                 - cancellationDate
                 - cancellationReason
@@ -1073,7 +1054,6 @@ productSpecification:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - brand
                 - description
@@ -1126,7 +1106,6 @@ quote:
             action: CREATE
             required:
                 - quoteItem
-                - relatedParty
             fields:
                 - id
                 - category
@@ -1187,7 +1166,6 @@ resource:
                 - href
                 - id
                 - name
-                - relatedParty
             fields:
                 - category
                 - description
@@ -1247,7 +1225,6 @@ resourceCandidate:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - description
                 - lastUpdate
@@ -1285,7 +1262,6 @@ resourceCatalog:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - description
                 - lastUpdate
@@ -1323,7 +1299,6 @@ resourceCategory:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - description
                 - isRoot
@@ -1368,7 +1343,6 @@ resourceFunction:
             required:
                 - name
                 - resourceSpecification
-                - relatedParty
             fields:
                 - category
                 - description
@@ -1440,8 +1414,7 @@ resourceOrder:
         CREATE:
             resource: resourceOrder
             action: CREATE
-            required:
-                - relatedParty
+            required: []
             fields:
                 - category
                 - completionDate
@@ -1495,7 +1468,6 @@ resourceSpecification:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - category
                 - description
@@ -1547,7 +1519,6 @@ scale:
                 - numberOfSteps
                 - resourceFunction
                 - scaleType
-                - relatedParty
             fields:
                 - aspectId
                 - name
@@ -1569,7 +1540,6 @@ service:
             required:
                 - state
                 - serviceSpecification
-                - relatedParty
             fields:
                 - category
                 - description
@@ -1633,7 +1603,6 @@ serviceCandidate:
             required:
                 - name
                 - serviceSpecification
-                - relatedParty
             fields:
                 - description
                 - lastUpdate
@@ -1670,7 +1639,6 @@ serviceCatalog:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - description
                 - lastUpdate
@@ -1707,7 +1675,6 @@ serviceCategory:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - description
                 - isRoot
@@ -1748,7 +1715,6 @@ serviceOrder:
             action: CREATE
             required:
                 - serviceOrderItem
-                - relatedParty
             fields:
                 - cancellationDate
                 - cancellationReason
@@ -1794,7 +1760,6 @@ serviceSpecification:
             action: CREATE
             required:
                 - name
-                - relatedParty
             fields:
                 - description
                 - isBundle
@@ -1902,8 +1867,7 @@ usage:
         CREATE:
             resource: usage
             action: CREATE
-            required:
-                - relatedParty
+            required: []
             fields:
                 - description
                 - usageDate
@@ -1939,8 +1903,7 @@ usageSpecification:
         CREATE:
             resource: usageSpecification
             action: CREATE
-            required:
-                - relatedParty
+            required: []
             fields:
                 - description
                 - isBundle

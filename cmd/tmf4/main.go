@@ -49,6 +49,8 @@ func main() {
 		}
 	}
 
+	// printStatistics(resources)
+
 	generateDefinitions(resources)
 
 }
@@ -147,17 +149,17 @@ func processCREATEorUPDATE(action string, path string, op *v2.Operation, resourc
 			}
 		}
 
-		// Add to required some fields in DOME and ISBE
-		// All objects except "category", "individual" and "organization", require the "relatedParty"
-		exceptions := []string{"category", "individual", "organization"}
-		if action == "CREATE" {
-			if !slices.Contains(exceptions, resourceName) {
-				// Add to required if it is not yet
-				if !slices.Contains(requiredProperties, "relatedParty") {
-					requiredProperties = append(requiredProperties, "relatedParty")
-				}
-			}
-		}
+		// // Add to required some fields in DOME and ISBE
+		// // All objects except "category", "individual" and "organization", require the "relatedParty"
+		// exceptions := []string{"category", "individual", "organization"}
+		// if action == "CREATE" {
+		// 	if !slices.Contains(exceptions, resourceName) {
+		// 		// Add to required if it is not yet
+		// 		if !slices.Contains(requiredProperties, "relatedParty") {
+		// 			requiredProperties = append(requiredProperties, "relatedParty")
+		// 		}
+		// 	}
+		// }
 
 		thisOperation := &types.Action{
 			Resource: resourceName,
@@ -178,6 +180,53 @@ func processCREATEorUPDATE(action string, path string, op *v2.Operation, resourc
 
 	}
 	return resources
+
+}
+
+func printStatistics(resources types.Resources) {
+
+	fmt.Println("Resources with VERSION")
+	for resourceName, resource := range resources {
+		for actionName, action := range resource.Actions {
+			if actionName == "UPDATE" {
+				continue
+			}
+
+			var publicStr string
+			if resource.Public {
+				publicStr = "Public YES"
+			} else {
+				publicStr = "Public NO "
+			}
+
+			hasVersion := slices.Contains(action.Fields, "version")
+			var versionStr string
+			if hasVersion {
+				versionStr = "Version YES"
+			} else {
+				versionStr = "Version NO "
+			}
+
+			hasLifecycleStatus := slices.Contains(action.Fields, "lifecycleStatus")
+			var lifecycleStatusStr string
+			if hasLifecycleStatus {
+				lifecycleStatusStr = "LifecycleStatus YES"
+			} else {
+				lifecycleStatusStr = "LifecycleStatus NO "
+			}
+
+			hasLastUpdate := slices.Contains(action.Fields, "lastUpdate")
+			var lastUpdateStr string
+			if hasLastUpdate {
+				lastUpdateStr = "LastUpdate YES"
+			} else {
+				lastUpdateStr = "LastUpdate NO "
+			}
+
+			fmt.Printf("Resource: %s (%s)\n", resourceName, resource.BasePath)
+			fmt.Printf("    %s %s %s %s\n", publicStr, versionStr, lifecycleStatusStr, lastUpdateStr)
+		}
+	}
 
 }
 
@@ -231,5 +280,5 @@ var PublicResources = map[string]bool{
 	"organization": true,
 
 	// TMF669 Party Role Management
-	"partyrole": true,
+	// "partyrole": true,
 }

@@ -9,7 +9,7 @@ import "github.com/hesusruiz/isbetmf/types"
 // It is used to test against the DOME remote TMF server
 var lclConfig = &Config{
 	Environment:  LOCAL,
-	ProxyEnabled: true,
+	ProxyEnabled: false,
 
 	// The operator is Altia
 	ServerOperatorOrganizationIdentifier: "VATES-A15456585",

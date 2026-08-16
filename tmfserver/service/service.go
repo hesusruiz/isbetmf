@@ -2,6 +2,7 @@ package service
 
 import (
 	_ "embed"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -20,16 +21,16 @@ var DOMEHacks = true
 // In this way, we support easily any HTTP framework (currently Fiber), but also other
 // future channels like JSON-RPC or even non-HTTP channels like GRPC.
 type Request struct {
-	Method        string
-	Action        HttpAction
-	APIfamily     string
-	APIVersion    string
-	ResourceName  string
-	ID            string
-	QueryParams   url.Values
-	Body          []byte
-	AuthUser      types.AuthUser
-	HealthRequest bool
+	Method        string         // The HTTP method (GET, POST, PUT, PATCH, DELETE)
+	Action        HttpAction     // The action to perform (READ, CREATE, PUT, UPDATE, DELETE, LIST)
+	APIfamily     string         // The API family (e.g., "productCatalogManagement")
+	APIVersion    string         // The API version (e.g., "v4", "v5")
+	ResourceName  string         // The resource name (e.g., "productOffering", "catalog")
+	ID            string         // The ID of the resource (empty for CREATE requests)
+	QueryParams   url.Values     // The query parameters (e.g., "limit=1", "offset=0")
+	Body          []byte         // The body of the request (empty for READ, LIST, DELETE)
+	AuthUser      types.AuthUser // The authenticated user, or zero value if non authenticated
+	HealthRequest bool           // Whether this is a health request
 }
 
 func (r *Request) ToMap() map[string]any {
@@ -45,29 +46,34 @@ func (r *Request) ToMap() map[string]any {
 
 type HttpAction string
 
-func HttpActionFromRequest(httpRequest string, idParam string) HttpAction {
-	method := strings.ToUpper(httpRequest)
-	action := HttpActions[method]
-	if idParam == "" && method == "GET" {
+// HttpActionFromMethod converts an HTTP request to an HttpAction
+//
+//	@param httpMethod the HTTP method (e.g., "GET", "POST", "PUT", "PATCH", "DELETE")
+//	@param idParam the ID of the resource (empty for CREATE requests)
+func HttpActionFromMethod(httpMethod string, idParam string) HttpAction {
+	httpMethod = strings.ToUpper(httpMethod)
+	action := HttpActions[httpMethod]
+	if idParam == "" && httpMethod == http.MethodGet {
 		action = ActionLIST
 	}
 	return action
 }
 
+// These are the possible values for Action
 const (
-	ActionREAD   HttpAction = "READ"
-	ActionCREATE HttpAction = "CREATE"
-	ActionPUT    HttpAction = "PUT"
-	ActionUPDATE HttpAction = "UPDATE"
-	ActionDELETE HttpAction = "DELETE"
-	ActionLIST   HttpAction = "LIST"
+	ActionREAD    HttpAction = "READ"
+	ActionCREATE  HttpAction = "CREATE"
+	ActionREPLACE HttpAction = "REPLACE"
+	ActionUPDATE  HttpAction = "UPDATE"
+	ActionDELETE  HttpAction = "DELETE"
+	ActionLIST    HttpAction = "LIST"
 )
 
 // These are more friendly names for the writers of policy rules and can be used interchangeably
 var HttpActions = map[string]HttpAction{
 	"GET":    ActionREAD,
 	"POST":   ActionCREATE,
-	"PUT":    ActionPUT,
+	"PUT":    ActionREPLACE,
 	"PATCH":  ActionUPDATE,
 	"DELETE": ActionDELETE,
 	"LIST":   ActionLIST,
