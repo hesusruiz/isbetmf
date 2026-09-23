@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hesusruiz/isbetmf/internal/sqlogger"
+	"github.com/hesusruiz/isbetmf/internal/errl"
 	"github.com/hesusruiz/isbetmf/types"
 )
 
@@ -31,7 +31,7 @@ type Config struct {
 	// The environment for the default configuration profile
 	Environment Environment
 
-	// Server operator information
+	// Information about the organization operating this server
 	ServerOperatorOrganizationIdentifier string
 	ServerOperatorDid                    string
 	ServerOperatorName                   string
@@ -41,16 +41,9 @@ type Config struct {
 	// VerifierServer is the URL of the verifier server, which is used to verify the access tokens.
 	VerifierServer string
 
-	// The domain of the remote TMForum API server when we act as proxy
-	RemoteTMFServer string
-
-	// ProxyEnabled enables the TMF caching proxy functionality.
-	ProxyEnabled bool
-
 	// Dbname is the name of the database file where the local TMForum data is stored
 	// It is used to store the data in a local SQLite database, the best SQL database for this purpose.
-	Dbname         string
-	BackupDisabled bool
+	Dbname string
 
 	// The power required by a caller to be considered LEAR
 	LEARPower types.OnePower
@@ -60,49 +53,51 @@ type Config struct {
 	ProductUpdatePower types.OnePower
 	ProductDeletePower types.OnePower
 
-	// PolicyFileName is the name of the file where the policies are stored.
+	// PolicyFileName is the name of the file where the user-defined policies are stored.
 	// It can specify a local file or a remote URL.
 	PolicyFileName string
-
-	// PDPAddress is the address of the PDP server.
-	PDPAddress string
 
 	// Debug mode, more logs and less caching
 	Debug bool
 
-	// TODO: this is temporary for testing
-	FakeClaims bool
-
 	// The admin token used to authenticate the superadmin
+	// The admin token does not have to be based on a LEARCredential.
+	// This is a special token defined in the configuration and has superadmin powers.
 	AdminToken string
-
-	// Enable synchronization with the remote server in background
-	BackgroudSync bool
 
 	// ClonePeriod is the period in which the reporting tool will clone the TMForum objects from the DOME instance,
 	// to keep the local cache up to date.
 	ClonePeriod time.Duration
 
-	// LogHandler is the handler used to log messages.
-	// It is a custom handler that uses the slog package to log messages both to the console and to a SQLite database.
-	LogHandler *sqlogger.SQLogHandler
-
-	// LogLevel is a slog.LevelVar that can be set to different log levels (e.g. Debug, Info, Warn, Error).
-	LogLevel *slog.LevelVar
-
 	// Hour and minute of the day when the server will automatically restart (each day). Hour=-1 disables restart.
 	RestartHour, RestartMinute int
 
-	// The features of the environment
+	// ProxyEnabled enables the TMF caching proxy functionality.
+	ProxyEnabled bool
+
+	// The domain of the remote TMForum API server when we act as proxy
+	RemoteTMFServer string
+
+	// Enable synchronization with the remote server in background
+	BackgroudSync bool
+
+	// The special features of the environment
 	Features Features
 }
 
 // Features defines a set of feature flags which may depend on the environment at a given time
 type Features struct {
+	// Only the server operator admin can launch an offering.
 	OfferingLaunchOnlyByAdmin bool
-	GenerateIDOnCreate        bool
-	AllowIDInBody             bool
-	VerifyJWTSignature        bool
+
+	// GenerateIDOnCreate forces the server to generate an ID for the object on POST.
+	GenerateIDOnCreate bool
+
+	// AllowIDInBody allows the client to specify the ID of the object on POST.
+	AllowIDInBody bool
+
+	// VerifyJWTSignature verifies the signature of the JWT.
+	VerifyJWTSignature bool
 }
 
 // LoadConfig initializes and returns a Config struct based on the provided parameters.
@@ -133,41 +128,13 @@ func LoadConfig(
 	// Get the admin token from the environment variable ISBETMF_ADMIN_TOKEN
 	adminToken := os.Getenv("ISBETMF_ADMIN_TOKEN")
 	if adminToken == "" {
-		// For testing, use the testing token
-		adminToken = "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX"
+		// For local testing, use the testing token. For other environments, it is compulsory
+		if environment == LOCAL {
+			adminToken = "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX"
+		} else {
+			return nil, errl.Errorf("ISBETMF_ADMIN_TOKEN not set for environment %s", environment)
+		}
 	}
-
-	// Configure the slog logger
-	var logLevel slog.Level
-	if debug {
-		logLevel = slog.LevelDebug
-	} else {
-		logLevel = slog.LevelInfo
-	}
-
-	// Initialize the custom SQLogHandler
-	logOptions := &sqlogger.Options{
-		Level:  &logLevel,
-		LogDir: "data/logs",
-	}
-
-	// Check if the logs should be colored:
-	// - If the process is running in a container (pid=1) then do not color the logs
-	// - If the environment variable ISBETMF_LOGS_NOCOLOR is set to "true" then do not color the logs
-	ourpid := os.Getpid()
-	if ourpid == 1 || os.Getenv("ISBETMF_LOGS_NOCOLOR") == "true" {
-		logOptions.NoColor = true
-	}
-
-	// Initialize the logging system
-	sqlog, err := sqlogger.NewSQLogHandler(logOptions)
-	if err != nil {
-		slog.Error("failed to initialize SQLogHandler, exiting", slog.Any("error", err))
-		os.Exit(1)
-	}
-
-	// And set the default logging system for all components
-	slog.SetDefault(slog.New(sqlog))
 
 	// Choose the profile from the environment passed
 	switch environment {
@@ -198,22 +165,9 @@ func LoadConfig(
 	}
 
 	conf.Debug = debug
-	conf.LogHandler = sqlog
 	conf.AdminToken = adminToken
 
 	// Check for overrides with environment variables
-
-	verifierServer := os.Getenv("ISBETMF_VERIFIER")
-	if verifierServer != "" {
-		conf.VerifierServer = verifierServer
-	}
-	slog.Info("Verifier", slog.String("url", conf.VerifierServer))
-
-	remoteTMFServer := os.Getenv("ISBETMF_REMOTE_SERVER")
-	if remoteTMFServer != "" {
-		conf.RemoteTMFServer = remoteTMFServer
-	}
-	slog.Info("RemoteTMFServer", slog.String("url", conf.RemoteTMFServer))
 
 	proxyEnabled := os.Getenv("ISBETMF_PROXY_ENABLED")
 	switch proxyEnabled {
@@ -230,6 +184,20 @@ func LoadConfig(
 		conf.Features.GenerateIDOnCreate = true
 	}
 
+	remoteTMFServer := os.Getenv("ISBETMF_REMOTE_SERVER")
+	if remoteTMFServer != "" {
+		conf.RemoteTMFServer = remoteTMFServer
+	}
+	if conf.ProxyEnabled {
+		slog.Info("RemoteTMFServer", slog.String("url", conf.RemoteTMFServer))
+	}
+
+	verifierServer := os.Getenv("ISBETMF_VERIFIER")
+	if verifierServer != "" {
+		conf.VerifierServer = verifierServer
+	}
+	slog.Info("Verifier", slog.String("url", conf.VerifierServer))
+
 	return conf, nil
 
 }
@@ -241,20 +209,3 @@ func (c *Config) IsDOME() bool {
 func (c *Config) IsISBE() bool {
 	return c.Environment == ISBE_PRE || c.Environment == ISBE_DEV
 }
-
-func (c *Config) Close() {
-	if c.LogHandler != nil {
-		c.LogHandler.Close()
-	}
-}
-
-// The names of some special objects in the DOME ecosystem
-const ProductOffering = "productOffering"
-const ProductSpecification = "productSpecification"
-const ProductOfferingPrice = "productOfferingPrice"
-const ServiceSpecification = "serviceSpecification"
-const ResourceSpecification = "resourceSpecification"
-const Category = "category"
-const Catalog = "catalog"
-const Organization = "organization"
-const Individual = "individual"

@@ -1,39 +1,17 @@
 package service
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 
+	"github.com/hesusruiz/isbetmf/config"
 	repo "github.com/hesusruiz/isbetmf/tmfserver/repository"
 )
 
-// DeleteGenericObject deletes a TMF object using generalized parameters.
-//
-// The function performs the following checks and operations:
-//
-// 1.  **Authentication**:
-//   - It requires an authenticated user, obtained by processing the Access Token.
-//   - If the user is not authenticated, it returns a 401 Unauthorized error.
-//
-// 2.  **Existing TMF Object Checks**:
-//   - It retrieves the existing object from the local database or the remote server (if in proxy mode).
-//   - If the object is not found, it returns a 404 Not Found error.
-//   - It checks that the object is managed by the current server operator by verifying the `sellerOperator` DID.
-//   - It checks that the authenticated user is the owner of the object by verifying the `seller` DID.
-//
-// 3.  **Authorization**:
-//   - The ownership and operator checks act as an authorization mechanism.
-//
-// 4.  **Object Deletion**:
-//   - If proxy mode is enabled, it forwards the DELETE request to the remote TMF server.
-//   - It deletes the object from the local database.
-//
-// 5.  **Response and Notification**:
-//   - It returns a 204 No Content response on successful deletion.
-//   - It sends a "DeleteEvent" notification to subscribed listeners.
-func (svc *Service) DeleteGenericObject(req *Request) *Response {
+// DeleteTMFObject deletes a TMF object, first in the remote server and then locally.
+func (svc *Service) DeleteTMFObject(ctx context.Context, req *Request) *Response {
 	var err error
 	slog.Debug("DeleteGenericObject called", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
@@ -43,13 +21,13 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 	}
 
 	// ************************************************************************************************
-	// Retrieve existing object from database
+	// We need the existing object to see if the user is authorised to delete it
 	// ************************************************************************************************
 
 	var existingObject *repo.TMFRecord
 
 	// Retrieve existing object, locally or remotely
-	existingObject, err = svc.getLocalOrRemoteObject(req)
+	existingObject, err = svc.getLocalOrRemoteObject(ctx, req)
 	if err != nil {
 		// TODO: check the return code from remote server and reply accordingly
 		return ErrorResponsef(http.StatusBadRequest, "failed to get existing object for update: %w", err)
@@ -71,7 +49,7 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 	// based on the rules defined by the user in the policy engine.
 	// ************************************************************************************************
 
-	if authorized, err := svc.takeDecision(svc.ruleEngine, req, existingObjectMap); !authorized {
+	if authorized, err := svc.checkAuthorization(svc.ruleEngine, req, existingObjectMap); !authorized {
 		return ErrorResponsef(http.StatusForbidden,
 			"user %s is not authorized, object: %s, error: %w",
 			req.AuthUser.OrganizationIdentifier,
@@ -92,25 +70,26 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 		headers := map[string]string{
 			"Authorization": "Bearer " + req.AuthUser.AccessToken,
 		}
-		path := fmt.Sprintf("/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, req.ID)
-		resp, err := svc.tmfClient.Delete(path, headers)
+
+		pathPrefix, err := config.ExternalUpstreamTMFPath(req.ResourceName)
+		if err != nil {
+			return ErrorResponsef(http.StatusInternalServerError, "failed to get path prefix: %w", err)
+		}
+		path := fmt.Sprintf("%s/%s", pathPrefix, req.ID)
+
+		resp, body, err := svc.tmfClient.Delete(ctx, path, headers)
 		if err != nil {
 			return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", err)
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode >= 300 {
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return ErrorResponsef(http.StatusInternalServerError, "failed to read response body: %w", err)
-			}
 			return &Response{
 				StatusCode: resp.StatusCode,
 				Body:       body,
 			}
 		}
 
-		slog.Info("Object deleted from remote server successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+		slog.Debug("Object deleted from remote server successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
 	}
 
@@ -119,7 +98,7 @@ func (svc *Service) DeleteGenericObject(req *Request) *Response {
 		return ErrorResponsef(http.StatusInternalServerError, "failed to delete object %s from service: %w", req.ID, err)
 	}
 
-	slog.Info("Object deleted successfully from local database", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+	slog.Debug("Object deleted successfully from local database", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
 	// Send TMForum notification
 	eventType := toEventType(req.ResourceName, "DeleteEvent")

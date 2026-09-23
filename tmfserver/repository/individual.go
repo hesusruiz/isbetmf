@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	"github.com/hesusruiz/isbetmf/types"
 )
@@ -30,7 +29,7 @@ func TMFIndividualFromCredential(verifiableCredential map[string]any, user *Orga
 	// The format is "urn:ngsi-ld:individual:{organizationIdentifier}:{uuid}"
 	id := fmt.Sprintf("urn:ngsi-ld:individual:%s:%s", user.OrganizationIdentifier, userId)
 
-	objectType := config.Individual
+	objectType := types.Individual
 	version := "1.0"
 
 	// Prepare contactMedium
@@ -76,7 +75,7 @@ func TMFIndividualFromCredential(verifiableCredential map[string]any, user *Orga
 	}
 
 	indMap := map[string]any{
-		"@type":      config.Individual,
+		"@type":      types.Individual,
 		"id":         id,
 		"href":       id,
 		"version":    version,

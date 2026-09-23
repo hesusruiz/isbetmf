@@ -21,6 +21,7 @@ import (
 // For convenience of the policies, some calculated fields are created and returned in the 'user' object.
 func (svc *Service) ProcessAccessToken(accessToken string) (user *types.AuthUser, err error) {
 
+	// The zero AuthUser is a valid guest user.
 	authUser := &types.AuthUser{}
 
 	// An empty token is not considered an error, and the caller should enforce its existence if needed
@@ -28,17 +29,18 @@ func (svc *Service) ProcessAccessToken(accessToken string) (user *types.AuthUser
 		return authUser, nil
 	}
 
-	// TODO: replace with a setting
-	// This is for testing purposes only. It allows to simulate a LEAR user without a real token.
+	// If we receive a superadmin token, create an AuthUser will all powers
 	if accessToken == svc.adminToken {
 
+		// The user is the server operator
 		authUser.CommonName = svc.ServerOperatorName
 		authUser.Country = svc.ServerOperatorCountry
 		authUser.EmailAddress = svc.ServerEmailAddress
 		authUser.Organization = svc.ServerOperatorName
 		authUser.OrganizationIdentifier = svc.ServerOperatorOrganizationIdentifier
-		authUser.SerialNumber = "1234567Y"
+		authUser.SerialNumber = svc.ServerOperatorOrganizationIdentifier
 
+		// With all powers and owning all objects
 		authUser.IsAuthenticated = true
 		authUser.IsLEAR = true
 		authUser.IsOwner = true
@@ -68,15 +70,19 @@ func (svc *Service) ProcessAccessToken(accessToken string) (user *types.AuthUser
 
 	if svc.Features.VerifyJWTSignature {
 
-		// This is called by the JWT signature verifier to retrieve the verification key
+		// This is called by ParseWithClaims to retrieve the verification key
 		verifierPublicKeyFunc := func(tok *jwt.Token) (any, error) {
+
+			// Check that the configuration for retrieving the JWK is present.
 			if svc.oid == nil {
 				return nil, errl.Errorf("openid support not initialized")
 			}
+			// The key ID is used to retrieve the verification key from the OpenID Provider
 			keyID, ok := tok.Header["kid"].(string)
 			if !ok {
 				return nil, errl.Errorf("invalid access token: kid not found in header")
 			}
+			// Get the verification key from the OpenID Provider (it is cached locally)
 			vk, err := svc.oid.VerificationJWKKey(keyID)
 			if err != nil {
 				return nil, errl.Error(err)
@@ -133,26 +139,22 @@ func (svc *Service) processDOMEAccessToken(claims jwt.MapClaims, accessToken str
 	// Extract the Verifiable Credential from the claims
 	verifiableCredential := jpath.GetMap(claims, "vc")
 	if len(verifiableCredential) == 0 {
-		// There is not a Verifiable Credential inside the token
-		return nil, errl.Errorf("access token without verifiable credential: %s", accessToken)
+		return nil, errl.Errorf("access token without 'vc': %s", accessToken)
 	}
 
 	credentialSubject := jpath.GetMap(verifiableCredential, "credentialSubject")
 	if len(credentialSubject) == 0 {
-		slog.Debug("JWT payload does not contain 'credentialSubject' field or it's not a map")
-		return nil, errors.New("missing 'credentialSubject' in JWT claims")
+		return nil, errl.Errorf("access token without 'credentialSubject': %s", accessToken)
 	}
 
-	mandate := jpath.GetMap(credentialSubject, "mandate")
-	if len(mandate) == 0 {
-		slog.Debug("JWT payload does not contain 'mandate' field or it's not a map")
-		return nil, errors.New("missing 'mandate' in JWT claims")
+	mandateData := jpath.GetMap(credentialSubject, "mandate")
+	if len(mandateData) == 0 {
+		return nil, errl.Errorf("access token without 'mandate': %s", accessToken)
 	}
 
-	mandatorData := jpath.GetMap(mandate, "mandator")
+	mandatorData := jpath.GetMap(mandateData, "mandator")
 	if len(mandatorData) == 0 {
-		slog.Debug("JWT payload does not contain 'mandator' field or it's not a map")
-		return nil, errors.New("missing 'mandator' in JWT claims")
+		return nil, errl.Errorf("access token without 'mandator': %s", accessToken)
 	}
 
 	// Marshal and unmarshal to AuthUser struct for type safety and JSON tag mapping
@@ -165,6 +167,18 @@ func (svc *Service) processDOMEAccessToken(claims jwt.MapClaims, accessToken str
 	if err := json.Unmarshal(mandatorJSON, authUser); err != nil {
 		slog.Error("Failed to unmarshal mandator data to AuthUser", slog.Any("error", err))
 		return nil, fmt.Errorf("failed to process mandator data: %w", err)
+	}
+
+	// Verify that the critical fields exist (Organization, Organization Identifier and Country)
+	// These are the minimum fields required to identify the caller for H2M and M2M flows.
+	if len(authUser.Organization) == 0 {
+		return nil, errl.Errorf("access token without 'organization': %s", accessToken)
+	}
+	if len(authUser.OrganizationIdentifier) == 0 {
+		return nil, errl.Errorf("access token without 'organization_identifier': %s", accessToken)
+	}
+	if len(authUser.Country) == 0 {
+		return nil, errl.Errorf("access token without 'country': %s", accessToken)
 	}
 
 	slog.Debug("Successfully parsed AuthUser from JWT",
@@ -191,39 +205,34 @@ func (svc *Service) processISBEAccessToken(claims jwt.MapClaims, accessToken str
 
 	authUser.Organization = jpath.GetString(claims, "organization")
 	if len(authUser.Organization) == 0 {
-		slog.Debug("JWT payload does not contain 'organization' field or it's not a string")
-		return nil, errl.Errorf("missing 'organization' in JWT claims")
+		return nil, errl.Errorf("access token without 'organization': %s", accessToken)
 	}
 
 	authUser.OrganizationIdentifier = jpath.GetString(claims, "organization_identifier")
 	if len(authUser.OrganizationIdentifier) == 0 {
-		slog.Debug("JWT payload does not contain 'organization_identifier' field or it's not a string")
-		return nil, errl.Errorf("missing 'organization_identifier' in JWT claims")
+		return nil, errl.Errorf("access token without 'organization_identifier': %s", accessToken)
 	}
 
 	authUser.CommonName = jpath.GetString(claims, "name")
 	if len(authUser.CommonName) == 0 {
-		slog.Debug("JWT payload does not contain 'name' field or it's not a string")
-		return nil, errl.Errorf("missing 'name' in JWT claims")
+		return nil, errl.Errorf("access token without 'name': %s", accessToken)
 	}
 
 	authUser.SerialNumber = jpath.GetString(claims, "user_identifier")
 	if len(authUser.SerialNumber) == 0 {
-		slog.Debug("JWT payload does not contain 'user_identifier' field or it's not a string")
-		return nil, errl.Errorf("missing 'user_identifier' in JWT claims")
+		return nil, errl.Errorf("access token without 'user_identifier': %s", accessToken)
 	}
 
-	// TODO: the token from ISBE should contain the country
+	// TODO: the token from ISBE should contain the country. Until they fix it upstream, we use the default value "ES".
 	authUser.Country = jpath.GetString(claims, "country")
 	if len(authUser.Country) == 0 {
-		slog.Debug("JWT payload does not contain 'country' field or it's not a string")
+		slog.Debug("access token does not contain 'country' or it's not a string", "token", accessToken)
 		authUser.Country = "ES"
 	}
 
 	authUser.EmailAddress = jpath.GetString(claims, "email")
 	if len(authUser.EmailAddress) == 0 {
-		slog.Debug("JWT payload does not contain 'email' field or it's not a string")
-		return nil, errl.Errorf("missing 'email' in JWT claims")
+		return nil, errl.Errorf("access token without 'email': %s", accessToken)
 	}
 
 	claims["tokenType"] = ISBEAccessToken
@@ -233,7 +242,7 @@ func (svc *Service) processISBEAccessToken(claims jwt.MapClaims, accessToken str
 
 	authUserPowers := jpath.GetList(claims, "power")
 	if len(authUserPowers) == 0 {
-		return nil, errl.Errorf("missing 'power' in JWT claims")
+		return nil, errl.Errorf("access token without 'power': %s", accessToken)
 	}
 
 	return svc.procesPowers(authUserPowers, authUser), nil

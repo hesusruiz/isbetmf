@@ -56,7 +56,7 @@ type PDP struct {
 
 	// The file cache to read the policy and other files. Modifications to the original file
 	// are picked up automatically according to a freshness policy.
-	fileCache *filecache.SimpleFileCache
+	fileCache filecache.FileCache
 
 	// The pool of instances of the policy execution engines, to minimize startup
 	// and teardown overheads.
@@ -95,7 +95,7 @@ func NewPDPService(
 	m.threadPool = sync.Pool{
 		New: func() any {
 			threadPoolCounter++
-			slog.Info("Creating a new thread entry in the PDP pool", slog.Int("count", threadPoolCounter))
+			slog.Debug("Creating a new thread entry in the PDP pool", slog.Int("count", threadPoolCounter))
 			te, err := m.bufferedParseAndCompileFile(m.scriptname)
 			if err != nil {
 				slog.Error("Error creating a new thread entry in the PDP pool", slog.String("error", err.Error()))

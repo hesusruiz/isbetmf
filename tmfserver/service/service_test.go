@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -44,7 +45,7 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 
 	cReq := &Request{
 		Method:       "POST",
-		Action:       HttpActions["POST"],
+		Action:       ActionCREATE,
 		APIfamily:    apiFamily,
 		APIVersion:   "v4",
 		ResourceName: resourceName,
@@ -54,7 +55,7 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 		AuthUser:     *authUser,
 	}
 
-	cResp := s.CreateGenericObject(cReq)
+	cResp := s.CreateTMFObject(context.Background(), cReq)
 	if cResp.StatusCode != http.StatusCreated {
 		t.Fatalf("create expected 201, got %d", cResp.StatusCode)
 	}
@@ -68,7 +69,7 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 
 	gReq := &Request{
 		Method:       "GET",
-		Action:       HttpActions["GET"],
+		Action:       ActionREAD,
 		APIfamily:    apiFamily,
 		APIVersion:   "v4",
 		ResourceName: resourceName,
@@ -78,7 +79,7 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 		AuthUser:     *authUser,
 	}
 
-	gResp := s.GetGenericObject(gReq)
+	gResp := s.GetTMFObject(context.Background(), gReq)
 	if gResp.StatusCode != http.StatusOK {
 		t.Fatalf("get expected 200, got %d", gResp.StatusCode)
 	}
@@ -92,7 +93,7 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 	}
 	bUpd, _ := json.Marshal(upd)
 	uReq := newReq("PATCH", "UPDATE", apiFamily, resourceName, id, bUpd, nil)
-	uResp := s.UpdateGenericObject(uReq)
+	uResp := s.UpdateTMFObject(context.Background(), uReq)
 	if uResp.StatusCode != http.StatusOK {
 		t.Fatalf("update expected 200, got %d", uResp.StatusCode)
 	}
@@ -106,7 +107,7 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 
 	// List (all)
 	lReq := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{})
-	lResp := s.ListGenericObjects(lReq)
+	lResp := s.ListTMFObjects(context.Background(), lReq)
 	if lResp.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200, got %d", lResp.StatusCode)
 	}
@@ -119,7 +120,7 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 
 	// List with fields=none (should reduce fields per item)
 	lReqQP := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{"fields": []string{"none"}})
-	lResp2 := s.ListGenericObjects(lReqQP)
+	lResp2 := s.ListTMFObjects(context.Background(), lReqQP)
 	if lResp2.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200, got %d", lResp2.StatusCode)
 	}
@@ -135,14 +136,14 @@ func TestISBECRUDAndListGenericObject(t *testing.T) {
 
 	// Delete
 	dReq := newReq("DELETE", "DELETE", apiFamily, resourceName, id, nil, nil)
-	dResp := s.DeleteGenericObject(dReq)
+	dResp := s.DeleteTMFObject(context.Background(), dReq)
 	if dResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete expected 204, got %d", dResp.StatusCode)
 	}
 
 	// Get after delete -> 404
 	gReq = newReq("GET", "READ", apiFamily, resourceName, id, nil, nil)
-	gResp2 := s.GetGenericObject(gReq)
+	gResp2 := s.GetTMFObject(context.Background(), gReq)
 	if gResp2.StatusCode != http.StatusNotFound {
 		t.Fatalf("get after delete expected 404, got %d", gResp2.StatusCode)
 	}
@@ -179,7 +180,7 @@ func TestBadISBECreate(t *testing.T) {
 
 	cReq := &Request{
 		Method:       "POST",
-		Action:       HttpActions["POST"],
+		Action:       ActionCREATE,
 		APIfamily:    apiFamily,
 		APIVersion:   "v4",
 		ResourceName: resourceName,
@@ -189,7 +190,7 @@ func TestBadISBECreate(t *testing.T) {
 		AuthUser:     *authUser,
 	}
 
-	cResp := s.CreateGenericObject(cReq)
+	cResp := s.CreateTMFObject(context.Background(), cReq)
 	if cResp.StatusCode != http.StatusCreated {
 		t.Fatalf("create expected 201, got %d", cResp.StatusCode)
 	}
@@ -409,7 +410,7 @@ func TestCreateGenericObjectPublishesEvent(t *testing.T) {
 
 	req.AuthUser = *authUser
 
-	resp := s.CreateGenericObject(req)
+	resp := s.CreateTMFObject(context.Background(), req)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("expected 201, got %d", resp.StatusCode)
 	}
@@ -447,7 +448,7 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	}
 	bCreate, _ := json.Marshal(createObj)
 	cReq := newReq("POST", "CREATE", apiFamily, resourceName, "", bCreate, nil)
-	cResp := s.CreateGenericObject(cReq)
+	cResp := s.CreateTMFObject(context.Background(), cReq)
 	if cResp.StatusCode != http.StatusCreated {
 		t.Fatalf("create expected 201, got %d", cResp.StatusCode)
 	}
@@ -459,7 +460,7 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 
 	// Get
 	gReq := newReq("GET", "READ", apiFamily, resourceName, id, nil, nil)
-	gResp := s.GetGenericObject(gReq)
+	gResp := s.GetTMFObject(context.Background(), gReq)
 	if gResp.StatusCode != http.StatusOK {
 		t.Fatalf("get expected 200, got %d", gResp.StatusCode)
 	}
@@ -473,7 +474,7 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 	}
 	bUpd, _ := json.Marshal(upd)
 	uReq := newReq("PATCH", "UPDATE", apiFamily, resourceName, id, bUpd, nil)
-	uResp := s.UpdateGenericObject(uReq)
+	uResp := s.UpdateTMFObject(context.Background(), uReq)
 	if uResp.StatusCode != http.StatusOK {
 		t.Fatalf("update expected 200, got %d", uResp.StatusCode)
 	}
@@ -487,7 +488,7 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 
 	// List (all)
 	lReq := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{})
-	lResp := s.ListGenericObjects(lReq)
+	lResp := s.ListTMFObjects(context.Background(), lReq)
 	if lResp.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200, got %d", lResp.StatusCode)
 	}
@@ -500,7 +501,7 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 
 	// List with fields=none (should reduce fields per item)
 	lReqQP := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{"fields": []string{"none"}})
-	lResp2 := s.ListGenericObjects(lReqQP)
+	lResp2 := s.ListTMFObjects(context.Background(), lReqQP)
 	if lResp2.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200, got %d", lResp2.StatusCode)
 	}
@@ -516,37 +517,32 @@ func TestCRUDAndListGenericObject(t *testing.T) {
 
 	// Delete
 	dReq := newReq("DELETE", "DELETE", apiFamily, resourceName, id, nil, nil)
-	dResp := s.DeleteGenericObject(dReq)
+	dResp := s.DeleteTMFObject(context.Background(), dReq)
 	if dResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete expected 204, got %d", dResp.StatusCode)
 	}
 
 	// Get after delete -> 404
 	gReq = newReq("GET", "READ", apiFamily, resourceName, id, nil, nil)
-	gResp2 := s.GetGenericObject(gReq)
+	gResp2 := s.GetTMFObject(context.Background(), gReq)
 	if gResp2.StatusCode != http.StatusNotFound {
 		t.Fatalf("get after delete expected 404, got %d", gResp2.StatusCode)
 	}
 }
 
-// TestEmptyList tests that ListGenericObjects returns an empty JSON array and proper X-Total-Count header
-func TestEmptyList(t *testing.T) {
+// TestInvalidResourcename tests that ListGenericObjects returns an empty JSON array and proper X-Total-Count header
+func TestInvalidResourcename(t *testing.T) {
 	s := newTestService(t)
 	resourceName := "TestResource"
 	apiFamily := "productCatalogManagement"
 
-	// List objects for a resource that doesn't exist (should return empty list)
+	// List objects for a resource that doesn't exist (should return 400)
 	lReq := newReq("GET", "LIST", apiFamily, resourceName, "", nil, url.Values{})
-	lResp := s.ListGenericObjects(lReq)
+	lResp := s.ListTMFObjects(context.Background(), lReq)
 
 	// Should return 200 OK
-	if lResp.StatusCode != http.StatusOK {
+	if lResp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("empty list expected 200, got %d", lResp.StatusCode)
-	}
-
-	// Should have X-Total-Count header set to 0
-	if lResp.Headers["X-Total-Count"] != "0" {
-		t.Fatalf("empty list expected X-Total-Count=0, got %s", lResp.Headers["X-Total-Count"])
 	}
 
 	// Body should be an empty array, not nil
@@ -554,12 +550,62 @@ func TestEmptyList(t *testing.T) {
 		t.Fatalf("empty list body should not be nil")
 	}
 
-	items, ok := lResp.Body.([]repository.TMFObjectMap)
-	if !ok {
-		t.Fatalf("empty list body should be []repository.TMFObjectMap, got %T", lResp.Body)
+}
+
+type mockRuleEngine struct {
+	authorizeFunc func(input pdp.StarTMFMap) (bool, error)
+}
+
+func (m *mockRuleEngine) Authorize(input pdp.StarTMFMap) (bool, error) {
+	if m.authorizeFunc != nil {
+		return m.authorizeFunc(input)
+	}
+	return true, nil
+}
+
+func TestServiceWithMockRuleEngine(t *testing.T) {
+
+	configuration, err := config.LoadConfig(string(config.LOCAL), false)
+	if err != nil {
+		t.Fatalf("create test config: %v", err)
 	}
 
-	if len(items) != 0 {
-		t.Fatalf("empty list should have 0 items, got %d", len(items))
+	dbLayer, err := repository.NewDBService(":memory:")
+	if err != nil {
+		t.Fatalf("create test db: %v", err)
+	}
+
+	called := false
+	mockPDP := &mockRuleEngine{
+		authorizeFunc: func(input pdp.StarTMFMap) (bool, error) {
+			called = true
+			return true, nil
+		},
+	}
+
+	tmfService, err := NewTMFService(configuration, dbLayer, mockPDP)
+	if err != nil {
+		t.Fatalf("create test service: %v", err)
+	}
+
+	if tmfService.ruleEngine == nil {
+		t.Fatalf("ruleEngine should not be nil")
+	}
+
+	req := &Request{
+		Method:       "GET",
+		Action:       ActionREAD,
+		APIfamily:    "productCatalogManagement",
+		APIVersion:   "v4",
+		ResourceName: "productOffering",
+	}
+
+	err = tmfService.userPolicies(tmfService.ruleEngine, req, nil, nil)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	if !called {
+		t.Fatalf("expected mock PDP Authorize to be called")
 	}
 }

@@ -62,22 +62,8 @@ func NewTMFObjectMapFromBytes(resourceName string, data []byte) (TMFObjectMap, e
 
 }
 
-// NewTMFObjectMapFromUpstream creates a new TMFObjectMap from a map.
-// It is intended to be used with data received from a remote TMF server vs. the data from our local data base.
-// The type of the object must match with the resourceName passed by the caller.
-func NewTMFObjectMapFromUpstream(resourceName string, data map[string]any) (TMFObjectMap, ValidationResult) {
-	obj := TMFObjectMap(maps.Clone(data))
-	validations := obj.Validate(resourceName)
-
-	return obj, validations
-}
-
-// NewTMFObjectFromMap creates a new TMFObject from an existing map
-func NewTMFObjectFromMap(data map[string]any) TMFObjectMap {
-	obj := TMFObjectMap(maps.Clone(data))
-	return obj
-}
-
+// Validate checks if the object is valid, and returns as many errors as it can find.
+// It does not stop after finding the first error, and results are accumulated in the ValidationResult.
 func (obj TMFObjectMap) Validate(resourceName string) ValidationResult {
 	result := ValidationResult{
 		ObjectID:   obj.ID(),
@@ -146,7 +132,7 @@ func (obj TMFObjectMap) validateRequiredFieldsCreate(resourceName string, result
 	}
 
 	// Generate the warnings for the recommended fields
-	for _, field := range RecommendedFieldsForAllObjects {
+	for _, field := range types.RecommendedFieldsForAllObjects {
 		if !obj.HasField(field) {
 			result.Warnings = append(result.Warnings, ValidationWarning{
 				Field:   field,
@@ -185,7 +171,7 @@ func (obj TMFObjectMap) validateRequiredFields(resourceName string, result *Vali
 	}
 
 	// This checks the fields that are required for all objects
-	for _, field := range RequiredFieldsForAllObjects {
+	for _, field := range types.RequiredFieldsForAllObjects {
 		if !obj.HasField(field) {
 			result.Errors = append(result.Errors, ValidationError{
 				Field:   field,
@@ -196,7 +182,7 @@ func (obj TMFObjectMap) validateRequiredFields(resourceName string, result *Vali
 	}
 
 	// Generate the warnings for the recommended fields
-	for _, field := range RecommendedFieldsForAllObjects {
+	for _, field := range types.RecommendedFieldsForAllObjects {
 		if !obj.HasField(field) {
 			result.Warnings = append(result.Warnings, ValidationWarning{
 				Field:   field,
@@ -211,7 +197,8 @@ func (obj TMFObjectMap) validateRequiredFields(resourceName string, result *Vali
 func (obj TMFObjectMap) validateRelatedParty(result *ValidationResult) {
 
 	// Return if the object does not require Seller nor Buyer info
-	if !obj.RequiresSellerInfo() {
+	// It is enough to check Seller info, as it is impossible to have Buyer info without it
+	if !obj.RequiresSellerInfo("") {
 		return
 	}
 
@@ -389,6 +376,8 @@ func (obj TMFObjectMap) validateRelatedParty(result *ValidationResult) {
 
 }
 
+// ToTMFRecord converts the object to its storage representation to save it in the local database
+// It gets some keys to make efficient SQL queries, and the object is stored as JSON
 func (obj TMFObjectMap) ToTMFRecord(resourceName string) *TMFRecord {
 
 	id := obj.ID()
@@ -402,22 +391,24 @@ func (obj TMFObjectMap) ToTMFRecord(resourceName string) *TMFRecord {
 	lastUpdate := obj.LastUpdate()
 	content := obj.ToJSONSimple()
 
-	seller, _, _ := obj.GetSellerInfo("v4")
-	buyer, _, _ := obj.GetBuyerInfo("v4")
+	seller, sellerOperator, _ := obj.GetSellerInfo("v4")
+	buyer, buyerOperator, _ := obj.GetBuyerInfo("v4")
 
 	now := time.Now().Unix()
 
 	o := &TMFRecord{
-		ID:         id,
-		Type:       objectType,
-		Version:    version,
-		APIVersion: apiVersion,
-		Seller:     seller,
-		Buyer:      buyer,
-		LastUpdate: lastUpdate,
-		Content:    content,
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		ID:             id,
+		Type:           objectType,
+		Version:        version,
+		APIVersion:     apiVersion,
+		Seller:         seller,
+		SellerOperator: sellerOperator,
+		Buyer:          buyer,
+		BuyerOperator:  buyerOperator,
+		LastUpdate:     lastUpdate,
+		Content:        content,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 	return o
 }
@@ -440,6 +431,14 @@ func (obj TMFObjectMap) ToMap() map[string]any {
 }
 
 // Utility methods for well-known top-level attributes
+
+func (obj TMFObjectMap) IsPotentiallyPublic() bool {
+	resourceDefinition := types.GetResourceDefinition(obj.Type())
+	if resourceDefinition == nil {
+		return false
+	}
+	return resourceDefinition.Public
+}
 
 // ID returns the object ID
 func (obj TMFObjectMap) ID() string {
@@ -506,6 +505,24 @@ func (obj TMFObjectMap) SetLastUpdateNow() {
 	obj["lastUpdate"] = time.Now().Format(time.RFC3339)
 }
 
+// LastModified returns the object lastModified
+func (obj TMFObjectMap) LastModified() string {
+	if lastModified, ok := obj["lastModified"].(string); ok {
+		return lastModified
+	}
+	return ""
+}
+
+// SetLastModified sets the object lastModified
+func (obj TMFObjectMap) SetLastModified(lastModified string) {
+	obj["lastModified"] = lastModified
+}
+
+// SetLastModifiedNow sets the object lastModified to current timestamp in RFC3339 format
+func (obj TMFObjectMap) SetLastModifiedNow() {
+	obj["lastModified"] = time.Now().Format(time.RFC3339)
+}
+
 // Type returns the object @type
 func (obj TMFObjectMap) Type() string {
 	if objType, ok := obj["@type"].(string); ok {
@@ -517,6 +534,36 @@ func (obj TMFObjectMap) Type() string {
 // SetType sets the object @type
 func (obj TMFObjectMap) SetType(objType string) {
 	obj["@type"] = objType
+}
+
+// SchemaLocation returns the object schemaLocation
+func (obj TMFObjectMap) SchemaLocation() string {
+	schemaLocation, _ := obj["@schemaLocation"].(string)
+	return schemaLocation
+}
+
+// SetSchemaLocation sets the object schemaLocation
+func (obj TMFObjectMap) SetSchemaLocation(schemaLocation string) {
+	obj["@schemaLocation"] = schemaLocation
+}
+
+const schemaBothLastUpdateAndRelatedParty = "https://raw.githubusercontent.com/DOME-Marketplace/tmf-api/refs/heads/main/DOME/TrackedShareableEntity.schema.json"
+const schemaRelatedParty = "https://raw.githubusercontent.com/DOME-Marketplace/tmf-api/refs/heads/main/DOME/ShareableEntity.schema.json"
+const schemaLastUpdate = "https://raw.githubusercontent.com/DOME-Marketplace/tmf-api/refs/heads/main/DOME/TrackedEntity.schema.json"
+
+// SetDefaultSchemaLocation sets the object schemaLocation to its default schema location for the given action
+func (obj TMFObjectMap) SetDefaultSchemaLocation(action *types.Action) {
+
+	needsLastUpdate := !action.HasField("lastUpdate")
+	needsRelatedParty := !action.HasField("relatedParty")
+
+	if needsLastUpdate && needsRelatedParty {
+		obj.SetSchemaLocation(schemaBothLastUpdateAndRelatedParty)
+	} else if needsLastUpdate && !needsRelatedParty {
+		obj.SetSchemaLocation(schemaLastUpdate)
+	} else if !needsLastUpdate && needsRelatedParty {
+		obj.SetSchemaLocation(schemaRelatedParty)
+	}
 }
 
 // LifecycleStatus returns the object lifecycleStatus
@@ -696,92 +743,6 @@ func (obj TMFObjectMap) String() string {
 		return fmt.Sprintf("TMFObject{error: %v}", err)
 	}
 	return string(data)
-}
-
-// IsOwner checks if the caller can modify the object in the server operated by serverOperatorDid
-func (obj TMFObjectMap) IsOwner(caller types.AuthUser, serverOperatorDid string) (isOwner bool, reason string) {
-
-	// Ownership of an object depends on the type of object
-	objType, _ := obj["@type"].(string)
-	objType = strings.ToLower(objType)
-
-	// If the caller is us (the server operator), then we can read/write/update/delete
-	if SameOrganizations(caller.OrganizationIdentifier, serverOperatorDid) {
-		return true, fmt.Sprintf("caller %s is server operator %s", caller.OrganizationIdentifier, serverOperatorDid)
-	}
-
-	switch objType {
-	case "organization":
-
-		// If the organization of the caller and object are the same, then the caller can read/write/update/delete
-		objectOrganizationId := jpath.GetString(obj, "organizationIdentification.*.identificationId")
-		if SameOrganizations(objectOrganizationId, caller.OrganizationIdentifier) {
-			return true, fmt.Sprintf("caller %s is same as in object %s", caller.OrganizationIdentifier, objectOrganizationId)
-		}
-
-		return false, fmt.Sprintf("caller (%s) is neither the same as in object (%s) or the server operator", caller.OrganizationIdentifier, objectOrganizationId)
-
-	case "individual":
-
-		// TODO: revise this policy to be more restrictive
-
-		// If the caller is the Organization that is the mandator is the LEARCredential of the employee
-		// then the caller can read/write/update/delete
-		individualIdentificationArray := jpath.GetList(obj, "individualIdentification")
-
-		// Look for an entry with 'identificationType=learcredentialemployee'
-		for _, individualIdentification := range individualIdentificationArray {
-			individualIdentificationMap, _ := individualIdentification.(map[string]any)
-			if individualIdentificationMap["identificationType"] == "learcredentialemployee" {
-				// The 'issuingAuthority' must be equal to the caller organizationIdentifier
-				issuingAuthority := individualIdentificationMap["issuingAuthority"].(string)
-				if SameOrganizations(issuingAuthority, caller.OrganizationIdentifier) {
-					return true, fmt.Sprintf("caller %s is same as mandator in Individual object %s", caller.OrganizationIdentifier, issuingAuthority)
-				} else {
-					return false, fmt.Sprintf("caller (%s) is neither the mandator in Individual object (%s) or the server operator", caller.OrganizationIdentifier, issuingAuthority)
-				}
-			}
-		}
-
-		return false, fmt.Sprintf("caller (%s) is neither the mandator in Individual object or the server operator", caller.OrganizationIdentifier)
-
-	case "category":
-
-		// category objects can only be modified by the server operator
-		return false, fmt.Sprintf("caller %s is not the server operator %s", caller.OrganizationIdentifier, serverOperatorDid)
-
-	default:
-
-		// For any other objects, we require that the object includes the Seller info, and then
-		// the user must be either the server operator or the seller
-
-		// Try to retrieve the Seller info
-		objSellerDid, objSellerOperatorDid, err := obj.GetSellerInfo("v4")
-		if err != nil {
-			return false, fmt.Sprintf("object (%s) does not contain seller information", obj.ID())
-		}
-
-		// If the caller is the same as the object SellerOperator or the Seller, then is the owner
-		if SameOrganizations(caller.OrganizationIdentifier, objSellerDid) || SameOrganizations(caller.OrganizationIdentifier, objSellerOperatorDid) {
-			return true, fmt.Sprintf("caller %s is seller %s or seller operator %s", caller.OrganizationIdentifier, objSellerDid, objSellerOperatorDid)
-		}
-
-		// Try to retrieve the Buyer info, which may not exist.
-		// We already checked for Seller info, so if Buyer info does not exist, caller is not the owner
-		objBuyerDid, objBuyerOperatorDid, err := obj.GetBuyerInfo("v4")
-		if err != nil {
-			return false, fmt.Sprintf("object (%s) does not contain buyer information and caller (%s) is not the seller or seller operator", obj.ID(), caller.OrganizationIdentifier)
-		}
-
-		// If the caller is the same as the object BuyerOperator or the Buyer, then is the owner
-		if SameOrganizations(caller.OrganizationIdentifier, objBuyerDid) || SameOrganizations(caller.OrganizationIdentifier, objBuyerOperatorDid) {
-			return true, fmt.Sprintf("caller %s is buyer %s or buyer operator %s", caller.OrganizationIdentifier, objBuyerDid, objBuyerOperatorDid)
-		}
-
-		return false, fmt.Sprintf("caller %s is not seller or buyer in object %s", caller.OrganizationIdentifier, obj.ID())
-
-	}
-
 }
 
 // setSellerAndBuyerInfo adds the required fields to the incoming object argument
@@ -999,27 +960,30 @@ func setSellerInfoV5(tmfObjectMap map[string]any, serverOperatorDid string, orga
 
 }
 
-func (obj TMFObjectMap) RequiresSellerInfo() bool {
-	objType := obj.Type()
+func (obj TMFObjectMap) RequiresSellerInfo(resourceName string) bool {
+	var objType string
+	if len(resourceName) > 0 {
+		objType = resourceName
+	} else {
+		objType = obj.Type()
+	}
 	objType = strings.ToLower(objType)
-	return !slices.Contains(DoNotRequireRelatedParties, objType)
+	return !slices.Contains(types.DoNotRequireRelatedParties, objType)
 }
 
 func (obj TMFObjectMap) RequiresBuyerInfo() bool {
 	objType := obj.Type()
 	objType = strings.ToLower(objType)
-	relp := slices.Contains(DoNotRequireRelatedParties, objType)
-	buyp := slices.Contains(DoNotRequireBuyerInfo, objType)
-	rr := relp || buyp
-	return !rr
+	return !slices.Contains(types.DoNotRequireBuyerInfo, objType)
 }
 
-// GetSellerInfo finds the Seller and SellerOperator identifiers in the relatedParty array of the object.
+// GetSellerInfo finds the Seller and SellerOperator identifiers in the relatedParty array of the object,
+// using the apiVersion to determine which version of the function to use. If no version is provided, defaults to "v4".
 // If some identifier is missing (or both), it returns an error. But it returns what it finds.
 // So, even if the returned error is not nil, the caller may check the sellerDid and the sellerOperatorDid.
 // This is useful if the caller has logic to handle cases where only one of the values is found.
 func (obj TMFObjectMap) GetSellerInfo(apiVersion string) (sellerDid string, sellerOperatorDid string, err error) {
-	if !obj.RequiresSellerInfo() {
+	if !obj.RequiresSellerInfo("") {
 		return
 	}
 
@@ -1035,10 +999,6 @@ func (obj TMFObjectMap) GetSellerInfo(apiVersion string) (sellerDid string, sell
 }
 
 func (obj TMFObjectMap) GetBuyerInfo(apiVersion string) (sellerDid string, sellerOperatorDid string, err error) {
-	if !obj.RequiresBuyerInfo() {
-		return
-	}
-
 	switch apiVersion {
 	case "v4":
 		return getUserAndUserOperatorInfoV4(obj, "Buyer", "BuyerOperator")
@@ -1094,7 +1054,7 @@ func getUserAndUserOperatorInfoV4(tmfObjectMap map[string]any, userRole string, 
 		}
 	}
 
-	// Set the error depending on what we have found
+	// Return an error if one or both fields are not set, indicating the condition is not met
 	if sellerDid == "" && sellerOperatorDid == "" {
 		err = errl.Errorf("no %s or %s", userRole, userOperatorRole)
 	} else if sellerDid == "" {

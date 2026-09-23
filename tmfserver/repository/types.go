@@ -45,26 +45,3 @@ func (vr *ValidationResult) String() string {
 	buf.WriteString("}")
 	return buf.String()
 }
-
-var RequiredFieldsForAllObjects = []string{
-	"id", "href",
-}
-
-var RecommendedFieldsForAllObjects = []string{
-	"name", "version", "lastUpdate",
-}
-
-var DoNotRequireRelatedParties = []string{
-	"category",
-	"individual",
-	"organization",
-}
-
-var DoNotRequireBuyerInfo = []string{
-	"catalog",
-	"productoffering",
-	"productspecification",
-	"productofferingprice",
-	"resourcespecification",
-	"servicespecification",
-}

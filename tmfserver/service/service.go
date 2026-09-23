@@ -1,19 +1,16 @@
 package service
 
 import (
-	"errors"
+	_ "embed"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
 
-	"log/slog"
-
 	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
-	pdp "github.com/hesusruiz/isbetmf/pdp"
 	"github.com/hesusruiz/isbetmf/tmfserver/notifications"
-	"github.com/hesusruiz/isbetmf/tmfserver/repository"
 	"github.com/hesusruiz/isbetmf/types"
 )
 
@@ -24,16 +21,16 @@ var DOMEHacks = true
 // In this way, we support easily any HTTP framework (currently Fiber), but also other
 // future channels like JSON-RPC or even non-HTTP channels like GRPC.
 type Request struct {
-	Method        string
-	Action        HttpAction
-	APIfamily     string
-	APIVersion    string
-	ResourceName  string
-	ID            string
-	QueryParams   url.Values
-	Body          []byte
-	AuthUser      types.AuthUser
-	HealthRequest bool
+	Method        string         // The HTTP method (GET, POST, PUT, PATCH, DELETE)
+	Action        HttpAction     // The action to perform (READ, CREATE, PUT, UPDATE, DELETE, LIST)
+	APIfamily     string         // The API family (e.g., "productCatalogManagement")
+	APIVersion    string         // The API version (e.g., "v4", "v5")
+	ResourceName  string         // The resource name (e.g., "productOffering", "catalog")
+	ID            string         // The ID of the resource (empty for CREATE requests)
+	QueryParams   url.Values     // The query parameters (e.g., "limit=1", "offset=0")
+	Body          []byte         // The body of the request (empty for READ, LIST, DELETE)
+	AuthUser      types.AuthUser // The authenticated user, or zero value if non authenticated
+	HealthRequest bool           // Whether this is a health request
 }
 
 func (r *Request) ToMap() map[string]any {
@@ -49,21 +46,37 @@ func (r *Request) ToMap() map[string]any {
 
 type HttpAction string
 
+// HttpActionFromMethod converts an HTTP request to an HttpAction
+//
+//	@param httpMethod the HTTP method (e.g., "GET", "POST", "PUT", "PATCH", "DELETE")
+//	@param idParam the ID of the resource (empty for CREATE requests)
+func HttpActionFromMethod(httpMethod string, idParam string) HttpAction {
+	httpMethod = strings.ToUpper(httpMethod)
+	action := HttpActions[httpMethod]
+	if idParam == "" && httpMethod == http.MethodGet {
+		action = ActionLIST
+	}
+	return action
+}
+
+// These are the possible values for Action
 const (
-	READ   HttpAction = "READ"
-	CREATE HttpAction = "CREATE"
-	UPDATE HttpAction = "UPDATE"
-	DELETE HttpAction = "DELETE"
-	LIST   HttpAction = "LIST"
+	ActionREAD    HttpAction = "READ"
+	ActionCREATE  HttpAction = "CREATE"
+	ActionREPLACE HttpAction = "REPLACE"
+	ActionUPDATE  HttpAction = "UPDATE"
+	ActionDELETE  HttpAction = "DELETE"
+	ActionLIST    HttpAction = "LIST"
 )
 
 // These are more friendly names for the writers of policy rules and can be used interchangeably
 var HttpActions = map[string]HttpAction{
-	"GET":    READ,
-	"POST":   CREATE,
-	"PATCH":  UPDATE,
-	"DELETE": DELETE,
-	"LIST":   LIST,
+	"GET":    ActionREAD,
+	"POST":   ActionCREATE,
+	"PUT":    ActionREPLACE,
+	"PATCH":  ActionUPDATE,
+	"DELETE": ActionDELETE,
+	"LIST":   ActionLIST,
 }
 
 // Response represents a generic HTTP response.
@@ -87,18 +100,17 @@ type Service struct {
 	// The environment where we are running
 	environment config.Environment
 
+	// The logging level
+	logLevel int
+
 	// The admin token used to authenticate the superadmin. Handle as a secret.
 	adminToken string
 
 	// Pluggable storage backend
-	storage TMFStorage
+	storage TMFStorer
 
-	// The rules engine implemented using Starlark
-	ruleEngine *pdp.PDP
-
-	// The url of theVerifier server which signs the Access Tokens,
-	// and the PDP retrieves the JWKS from it to verify the signatures.
-	verifierServer string
+	// Pluggable PDP interface
+	ruleEngine Authorizer
 
 	// The OpenID configuration to use the Verifier Server
 	oid *OpenIDConfig
@@ -116,9 +128,6 @@ type Service struct {
 	// When not enabled, the service is a standard TMF Server, local only.
 	// When enabled, the service is a proxy to a remote TMF Server.
 	proxyEnabled bool
-
-	// The paging service to help process remote TMForum objects when retrieving large quantities.
-	paging *ClientWithPaging
 
 	// Information about us (the server operator)
 	ServerOperatorOrganizationIdentifier string
@@ -145,14 +154,17 @@ type Service struct {
 }
 
 // NewTMFService creates a new service.
-func NewTMFService(cnf *config.Config, storage TMFStorage, ruleEngine *pdp.PDP) (*Service, error) {
+func NewTMFService(cnf *config.Config, storage TMFStorer, ruleEngine Authorizer) (*Service, error) {
+
+	// Parse the YAML definition
+	types.ParseActionDefinitions()
+
 	svc := &Service{}
 
 	svc.environment = cnf.Environment
 	svc.adminToken = cnf.AdminToken
 	svc.storage = storage
 	svc.ruleEngine = ruleEngine
-	svc.verifierServer = cnf.VerifierServer
 	svc.Features = cnf.Features
 
 	// Information about us (the server operator)
@@ -188,45 +200,37 @@ func NewTMFService(cnf *config.Config, storage TMFStorage, ruleEngine *pdp.PDP) 
 		}
 	}
 
-	// Create the server operator identity, in case it is not yet in the database
-	org := &repository.Organization{
-		CommonName:             svc.ServerOperatorName,
-		Country:                svc.ServerOperatorCountry,
-		EmailAddress:           svc.ServerEmailAddress,
-		Organization:           svc.ServerOperatorName,
-		OrganizationIdentifier: svc.ServerOperatorOrganizationIdentifier,
-	}
-	obj, _ := repository.TMFRecordFromOrganizationAndToken(org, nil)
-
-	if err := svc.UpsertObject(obj); err != nil {
-		if errors.Is(err, &ErrObjectExists{}) {
-			slog.Debug("server operator organization already exists", "organizationIdentifier", svc.ServerOperatorOrganizationIdentifier)
-		} else {
-			err = errl.Errorf("error creating server operator organization: %w", err)
-			panic(err)
-		}
-	} else {
-		slog.Info("server operator organization created", "obj_id", obj.ID)
-	}
-
 	// Retrieve the OpenId configuration of the Verifier server
-	oid, err := NewOpenIDConfig(svc.verifierServer)
+	oid, err := NewOpenIDConfig(cnf.VerifierServer)
 	if err != nil {
 		return nil, errl.Errorf("failed to retrieve OpenID configuration: %w", err)
 	}
 	svc.oid = oid
-
-	// Create the paging service
-	pagingConfig := DefaultPagingConfig()
-	pagingConfig.PageSize = 10
-	svc.paging = NewClientWithPaging(pagingConfig)
 
 	// Initialize notifications with in-memory store and HTTP delivery
 	store := notifications.NewMemoryStore()
 	deliver := notifications.NewHTTPDelivery(5 * time.Second)
 	svc.notif = notifications.NewManager(store, deliver)
 
+	svc.SetLogLevel(3)
+
 	return svc, nil
+}
+
+func (s *Service) AdminToken() string {
+	return s.adminToken
+}
+
+func (s *Service) Environment() config.Environment {
+	return s.environment
+}
+
+func (s *Service) LogLevel() int {
+	return s.logLevel
+}
+
+func (s *Service) SetLogLevel(logLevel int) {
+	s.logLevel = logLevel
 }
 
 func (s *Service) IsDOME() bool {

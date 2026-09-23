@@ -16,7 +16,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	"github.com/hesusruiz/isbetmf/internal/sqlogger"
@@ -38,52 +37,72 @@ func main() {
 	envHelp := fmt.Sprintf("Environment where run: %s, %s, %s, %s, %s, %s, %s", config.ISBE_DEV, config.ISBE_PRE, config.ISBE_PRO, config.DOME_DEV, config.DOME_PRE, config.DOME_PRO, config.LOCAL)
 
 	// Parse command-line flags
-	flag.BoolVar(&debugFlag, "d", true, "Enable debug logging")
+	flag.BoolVar(&debugFlag, "d", false, "Enable debug logging")
 	flag.BoolVar(&init, "init", false, "Run as init process")
 	flag.StringVar(&environment, "run", string(config.LOCAL), envHelp)
 	flag.IntVar(&restartHour, "rh", 3, "Restart program every day at this hour")
 	flag.IntVar(&restartMinute, "rm", 0, "Restart program every day at this minute")
 	flag.Parse()
 
-	// Generate a default configuration suitable for the environment
-	// The approach is that instead of many configurable parameters, we have a set of profiles, with "hardcoded"
-	// parameters for each environment, but that can be easity extended for other purposes.
-	configuration, err := config.LoadConfig(environment, debugFlag)
-	if err != nil {
-		slog.Error("Failed to load configuration", slog.Any("error", err))
-		panic(err)
+	// Configure the slog logger
+	var logLevel = new(slog.LevelVar)
+	if debugFlag {
+		logLevel.Set(slog.LevelDebug)
+	} else {
+		logLevel.Set(slog.LevelInfo)
 	}
-	defer configuration.Close()
-	slog.Info("Configuration loaded", "environment", configuration.Environment, "debug", configuration.Debug, "proxy", configuration.ProxyEnabled)
 
-	// Set restart schedule
-	configuration.RestartHour = restartHour
-	configuration.RestartMinute = restartMinute
+	// Initialize the custom SQLogHandler
+	logOptions := &sqlogger.Options{
+		Level:  logLevel,
+		LogDir: "data/logs",
+	}
 
-	// Get the PID and name of our executable
+	// Check if the logs should be colored:
+	// - If the process is running in a container (pid=1) then do not color the logs
+	// - If the environment variable ISBETMF_LOGS_NOCOLOR is set to "true" then do not color the logs
 	ourPid := os.Getpid()
-	ourExecPath, err := os.Executable()
-	if err != nil {
-		slog.Error("Failed to get executable path", slog.Any("error", err))
-		panic(err)
+	if ourPid == 1 || os.Getenv("ISBETMF_LOGS_NOCOLOR") == "true" {
+		logOptions.NoColor = true
 	}
 
-	// Exclude the name of the program from the list of arguments
-	args := os.Args[1:]
+	// Initialize the logging system
+	sqlog, err := sqlogger.NewSQLogHandler(logOptions)
+	if err != nil {
+		slog.Error("failed to initialize SQLogHandler, exiting", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer sqlog.Close()
 
-	// ******************************************************
-	// ******************************************************
-	// The initial section is for when we are the init process in a container
-	// Detect if we are running as PID=1 (most probably as init process in a container),
+	// And set the default logging system for all components
+	slog.SetDefault(slog.New(sqlog))
+
+	// Detect if we are running as PID=1 (an init process in a container),
 	// and act accordingly.
 	runAsInit := init || ourPid == 1
 
 	if runAsInit {
-		slog.Info("We are the INIT process!", "PID", ourPid, "executable", ourExecPath, "args", args)
-		runAsInitProcess(ourExecPath, args)
+		runAsInitProcess(os.Args)
 	} else {
-		slog.Info("TMF API server starting", "PID", ourPid, "executable", ourExecPath, "args", args)
-		runNormalProcess(configuration)
+		slog.Info("We are the NORMAL process!", "environment", environment, "debug", debugFlag, "restartHour", restartHour, "restartMinute", restartMinute)
+
+		// Generate a default configuration suitable for the environment
+		configuration, err := config.LoadConfig(environment, debugFlag)
+		if err != nil {
+			slog.Error("Failed to load configuration", slog.Any("error", err))
+			panic(err)
+		}
+		slog.Info("Configuration loaded", "environment", configuration.Environment, "debug", configuration.Debug, "proxy", configuration.ProxyEnabled)
+
+		// Set restart schedule
+		configuration.RestartHour = restartHour
+		configuration.RestartMinute = restartMinute
+
+		err = runNormalProcess(configuration)
+		if err != nil {
+			slog.Error("failed to run normal process", slog.Any("error", err))
+			os.Exit(1)
+		}
 	}
 
 }
@@ -94,29 +113,28 @@ func cleanup(db *repository.DBService) {
 
 	// Close database connection (triggers WAL cleanup)
 	fmt.Println("Closing database connection and exiting...")
-	db.Close()
+	_ = db.Close()
 
 	fmt.Println("Database connections closed.")
 }
 
 // runNormalProcess starts the TMF API server and handles its lifecycle,
 // including database connection, rules engine initialization, and graceful shutdown.
-func runNormalProcess(configuration *config.Config) {
+func runNormalProcess(configuration *config.Config) error {
 
-	// TABLEFLIP for seamless restarts and upgrades
+	// Set TABLEFLIP for seamless restarts and upgrades
 	upg, err := tableflip.New(tableflip.Options{
 		PIDFile: "isbetmf.pid",
 	})
 	if err != nil {
-		slog.Error("failed to create tableflip upgrader, exiting", slog.Any("error", err))
-		panic(err)
+		return errl.Errorf("failed to create tableflip upgrader: %w", err)
 	}
+	defer upg.Stop()
 
 	// Connect to the database and create tables if they do not exist
 	dbService, err := repository.NewDBService(configuration.Dbname)
 	if err != nil {
-		slog.Error("failed to connect to database", slog.Any("error", err))
-		return
+		return errl.Errorf("failed to connect to database: %w", err)
 	}
 	defer cleanup(dbService)
 
@@ -126,15 +144,13 @@ func runNormalProcess(configuration *config.Config) {
 		Debug:          configuration.Debug,
 	})
 	if err != nil {
-		slog.Error("failed to create rules engine", slog.Any("error", err))
-		return
+		return errl.Errorf("failed to create rules engine: %w", err)
 	}
 
 	// Create the service, which will use the database and the rules engine
 	tmfService, err := service.NewTMFService(configuration, dbService, rulesEngine)
 	if err != nil {
-		slog.Error("failed to create service", slog.Any("error", err))
-		return
+		return errl.Errorf("failed to create service: %w", err)
 	}
 
 	// Create Fiber web server with custom configuration
@@ -142,7 +158,7 @@ func runNormalProcess(configuration *config.Config) {
 		AppName:        "TMForum API Server",
 		ServerHeader:   "TMForum",
 		ProxyHeader:    "X-Forwarded-For",
-		ReadBufferSize: 16 * 1024, // 16 KB — allows large Authorization headers (e.g. JWTs with many claims)
+		ReadBufferSize: 64 * 1024, // 64 KB — allows large Authorization headers (e.g. JWTs with many claims)
 		ReadTimeout:    30 * time.Second,
 		WriteTimeout:   30 * time.Second,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
@@ -150,7 +166,6 @@ func runNormalProcess(configuration *config.Config) {
 			if e, ok := err.(*fiber.Error); ok {
 				code = e.Code
 			}
-			// slog.Error("Fiber error", slog.Any("error", err), slog.Int("status", code))
 
 			meth := fmt.Sprintf("<= %s %s", c.Method(), c.Path())
 			slog.Error(meth, slog.Any("error", err), slog.Int("status", code), slog.String("ip", c.IP()))
@@ -161,42 +176,38 @@ func runNormalProcess(configuration *config.Config) {
 		},
 	})
 
-	// Add middleware in order (order matters!)
+	// Add middleware in proper order
 
-	// 1. Recovery middleware - should be first to catch panics
+	// Recovery middleware - should be first to catch panics
 	webServer.Use(recover.New(recover.Config{
 		EnableStackTrace: configuration.Debug,
 	}))
 
-	// 2. Request ID middleware - for tracing requests
-	webServer.Use(requestid.New(requestid.Config{
-		Header: "X-Request-Id",
-		Generator: func() string {
-			return "req_" + time.Now().Format("20060102150405") + "_" + os.Getenv("HOSTNAME")
-		},
-	}))
+	// Request ID middleware - for tracing requests
+	webServer.Use(fiberhandler.RequestID)
 
-	// 3. CORS middleware - enable cross-origin requests
+	// CORS middleware - enable cross-origin requests
 	webServer.Use(cors.New(cors.Config{
-		AllowOrigins:     "*", // Allow all origins as requested
+		AllowOrigins:     "*",
 		AllowMethods:     "GET,POST,HEAD,PUT,DELETE,PATCH,OPTIONS",
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Request-Id",
-		AllowCredentials: false, // Set to false when AllowOrigins is "*"
+		AllowCredentials: false,
 		ExposeHeaders:    "X-Request-Id",
-		MaxAge:           86400, // 24 hours
+		MaxAge:           86400,
 	}))
 
-	// 4. Compression middleware - compress responses
+	// Compression middleware - compress responses
 	webServer.Use(compress.New(compress.Config{
 		Level: compress.LevelBestSpeed,
 	}))
 
-	// 5. Logger middleware - log requests and replies
-	webServer.Use(sqlogger.FiberRequestLogger)
-
 	// Serve the OpenAPI UI. We support V4 and V5
 	webServer.Static("/oapiv5", "./www/oapiv5")
 	webServer.Static("/oapiv4", "./www/oapiv4")
+	webServer.Static("/assets", "./www/assets")
+
+	// Logger middleware - log requests and replies
+	webServer.Use(fiberhandler.FiberRequestLogger)
 
 	// Create handler and set the routes for the APIs
 	fiberhandler.NewHandler(webServer, tmfService)
@@ -263,14 +274,13 @@ func runNormalProcess(configuration *config.Config) {
 	fmt.Println("CHILD: Tableflip exit received")
 
 	// Wait for connections to drain for a maximum of 30 seconds
-	fmt.Println("CHILD: Waiting for connections to drain...")
+	fmt.Println("CHILD: Waiting 30 seconds for connections to drain...")
 	err = webServer.ShutdownWithTimeout(30 * time.Second)
 	if err != nil {
-		fmt.Println("CHILD: Exiting with error", errl.Error(err))
-		os.Exit(1)
-	} else {
-		fmt.Println("CHILD: Exiting without error")
+		return errl.Errorf("failed to shutdown web server: %w", err)
 	}
+	fmt.Println("CHILD: Exiting without error")
+	return nil
 
 }
 
@@ -282,9 +292,21 @@ func runNormalProcess(configuration *config.Config) {
 // process group, and captures system signals (SIGINT, SIGTERM, SIGHUP) to
 // gracefully relay them to the child.
 //
-//   - ourExecPath: The path to the executable to run as the child process.
 //   - args: Command-line arguments to pass to the child process.
-func runAsInitProcess(ourExecPath string, args []string) {
+func runAsInitProcess(args []string) {
+	// Exclude the name of the program from the list of arguments
+	args = os.Args[1:]
+
+	ourPid := os.Getpid()
+
+	// Get the name of our executable, to be able to restart it automatically
+	ourExecPath, err := os.Executable()
+	if err != nil {
+		slog.Error("Failed to get executable path", slog.Any("error", err))
+		panic(err)
+	}
+
+	slog.Info("We are the INIT process!", "PID", ourPid, "executable", ourExecPath, "args", args)
 
 	// Pass to child all arguments except the "-init" flag, so the child runs as a normal process.
 	childArgs := make([]string, 0, len(args))
@@ -324,7 +346,7 @@ func runAsInitProcess(ourExecPath string, args []string) {
 				slog.Error("INIT: failed to forward signal to child process", "signal", sig, "PID", cmd.Process.Pid, "error", err)
 			}
 
-			// If we receive a SIGTERM or SIGINT, wait 10 seconds for the child to terminate and send a KILL signal
+			// If the signal was SIGTERM or SIGINT, wait 10 seconds for the child to terminate and send a KILL signal
 			if sig == syscall.SIGTERM || sig == syscall.SIGINT {
 
 				go func() {

@@ -1,12 +1,14 @@
 package service
 
 import (
+	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 )
 
-// UpdateGenericObject updates an existing TMF object using generalized parameters.
-func (svc *Service) UpdateGenericObject(req *Request) *Response {
+// UpdateTMFObject updates an existing TMF object using generalized parameters.
+func (svc *Service) UpdateTMFObject(ctx context.Context, req *Request) *Response {
 	slog.Debug("UpdateGenericObject called", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 
 	// Authentication is required for update operations
@@ -15,18 +17,26 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	}
 
 	// Parse request body
-	incomingObjectMap, errorResponse := svc.parseRequestBody(req)
+	incomingObjectMap, errorResponse := svc.parseRequestBodyForUpdate(req)
 	if errorResponse != nil {
+		slog.Error(string(req.Body))
 		return errorResponse
 	}
 
+	if slog.Default().Enabled(ctx, slog.LevelDebug) {
+		data, _ := json.MarshalIndent(incomingObjectMap, "", "  ")
+		slog.Debug(string(data))
+	}
+
 	// Ensure update metadata
-	if errorResponse := svc.ensureUpdateMetadata(req, incomingObjectMap); errorResponse != nil {
+	if errorResponse := svc.verifyObjectOnUpdate(req, incomingObjectMap); errorResponse != nil {
+		data, _ := json.MarshalIndent(incomingObjectMap, "", "  ")
+		slog.Error(string(data))
 		return errorResponse
 	}
 
 	// Retrieve existing object
-	existingRecord, err := svc.getLocalOrRemoteObject(req)
+	existingRecord, err := svc.getLocalOrRemoteObject(ctx, req)
 	if err != nil {
 		return ErrorResponsef(http.StatusInternalServerError, "error retrieving existing object %s for update: %w", req.ID, err)
 	}
@@ -46,7 +56,7 @@ func (svc *Service) UpdateGenericObject(req *Request) *Response {
 	}
 
 	// Object Update (Local or Remote)
-	response := svc.updateRemoteOrLocalObject(req, existingRecord, incomingObjectMap)
+	response := svc.updateRemoteOrLocalObject(ctx, req, existingRecord, incomingObjectMap)
 
 	// Notification
 	if response.StatusCode == http.StatusOK {

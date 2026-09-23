@@ -1,14 +1,12 @@
 package repository
 
-import (
-	"github.com/jmoiron/sqlx"
-)
+import "database/sql"
 
 func init() {
 	RegisterMigration("20260419T000000", upKeepLatestVersion, nil)
 }
 
-func upKeepLatestVersion(db *sqlx.DB) error {
+func upKeepLatestVersion(db *sql.DB) error {
 	// Create temporary table with new schema
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS tmf_object_tmp (
 	"id" TEXT NOT NULL,

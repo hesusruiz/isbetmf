@@ -5,35 +5,33 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hesusruiz/isbetmf/config"
 	"github.com/hesusruiz/isbetmf/internal/errl"
 	repo "github.com/hesusruiz/isbetmf/tmfserver/repository"
 )
 
-// createLocalOrRemoteObject creates an object in the remote server and then in the local database, if the proxy is enabled.
+// createRemoteOrLocalObject creates an object in the remote server and then in the local database, if the proxy is enabled.
 // Othewise, it just creates the object in the local database.
-func (svc *Service) createLocalOrRemoteObject(req *Request, obj *repo.TMFRecord) *Response {
-
-	objMap, err := obj.ToTMFObjectMapCreate()
-	if err != nil {
-		err = errl.Errorf("failed to marshal object: %w", err)
-		return ErrorResponsef(http.StatusInternalServerError, "failed to marshal object: %w", err)
-	}
+func (svc *Service) createRemoteOrLocalObject(ctx context.Context, req *Request, objMap repo.TMFObjectMap) *Response {
 
 	// Create the object only in the local database if the proxy is not enabled
 	if !svc.proxyEnabled {
-		if err := svc.CreateObject(obj); err != nil {
+		// Convert object to storage representation
+		repoObject := objMap.ToTMFRecord(req.ResourceName)
+
+		if err := svc.CreateObject(repoObject); err != nil {
 			if errors.Is(err, &ErrObjectExists{}) {
-				return ErrorResponsef(http.StatusBadRequest, "object %s already exists: %w", obj.ID, err)
+				return ErrorResponsef(http.StatusBadRequest, "object %s already exists: %w", objMap.ID(), err)
 			} else {
 				return ErrorResponsef(http.StatusInternalServerError, "failed to create object locally: %w", err)
 			}
@@ -43,7 +41,7 @@ func (svc *Service) createLocalOrRemoteObject(req *Request, obj *repo.TMFRecord)
 		headers := map[string]string{
 			"Location": objMap.Href(),
 		}
-		slog.Info("Object created successfully", slog.String("id", objMap.ID()), slog.String("resourceName", req.ResourceName), slog.String("location", objMap.Href()))
+		slog.Debug("Object created successfully", slog.String("id", objMap.ID()), slog.String("resourceName", req.ResourceName), slog.String("location", objMap.Href()))
 
 		return &Response{StatusCode: http.StatusCreated, Headers: headers, Body: objMap}
 
@@ -51,12 +49,17 @@ func (svc *Service) createLocalOrRemoteObject(req *Request, obj *repo.TMFRecord)
 
 	// With the proxy enabled, first create the object in the remote server and then locally
 	// We do not have to worry about transaction integrity, because if the remote server fails, we do not create the object locally
-	// If the local server fails, we do not have to do anything, because the object is already in the remote server and our cache will
-	// be updated later on the next call from the user
+	// If the local server fails, the object will be eventually updated in our cache later, for other operations against the object.
 
-	remoteObjectMap, errs := svc.tmfClient.TMFPost(req, objMap)
-	if len(errs) > 0 {
-		return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", errs[0])
+	remoteObjectMap, err := svc.tmfClient.TMFPost(ctx, req, objMap)
+	if err != nil {
+
+		var apiErr *ApiError
+		if errors.As(err, &apiErr) {
+			return &Response{StatusCode: apiErr.StatusCode(), Body: apiErr}
+		}
+
+		return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", err)
 	}
 
 	// Prepare the object for the database
@@ -77,7 +80,7 @@ func (svc *Service) createLocalOrRemoteObject(req *Request, obj *repo.TMFRecord)
 	headers := map[string]string{
 		"Location": remoteObjectMap.Href(),
 	}
-	slog.Info("Object created successfully", slog.String("id", remoteObjectMap.ID()), slog.String("resourceName", req.ResourceName), slog.String("location", remoteObjectMap.Href()))
+	slog.Debug("Object created successfully", slog.String("id", remoteObjectMap.ID()), slog.String("resourceName", req.ResourceName), slog.String("location", remoteObjectMap.Href()))
 
 	return &Response{StatusCode: http.StatusCreated, Headers: headers, Body: remoteObjectMap}
 
@@ -87,7 +90,7 @@ func (svc *Service) createLocalOrRemoteObject(req *Request, obj *repo.TMFRecord)
 // if the proxy is enabled.
 // existingRecord is only used if the proxy is not enabled.
 // Otherwise, it just updates the object in the local database after merging with the RFC7396 patch.
-func (svc *Service) updateRemoteOrLocalObject(req *Request, existingRecord *repo.TMFRecord, patch repo.TMFObjectMap) *Response {
+func (svc *Service) updateRemoteOrLocalObject(ctx context.Context, req *Request, existingRecord *repo.TMFRecord, patch repo.TMFObjectMap) *Response {
 	var existingObjectMap repo.TMFObjectMap
 	var err error
 
@@ -97,9 +100,14 @@ func (svc *Service) updateRemoteOrLocalObject(req *Request, existingRecord *repo
 	}
 
 	if svc.proxyEnabled {
-		remoteObjectMap, errs := svc.tmfClient.TMFPatch(req, patch)
-		if len(errs) > 0 {
-			return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", errs[0])
+		remoteObjectMap, err := svc.tmfClient.TMFPatch(ctx, req, patch)
+		if err != nil {
+			if svc.LogLevel() >= 3 {
+				// Pretty-pring the path object
+				patchJSON, _ := json.MarshalIndent(patch, "", "  ")
+				fmt.Println("Path object:", string(patchJSON))
+			}
+			return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", err)
 		}
 
 		// Set the existingObjectMap to the remoteObjectMap, so we store the object as it was received from the remote server
@@ -113,10 +121,11 @@ func (svc *Service) updateRemoteOrLocalObject(req *Request, existingRecord *repo
 	objectID := req.ID
 
 	// For organization resources in local database, the objectID is the organization identifier.
-	// TODO: this logic is only for ISBE
-	if req.ResourceName == "organization" {
-		if strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:") && !strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:did:elsi:") {
-			objectID = "urn:ngsi-ld:organization:did:elsi:" + strings.TrimPrefix(req.ID, "urn:ngsi-ld:organization:")
+	if svc.IsISBE() {
+		if req.ResourceName == "organization" {
+			if strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:") && !strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:did:elsi:") {
+				objectID = "urn:ngsi-ld:organization:did:elsi:" + strings.TrimPrefix(req.ID, "urn:ngsi-ld:organization:")
+			}
 		}
 	}
 
@@ -159,16 +168,18 @@ func (svc *Service) updateRemoteOrLocalObject(req *Request, existingRecord *repo
 
 // listRemoteObjects retrieves objects from the remote TMF server, filters them based on authorization,
 // caches them locally, and returns the requested page.
-func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, fieldSet map[string]bool) (
-	[]repo.TMFObjectMap, map[string]string, *Response) {
+func (svc *Service) listRemoteObjects(ctx context.Context, req *Request, userLimit, userOffset int, fieldSet map[string]bool) (
+	responseObjects []repo.TMFObjectMap, responseHeaders map[string]string, diagnosticObjects []repo.ValidationResult, err error) {
 
-	// Delete the attribute selection for the query to the backend. We will receive full objects and
+	// Delete the attribute selection for the query to the upstream server. We will receive full objects and
 	// perform attribute selection ourselves. This is because we want to store the full objects in our local cache.
 	req.QueryParams.Del("fields")
 
 	// We forward the same access token that we received from the user
-	headers := map[string]string{
+	upstreamHeaders := map[string]string{
 		"Authorization": "Bearer " + req.AuthUser.AccessToken,
+		"Accept":        "application/json",
+		"Content-Type":  "application/json",
 	}
 
 	// Check if the user wants diagnostic information, which is specified in the query string as '?diagnostic=true'
@@ -179,8 +190,8 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 		req.QueryParams.Del("diagnostic")
 	}
 
-	responseObjectMaps := make([]repo.TMFObjectMap, 0)
-	diagnosticObjects := make([]repo.ValidationResult, 0)
+	responseObjects = make([]repo.TMFObjectMap, 0)
+	diagnosticObjects = make([]repo.ValidationResult, 0)
 	var offsetCounter int
 	invalidObjects := 0
 
@@ -193,57 +204,57 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 	req.QueryParams.Del("offset")
 	req.QueryParams.Del("limit")
 
-	// Build the new parameters to send to the remote server
-	baseParams := req.QueryParams.Encode()
-
-	// Build the base path including parametersfor the request to the remote server
-	basePath := fmt.Sprintf("/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName)
-	if baseParams != "" {
-		basePath += "?" + baseParams + "&"
-	} else {
-		basePath += "?"
-	}
-
-	// Reduce logging for health requests, to avoid polluting the logs
-	isHealthRequest := req.HealthRequest
-
-	pageSize := 100
+	pageSize := svc.tmfClient.PageSize()
 	pageOffset := 0
-	if !isHealthRequest {
-		slog.Info("listing remote objects", "path", basePath, "limit", userLimit, "offset", userOffset)
-	}
 	for {
 
-		// Tell the server which page of objects we want
-		path := fmt.Sprintf("%slimit=%d&offset=%d", basePath, pageSize, pageOffset)
-
-		if !isHealthRequest {
-			slog.Debug("sending request to remote", "path", path)
-		}
-
 		// Get one page of objects from the remote server
-		receivedObjects, err := svc.tmfClient.TMFGetList(path, headers)
+		receivedObjects, err := svc.tmfClient.TMFGetList(ctx, req.ResourceName, req.QueryParams, pageSize, pageOffset, upstreamHeaders, nil, req.HealthRequest)
 		if err != nil {
-			return nil, nil, ErrorResponsef(http.StatusInternalServerError, "upstream server failed with error: %w", err)
+			return nil, nil, nil, errl.Errorf("upstream server failed with error: %w", err)
 		}
-		if !isHealthRequest {
+
+		if !req.HealthRequest {
 			slog.Debug("received objects from remote", "num_objects", len(receivedObjects))
 		}
 
 		// We check each object to see if the user can access it.
 		// Additionally, we cache all the objects received independently of the user's access.
-		for _, responseObject := range receivedObjects {
+		for _, receivedObject := range receivedObjects {
 
-			// Get the internal object map from the response object, performing validation
-			objectMap, validations := repo.NewTMFObjectMapFromUpstream(req.ResourceName, responseObject)
+			// Perform validations on the received object
+			validations := receivedObject.Validate(req.ResourceName)
 			if len(validations.Errors) > 0 {
 				invalidObjects++
 				diagnosticObjects = append(diagnosticObjects, validations)
+				if diagnostic {
+					receivedObject["validationErrors"] = validations.Errors
+					responseObjects = append(responseObjects, receivedObject)
+				}
+
+				// Delete the offending object if we are not in production
+				if svc.environment != config.DOME_PRO {
+					pathPrefix, err := config.ExternalUpstreamTMFPath(req.ResourceName)
+					if err != nil {
+						slog.Error("failed to get path prefix", "error", err, "resourceName", req.ResourceName)
+						continue
+					}
+					path := fmt.Sprintf("%s/%s", pathPrefix, receivedObject.ID())
+
+					resp, _, err := svc.tmfClient.Delete(ctx, path, upstreamHeaders)
+					if err != nil || resp.StatusCode >= 300 {
+						slog.Error("failed to delete invalid object", "error", err, "status_code", resp.StatusCode, "path", path)
+						continue
+					}
+
+					slog.Info("Invalid object deleted", "resourceName", req.ResourceName, "id", receivedObject.ID())
+				}
+
 				continue
 			}
 
 			// Convert object to storage representation to save it in the local database
-			storageObject := objectMap.ToTMFRecord(req.ResourceName)
+			storageObject := receivedObject.ToTMFRecord(req.ResourceName)
 			if err := svc.UpsertObject(storageObject); err != nil {
 				if !errors.Is(err, &ErrObjectExists{}) {
 					invalidObjects++
@@ -253,19 +264,19 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 			}
 
 			// Check if the user is authorized to access the object
-			authorized, err := svc.takeDecision(svc.ruleEngine, req, objectMap)
+			authorized, err := svc.checkAuthorization(svc.ruleEngine, req, receivedObject)
 			if !authorized {
-				slog.Debug("object not authorized", "id", objectMap.ID(), "error", err)
+				slog.Debug("object not authorized", "id", receivedObject.ID(), "error", err)
 				// Add diagnostic info if not authorized
 				invalidObjects++
 				diagnosticObjects = append(diagnosticObjects, repo.ValidationResult{
-					ObjectID:   objectMap.ID(),
+					ObjectID:   receivedObject.ID(),
 					ObjectType: req.ResourceName,
 					Valid:      false,
 					Errors: []repo.ValidationError{
 						{
-							Field:   objectMap.ID(),
-							Message: fmt.Sprintf("object %s not authorized: %s", objectMap.ID(), errl.Error(err)),
+							Field:   receivedObject.ID(),
+							Message: fmt.Sprintf("object %s not authorized: %s", receivedObject.ID(), errl.Error(err)),
 							Code:    "NOT_AUTHORIZED",
 						},
 					},
@@ -279,11 +290,11 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 			}
 
 			// Apply attribute selection, according to what the user specified in the query
-			objectMap = svc.applyAttributeSelection(objectMap, fieldSet)
-			responseObjectMaps = append(responseObjectMaps, objectMap)
+			receivedObject = svc.applyAttributeSelection(receivedObject, fieldSet)
+			responseObjects = append(responseObjects, receivedObject)
 
 			// Stop validating objects if we have enough objects to satisfy the user's request
-			if userLimit >= 0 && len(responseObjectMaps) >= userLimit {
+			if userLimit >= 0 && len(responseObjects) >= userLimit {
 				break
 			}
 		}
@@ -293,23 +304,21 @@ func (svc *Service) listRemoteObjects(req *Request, userLimit, userOffset int, f
 		// We use the 'len(receivedObjects) < pageSize' condition to detect if we have received all objects from the remote server.
 		// It may be that with this check we do an additional request if the remote server had an exact multiple of pageSize objects,
 		// but the robustness of the code is more important than the performance.
-		if (userLimit >= 0 && len(responseObjectMaps) >= userLimit) || len(receivedObjects) < pageSize {
+		if (userLimit >= 0 && len(responseObjects) >= userLimit) || len(receivedObjects) < pageSize {
 			break
 		}
 		pageOffset += pageSize
 	}
 
-	responseHeaders := map[string]string{
-		"X-Total-Count": strconv.Itoa(len(responseObjectMaps)),
+	responseHeaders = map[string]string{
+		"X-Total-Count": strconv.Itoa(len(responseObjects)),
 	}
 
-	slog.Debug("Remote objects listed", slog.Int("valid", len(responseObjectMaps)), slog.Int("invalid", invalidObjects), slog.String("resourceName", req.ResourceName))
-
-	// If the user wants diagnostic information, return it
-	if diagnostic {
-		return nil, responseHeaders, &Response{StatusCode: http.StatusOK, Headers: responseHeaders, Body: diagnosticObjects}
+	if !req.HealthRequest {
+		slog.Debug("Remote objects listed", slog.Int("valid", len(responseObjects)), slog.Int("invalid", invalidObjects), slog.String("resourceName", req.ResourceName))
 	}
-	return responseObjectMaps, responseHeaders, nil
+
+	return responseObjects, responseHeaders, diagnosticObjects, nil
 }
 
 // listLocalObjects retrieves TMF objects from the local database, filters them based on authorization,
@@ -328,7 +337,7 @@ func (svc *Service) listLocalObjects(req *Request, userLimit, userOffset int, fi
 		}
 
 		// Check if the user is authorized to access the object
-		authorized, err := svc.takeDecision(svc.ruleEngine, req, objMap)
+		authorized, err := svc.checkAuthorization(svc.ruleEngine, req, objMap)
 		if !authorized {
 			slog.Debug("object not authorized", "id", storageObject.ID, "error", err)
 			return false
@@ -368,15 +377,16 @@ func (svc *Service) listLocalObjects(req *Request, userLimit, userOffset int, fi
 // If the proxy is enabled and the object is not found locally or is stale, we try to get it from the remote server.
 // If the object is not found anywhere, it returns a nil object and no error.
 // There is no way to force the retrieval from the remote server if the object exists locally and is fresh enough.
-func (svc *Service) getLocalOrRemoteObject(req *Request) (*repo.TMFRecord, error) {
+func (svc *Service) getLocalOrRemoteObject(ctx context.Context, req *Request) (*repo.TMFRecord, error) {
 
 	objectID := req.ID
 
 	// For organization resources in local database, the objectID is the organization identifier.
-	// TODO: this logic is only for ISBE
-	if req.ResourceName == "organization" {
-		if strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:") && !strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:did:elsi:") {
-			objectID = "urn:ngsi-ld:organization:did:elsi:" + strings.TrimPrefix(req.ID, "urn:ngsi-ld:organization:")
+	if svc.IsISBE() {
+		if req.ResourceName == "organization" {
+			if strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:") && !strings.HasPrefix(req.ID, "urn:ngsi-ld:organization:did:elsi:") {
+				objectID = "urn:ngsi-ld:organization:did:elsi:" + strings.TrimPrefix(req.ID, "urn:ngsi-ld:organization:")
+			}
 		}
 	}
 
@@ -404,9 +414,14 @@ func (svc *Service) getLocalOrRemoteObject(req *Request) (*repo.TMFRecord, error
 	}
 
 	// The object was not found or is stale, so we have to retrieve remotely and update the local database
-	remoteObj, err := svc.getRemoteObject(req)
+	remoteObj, err := svc.getRemoteObject(ctx, req)
 	if err != nil {
 		return nil, errl.Errorf("failed to get object %s from remote service: %w", req.ID, err)
+	}
+
+	if remoteObj == nil {
+		slog.Debug("object not found in remote service", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+		return nil, nil
 	}
 
 	// Store the object locally and return it to caller
@@ -416,12 +431,12 @@ func (svc *Service) getLocalOrRemoteObject(req *Request) (*repo.TMFRecord, error
 		return remoteObj, nil
 	}
 
-	slog.Info("Object retrieved from remote and cached successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
+	slog.Debug("Object retrieved from remote and cached successfully", slog.String("id", req.ID), slog.String("resourceName", req.ResourceName))
 	return remoteObj, nil
 
 }
 
-func (svc *Service) getRemoteObject(req *Request) (*repo.TMFRecord, error) {
+func (svc *Service) getRemoteObject(ctx context.Context, req *Request) (*repo.TMFRecord, error) {
 	slog.Debug("retrieving object from remote", slog.String("id", req.ID))
 
 	// Send the access token
@@ -430,18 +445,17 @@ func (svc *Service) getRemoteObject(req *Request) (*repo.TMFRecord, error) {
 	}
 
 	// Build the path for the request according to TMForum specs
-	path := fmt.Sprintf("/%s/%s/%s/%s", req.APIfamily, req.APIVersion, req.ResourceName, req.ID)
+	pathPrefix, err := config.ExternalUpstreamTMFPath(req.ResourceName)
+	if err != nil {
+		return nil, errl.Errorf("failed to get path prefix: %w", err)
+	}
+
+	path := fmt.Sprintf("%s/%s", pathPrefix, req.ID)
 
 	// Send the request to the remote with our HTTP Client
-	resp, err := svc.tmfClient.Get(path, headers)
+	resp, body, err := svc.tmfClient.Get(ctx, path, headers)
 	if err != nil {
 		return nil, errl.Errorf("failed to proxy request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errl.Errorf("failed to read response body: %w", err)
 	}
 
 	// Not found is not an error at this level, but the caller must check for a nil object

@@ -1,17 +1,29 @@
 package service
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 
 	repo "github.com/hesusruiz/isbetmf/tmfserver/repository"
+	"github.com/hesusruiz/isbetmf/types"
 )
 
-// ListGenericObjects retrieves all TMF objects of a given type.
-func (svc *Service) ListGenericObjects(req *Request) *Response {
+// ListTMFObjects retrieves all TMF objects of a given type.
+func (svc *Service) ListTMFObjects(ctx context.Context, req *Request) *Response {
 	if !req.HealthRequest {
 		slog.Debug("ListGenericObjects called", slog.String("resourceName", req.ResourceName), slog.String("queryParams", req.QueryParams.Encode()))
 	}
+
+	// Make sure the resource is supported
+	res := types.GetResourceDefinition(req.ResourceName)
+	if res == nil {
+		return ErrorResponsef(http.StatusBadRequest, "resource type %s not supported", req.ResourceName)
+	}
+
+	// Check if the user wants diagnostic information, which is specified in the query string as '?diagnostic=true'
+	// This is not standard TMF, we use it to report on quality of data
+	diagnostic := req.QueryParams.Has("diagnostic")
 
 	// Parse pagination parameters
 	userLimit, userOffset := svc.parsePaginationParams(req)
@@ -31,9 +43,19 @@ func (svc *Service) ListGenericObjects(req *Request) *Response {
 
 	// Retrieve objects (Remote or Local)
 	if svc.proxyEnabled {
-		responseData, responseHeaders, resp = svc.listRemoteObjects(req, userLimit, userOffset, fieldSet)
-		if resp != nil {
-			return resp
+		var err error
+		var diagnosticObjects []repo.ValidationResult
+		responseData, responseHeaders, diagnosticObjects, err = svc.listRemoteObjects(ctx, req, userLimit, userOffset, fieldSet)
+		if err != nil {
+			return ErrorResponsef(http.StatusInternalServerError, "failed to proxy request: %w", err)
+		}
+		if diagnostic || len(diagnosticObjects) > 0 {
+			// return &Response{StatusCode: http.StatusOK, Headers: responseHeaders, Body: diagnosticObjects}
+			return &Response{
+				StatusCode: http.StatusOK,
+				Headers:    responseHeaders,
+				Body:       responseData,
+			}
 		}
 	} else {
 		responseData, responseHeaders, resp = svc.listLocalObjects(req, userLimit, userOffset, fieldSet)

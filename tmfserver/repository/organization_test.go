@@ -90,8 +90,7 @@ func TestSetELSIOrganizationIdentification(t *testing.T) {
 	t.Run("create new array and entry", func(t *testing.T) {
 		obj := TMFObjectMap{}
 
-		err := obj.SetELSIOrganizationIdentification("VATES-12345678")
-		require.NoError(t, err)
+		obj.SetELSIOrganizationIdentification("VATES-12345678")
 
 		id, err := obj.ELSIOrganizationIdentification()
 		require.NoError(t, err)
@@ -99,7 +98,7 @@ func TestSetELSIOrganizationIdentification(t *testing.T) {
 
 		orgIds := obj.GetArrayField("organizationIdentification")
 		require.Len(t, orgIds, 1)
-		
+
 		entry := orgIds[0].(map[string]any)
 		assert.Equal(t, "organizationIdentification", entry["@type"])
 		assert.Equal(t, "did:elsi:VATES-12345678", entry["identificationId"])
@@ -117,8 +116,7 @@ func TestSetELSIOrganizationIdentification(t *testing.T) {
 			},
 		}
 
-		err := obj.SetELSIOrganizationIdentification("did:elsi:VATES-12345678")
-		require.NoError(t, err)
+		obj.SetELSIOrganizationIdentification("did:elsi:VATES-12345678")
 
 		id, err := obj.ELSIOrganizationIdentification()
 		require.NoError(t, err)
@@ -138,8 +136,7 @@ func TestSetELSIOrganizationIdentification(t *testing.T) {
 			},
 		}
 
-		err := obj.SetELSIOrganizationIdentification("NEW-ID")
-		require.NoError(t, err)
+		obj.SetELSIOrganizationIdentification("NEW-ID")
 
 		id, err := obj.ELSIOrganizationIdentification()
 		require.NoError(t, err)
@@ -150,7 +147,7 @@ func TestSetELSIOrganizationIdentification(t *testing.T) {
 		entry := orgIds[0].(map[string]any)
 		assert.Equal(t, "did:elsi:NEW-ID", entry["identificationId"])
 	})
-	
+
 	t.Run("skip invalid map during update", func(t *testing.T) {
 		obj := TMFObjectMap{
 			"organizationIdentification": []any{
@@ -162,8 +159,7 @@ func TestSetELSIOrganizationIdentification(t *testing.T) {
 			},
 		}
 
-		err := obj.SetELSIOrganizationIdentification("NEW-ID")
-		require.NoError(t, err)
+		obj.SetELSIOrganizationIdentification("NEW-ID")
 
 		id, err := obj.ELSIOrganizationIdentification()
 		require.NoError(t, err)

@@ -40,7 +40,7 @@ COPY ./auth_policies.star /auth_policies.star
 COPY --from=sqlite3_rsync --chmod=755 /usr/local/bin/sqlite3_rsync /usr/local/bin/sqlite3_rsync
 
 HEALTHCHECK \
-    --interval=60s \
+    --interval=300s \
     --timeout=5s \
     --start-period=10s \
     --start-interval=3s \
